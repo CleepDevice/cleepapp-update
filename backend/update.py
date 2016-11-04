@@ -112,10 +112,11 @@ class Update(CleepModule):
         # init installed modules
         self._fill_modules_updates()
 
-        # launch main actions task if module auto update enabled
-        config = self._get_config()
-        if config['modulesupdateenabled']:
-            self.update_modules()
+    def _on_stop(self):
+        """
+        Module stopped
+        """
+        self.__stop_actions_tasks()
 
     def get_module_config(self):
         """
@@ -191,7 +192,7 @@ class Update(CleepModule):
             infos = self._get_last_update_logs(module_name)
             infos.update({
                 'name': module_name,
-                'installed': True if module_name in installed_modules else False,
+                'installed': module_name in installed_modules,
             })
             out[module_name] = infos
 
@@ -218,6 +219,7 @@ class Update(CleepModule):
         out = {
             'timestamp': None,
             'path': None,
+            'failed': False,
         }
 
         path = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_SUCCESS_FILENAME)
@@ -255,11 +257,11 @@ class Update(CleepModule):
         elif os.path.exists(path_failure):
             path = path_failure
         if not path:
-            raise CommandError('There is no logs for module "%s"' % module_name)
+            raise CommandError('There is no logs for app "%s"' % module_name)
 
         lines = self.cleep_filesystem.read_data(path, encoding='utf8')
         if lines is None:
-            raise CommandError('Error reading logs')
+            raise CommandError('Error reading app "%s" logs file' % module_name)
 
         return ''.join(lines)
 
@@ -356,6 +358,7 @@ class Update(CleepModule):
         """
         Function triggered regularly to process main actions (only one running at a time)
         """
+        action = None
         try:
             self.logger.debug('Main actions in progress: %s' % len(self.__main_actions))
 
@@ -540,13 +543,8 @@ class Update(CleepModule):
 
         # save modules
         modules = {}
-        for module_name in inventory_modules:
-            # drop not installed modules
-            if not inventory_modules[module_name]['installed']:
-                continue
-
-            modules[module_name] = self.__get_module_update_data(module_name, inventory_modules[module_name]['version'])
-
+        for (module_name, module) in { k:v for (k,v) in inventory_modules.items() if v['installed']}.items():
+            modules[module_name] = self.__get_module_update_data(module_name, module['version'])
         self._modules_updates = modules
 
     def __get_module_update_data(self, module_name, installed_module_version, new_module_version=None):
@@ -615,16 +613,10 @@ class Update(CleepModule):
             dict: last update infos::
 
                 {
-                    cleeplastcheck (int): last cleep update check timestamp
-                    cleepupdate (dict): latest cleep update informations::
-
-                        {
-                            version (string): latest update version
-                            changelog (string): latest update changelog
-                            packageurl (string): latest update package url
-                            checksumurl (string): latest update checksum url
-                        }
-
+                    version (string): latest update version
+                    changelog (string): latest update changelog
+                    packageurl (string): latest update package url
+                    checksumurl (string): latest update checksum url
                 }
 
         """
@@ -858,7 +850,7 @@ class Update(CleepModule):
             raise CommandInfo('Cleep update is in progress. Please wait end of it')
 
         # fill main actions with upgradable modules
-        for module in [module for module in self._modules_updates.values() if module['updatable']]:
+        for module in [module for module in self._modules_updates.values() if module['updatable'] and not module['processing'] and not module['pending']]:
             self._postpone_main_action(Update.ACTION_MODULE_UPDATE, module['name'])
 
         # start main actions task
@@ -878,7 +870,7 @@ class Update(CleepModule):
         """
         # search if similar action for same module already exists
         existing_actions = [action_obj for action_obj in self.__main_actions if action_obj['module'] == module_name and action_obj['action'] == action]
-        self.logger.trace('existing_actions: %s' % existing_actions)
+        self.logger.trace('Existing_actions: %s' % existing_actions)
         if len(existing_actions) > 0:
             self.logger.debug('Same action "%s" for "%s" module already exists, drop it' % (action, module_name))
             return False
@@ -997,7 +989,7 @@ class Update(CleepModule):
         if resp['error']:
             self.logger.error('Unable to get module "%s" infos: %s' % (module_name, resp['message']))
             raise Exception('Unable to get module "%s" infos' % module_name)
-        if resp['data'] is None:
+        if not resp['data']:
             self.logger.error('Module "%s" not found in modules list' % module_name)
             raise Exception('Module "%s" not found in installable modules list' % module_name)
 
@@ -1018,7 +1010,6 @@ class Update(CleepModule):
 
         Returns:
             list: list of dependencies
-            dict: input parameter modules_infos is also updated
         """
         if context is None:
             # initiate recursive process
@@ -1178,15 +1169,16 @@ class Update(CleepModule):
             raise InvalidParameter('Module "%s" is already installed' % module_name)
 
         # postpone module installation
-        out = self._postpone_main_action(
+        postponed = self._postpone_main_action(
             Update.ACTION_MODULE_INSTALL,
             module_name
         )
 
         # start main actions task
-        self.__start_actions_tasks()
+        if postponed:
+            self.__start_actions_tasks()
 
-        return out
+        return postponed
 
     def __uninstall_module_callback(self, status):
         """
@@ -1286,16 +1278,17 @@ class Update(CleepModule):
             raise InvalidParameter('Module "%s" is not installed' % module_name)
 
         # postpone uninstall
-        out = self._postpone_main_action(
+        postponed = self._postpone_main_action(
             Update.ACTION_MODULE_UNINSTALL,
             module_name,
             extra={'force': force},
         )
 
         # start main actions task
-        self.__start_actions_tasks()
+        if postponed:
+            self.__start_actions_tasks()
 
-        return out
+        return postponed
 
     def _get_modules_to_uninstall(self, modules_to_uninstall, modules_infos):
         """
@@ -1470,13 +1463,14 @@ class Update(CleepModule):
             raise InvalidParameter('Module "%s" is not installed' % module_name)
 
         # postpone uninstall
-        out = self._postpone_main_action(
+        postponed = self._postpone_main_action(
             Update.ACTION_MODULE_UPDATE,
             module_name,
         )
 
         # start actions tasks
-        self.__start_actions_tasks()
+        if postponed:
+            self.__start_actions_tasks()
 
-        return out
+        return postponed
 
