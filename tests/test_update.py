@@ -113,7 +113,7 @@ class TestUpdate(unittest.TestCase):
 
     def setUp(self):
         self.session = session.TestSession()
-        logging.basicConfig(level=logging.DEBUG, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
 
     def tearDown(self):
         self.session.clean()
@@ -121,7 +121,7 @@ class TestUpdate(unittest.TestCase):
 
     def init_session(self, mock_setconfigfield=None, mock_commands=[]):
         # create module instance
-        self.module = self.session.setup(Update, debug_enabled=False)
+        self.module = self.session.setup(Update)
 
         # add command mocks
         for command in mock_commands:
