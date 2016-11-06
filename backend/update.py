@@ -358,7 +358,7 @@ class Update(CleepModule):
         """
         Function triggered regularly to process main actions (only one running at a time)
         """
-        action = None
+        action = {}
         try:
             self.logger.debug('Main actions in progress: %s' % len(self.__main_actions))
 
@@ -543,7 +543,7 @@ class Update(CleepModule):
 
         # save modules
         modules = {}
-        for (module_name, module) in { k:v for (k,v) in inventory_modules.items() if v['installed']}.items():
+        for (module_name, module) in {k:v for (k, v) in inventory_modules.items() if v['installed']}.items():
             modules[module_name] = self.__get_module_update_data(module_name, module['version'])
         self._modules_updates = modules
 
@@ -729,7 +729,8 @@ class Update(CleepModule):
         if modules_json_updated:
             for module_name, module in self._modules_updates.items():
                 try:
-                    new_version = new_modules_json['list'][module_name]['version'] if module_name in new_modules_json['list'] else '0.0.0'
+                    new_version = (new_modules_json['list'][module_name]['version'] if module_name in new_modules_json['list']
+                                   else '0.0.0')
                     if Tools.compare_versions(module['version'], new_version):
                         # new version available for current module
                         update_available = True
