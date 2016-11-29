@@ -1,13 +1,13 @@
 {
-    icon: help-circle-outline,
-    global: {
-        js: [update.service.js],
-        html: [],
-        css: []
+    "icon": "update",
+    "global": {
+        "js": ["update.service.js"],
+        "html": [],
+        "css": []
     },
-    config: {
-        js: [update.config.js],
-        html: [update.config.html]
+    "config": {
+        "js": [],
+        "html": []
     }
 }
     

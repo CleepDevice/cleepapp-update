@@ -103,13 +103,10 @@ class Update(CleepModule):
         # init installed modules
         self._fill_modules_updates()
 
-        # launch main actions task
-        self.__main_actions_task = Task(
-            Update.MAIN_ACTIONS_TASK_INTERVAL,
-            self._execute_main_action_task,
-            logger=self.logger,
-        )
-        self.__main_actions_task.start()
+        # launch main actions task if module auto update enabled
+        config = self._get_config()
+        if config[u'modulesupdateenabled']:
+            self.update_modules()
 
     def event_received(self, event):
         """
@@ -132,10 +129,12 @@ class Update(CleepModule):
                     try:
                         self.update_cleep()
                     except Exception: # pragma: no cover
-                        pass
+                        self.crash_report.report_exception()
                 elif config[u'modulesupdateenabled']:
-                    # TODO trigger modules updates
-                    pass
+                    try:
+                        self.update_modules()
+                    except Exception: # pragma: no cover
+                        self.crash_report.report_exception()
 
     def get_modules_updates(self):
         """
@@ -607,9 +606,7 @@ class Update(CleepModule):
 
     def update_cleep(self):
         """
-        Update Cleep.
-
-        It consists of installing deb file.
+        Update Cleep installing debian package
         """
         # check
         cleep_update = self._get_config_field('cleepupdate')
@@ -625,6 +622,19 @@ class Update(CleepModule):
         self.logger.debug(u'Update Cleep: package_url=%s checksum_url=%s' % (package_url, checksum_url))
         update = InstallCleep(self.cleep_filesystem, self.crash_report)
         update.install(package_url, checksum_url, self._update_cleep_callback)
+
+    def update_modules(self):
+        """
+        Update modules that can be updated. It consists of processing postponed main actions filled
+        during module updates check.
+        """
+        if not self.__main_actions_task:
+            self.__main_actions_task = Task(
+                Update.MAIN_ACTIONS_TASK_INTERVAL,
+                self._execute_main_action_task,
+                logger=self.logger,
+            )
+            self.__main_actions_task.start()
 
     def _postpone_main_action(self, action, module_name, extra=None):
         """
@@ -680,30 +690,6 @@ class Update(CleepModule):
             'progressstep': None, # will be set after all sub actions are computed
         })
 
-    # TODO returns updates data instead (cleep + modules)
-    def get_actions(self):
-        """
-        Return all actions in pipe
-
-        Returns:
-            list: list of actions::
-
-                [
-                    {
-                        action (string): type of action
-                        module (string): module name
-                        processing (bool): True if action is processing
-                    },
-                    ...
-                ]
-
-        """
-        return [{
-            'action': action['action'],
-            'module': action['module'],
-            'processing': action['processing']
-        } for action in self.__main_actions]
-
     def set_automatic_update(self, cleep_update_enabled, modules_update_enabled):
         """
         Set automatic update values
@@ -725,6 +711,10 @@ class Update(CleepModule):
             raise InvalidParameter('Parameter "cleep_update_enabled" is invalid')
         if not isinstance(modules_update_enabled, bool):
             raise InvalidParameter('Parameter "modules_update_enabled" is invalid')
+
+        # stop modules update task if necessary
+        if not modules_update_enabled and self.__main_actions_task:
+            self.__main_action_task.stop()
 
         return self._update_config({
             u'cleepupdateenabled': cleep_update_enabled,
