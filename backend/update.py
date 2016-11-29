@@ -4,8 +4,7 @@
 import os
 import time
 import random
-import copy
-import uuid
+from threading import Lock
 from cleep.exception import MissingParameter, InvalidParameter, CommandError, CommandInfo
 from cleep.core import CleepModule
 from cleep.libs.internals.installmodule import PATH_INSTALL
@@ -16,6 +15,7 @@ import cleep.libs.internals.tools as Tools
 from cleep import __version__ as VERSION
 from cleep.libs.internals.installcleep import InstallCleep
 from cleep.libs.internals.install import Install
+from cleep.libs.internals.task import Task
 
 class Update(CleepModule):
     """
@@ -57,6 +57,9 @@ class Update(CleepModule):
     ACTION_MODULE_UPDATE = 'update'
     ACTION_MODULE_UNINSTALL = 'uninstall'
 
+    MAIN_ACTIONS_TASK_INTERVAL = 60.0
+    SUB_ACTIONS_TASK_INTERVAL = 10.0
+
     def __init__(self, bootstrap, debug_enabled):
         """
         Constructor
@@ -75,10 +78,17 @@ class Update(CleepModule):
             'hour': int(random.uniform(0, 24)),
             'minute': int(random.uniform(0, 60))
         }
-        self.logger.debug('Next updates check will be performed @ %(hour)s:%(minute)s' % self._check_update_time)
-        self.__processing_counter = 0
-        self.__postponed_actions = {}
+        self.logger.debug('Software updates will be checked every day at %(hour)02d:%(minute)02d' % self._check_update_time)
+        self.__processor = None
         self._need_restart = False
+        # contains main actions (install/uninstall/update)
+        self.__main_actions = []
+        self.__main_actions_mutex = Lock()
+        self.__main_actions_task = None
+        # contains sub actions of mains actions (to perform action on dependencies)
+        self.__sub_actions = []
+        self.__sub_actions_lock = Lock()
+        self.__sub_actions_task = None
 
         # events
         self.update_module_install = self._get_event(u'update.module.install')
@@ -90,10 +100,16 @@ class Update(CleepModule):
         """
         Configure module
         """
-        # download modules.json file if not exists
-        if not self.modules_json.exists():
-            self.logger.info(u'Download latest modules.json file from Cleep repository')
-            self.modules_json.update()
+        # init installed modules
+        self._fill_modules_updates()
+
+        # launch main actions task
+        self.__main_actions_task = Task(
+            Update.MAIN_ACTIONS_TASK_INTERVAL,
+            self._execute_main_action_task,
+            logger=self.logger,
+        )
+        self.__main_actions_task.start()
 
     def event_received(self, event):
         """
@@ -115,33 +131,193 @@ class Update(CleepModule):
                 if config[u'cleepupdateenabled']:
                     try:
                         self.update_cleep()
-                    except Exception:
+                    except Exception: # pragma: no cover
                         pass
                 elif config[u'modulesupdateenabled']:
-                    # TODO
-                    self.update_modules()
+                    # TODO trigger modules updates
+                    pass
 
-    def _get_installed_modules(self):
+    def get_modules_updates(self):
         """
-        Get modules from inventory and return useful data for updates.
-        Note that only installed modules are returned.
+        Return list of modules updates
 
         Returns:
-            dict: modules dict::
+            
+        """
+        return self._modules_updates
+
+    def _get_installed_modules_names(self):
+        """
+        Return installed modules names
+
+        Returns:
+            list: list of modules names
+        """
+        return list(self._modules_updates.keys())
+
+    def _execute_main_action_task(self):
+        """
+        Function triggered regularly to process main actions (only one running at a time)
+        """
+        try:
+            self.__main_actions_mutex.acquire()
+
+            # check if action is already processing
+            if len(self.__sub_actions) != 0:
+                self.logger.debug('Main action is already processing, stop here.')
+                return
+
+            # previous main action terminated (or first one to run)
+            # remove previous action if necessary
+            if len(self.__main_actions) > 0 and self.__main_actions[len(self.__main_actions)-1]['processing']:
+                self.__main_actions.pop()
+
+            # is there main action to run ?
+            if len(self.__main_actions) == 0:
+                self.logger.debug('No more main action to execute, stop here')
+                if self.__sub_actions_task:
+                    self.__sub_actions_task.stop()
+                return
+
+            # compute sub actions
+            action = self.__main_actions[len(self.__main_actions)-1]
+            action['processing'] = True
+            if action['action'] == Update.ACTION_MODULE_INSTALL:
+                self._install_main_module(action['module'])
+            elif action['action'] == Update.ACTION_MODULE_UNINSTALL:
+                self._uninstall_main_module(action['module'], action['extra'])
+            elif action['action'] == Update.ACTION_MODULE_UPDATE:
+                self._update_main_module(action['module'])
+            self.logger.debug('%d sub actions postponed' % len(self.__sub_actions))
+
+            # update main action and module infos
+            action['processing'] = True
+            self._set_module_process(progress=0)
+
+            # update progress step for all sub actions
+            # this is done after all sub actions are stored to compute valid progress step
+            try:
+                progress_step = int(100 / len(self.__sub_actions))
+            except ZeroDivisionError:
+                progress_step = 0
+            for sub_action in self.__sub_actions:
+                sub_action['progressstep'] = progress_step
+
+            # launch sub actions task
+            self.__sub_actions_task = Task(
+                Update.SUB_ACTIONS_TASK_INTERVAL,
+                self._execute_sub_actions_task,
+                self.logger,
+            )
+            self.__sub_actions_task.start()
+
+        except Exception:
+            self.logger.exception('Error occured executing action: %s' % action)
+
+        finally:
+            self.__main_actions_mutex.release()
+
+    def _execute_sub_actions_task(self):
+        """
+        Function triggered regularly to perform sub actions
+        """
+        # check if sub action is being processed
+        if self.__processor:
+            self.logger.trace('Sub action is processing, stop here')
+            return
+
+        # no running sub action, run next one
+        sub_action = self.__sub_actions.pop()
+
+        # is last sub actions execution failed ?
+        if self._is_module_process_failed():
+            self.logger.trace(
+                'One of previous sub action failed during "%s" module process, stop here'
+                % sub_action['main']
+            )
+            return
+
+        # update module process progress
+        self._set_module_process(inc_progress=sub_action['progressstep'])
+
+        # launch sub action
+        if sub_action['action'] == Update.ACTION_MODULE_INSTALL:
+            self._install_module(sub_action['module'], sub_action['infos'])
+        elif sub_action['action'] == Update.ACTION_MODULE_UNINSTALL:
+            self._uninstall_module(sub_action['module'], sub_action['infos'], sub_action['extra'])
+        elif sub_action['action'] == Update.ACTION_MODULE_UPDATE:
+            self._update_module(sub_action['module'], sub_action['infos'])
+
+    def _get_processing_module_name(self):
+        """
+        Return processing module name
+
+        Returns:
+            string: processing module name or None if no module is processing
+        """
+        if len(self.__main_actions) == 0:
+            return None
+
+        action = self.__main_actions[len(self.__main_actions)-1]
+        return action['module'] if action['processing'] else None
+
+    def _set_module_process(self, progress=None, inc_progress=None, failed=None):
+        """
+        Set module process infos. Nothing is updated if no module is processing.
+
+        Args:
+            progress (int): set progress value to specified value (0-100)
+            inc_progress (int): increase progress value with specified value
+            failed (bool): action process failed if set to False
+        """
+        # get processing module name
+        module_name = self._get_processing_module_name()
+        if not module_name:
+            self.logger.debug('Can\'t update module infos when no module is processing')
+            return
+
+        # add entry in module updates in case of new module install
+        if module_name not in self._modules_updates:
+            module_infos = self._get_module_infos_from_modules_json(module_name)
+            new_module_version = module_infos['version'] if module_infos else '0.0.0'
+            self._modules_updates[module_name] = self.__get_module_update_data(module_name, None, new_module_version)
+
+        module = self._modules_updates[module_name]
+        module['processing'] = True
+        if progress is not None:
+            module['update']['progress'] = progress
+        elif inc_progress is not None:
+            module['update']['progress'] += inc_progress
+        if module['update']['progress'] > 100:
+            module['update']['progress'] = 100
+        if failed is not None:
+            module['update']['failed'] = failed
+            module['update']['progress'] = 100
+
+    def _is_module_process_failed(self):
+        """
+        Return True if module process failed
+
+        Returns:
+            bool: True if module process failed
+        """
+        module_name = self._get_processing_module_name()
+        if not module_name:
+            self.logger.debug('Can\'t get process status while no module is processing')
+            return True
+
+        return self._modules_updates[module_name]['update']['failed']
+
+    def _fill_modules_updates(self):
+        """
+        Get modules from inventory and fill useful data for updates.
+        Note that only installed modules are used to fill dict
+
+        Notes:
+            modules_updates format:
 
                 {
-                    module name (string): module infos::
-                        {
-                            updatable (bool): True if module is updatable
-                            updating (bool): True if module has update in progress
-                            name (string): module name
-                            version (string): installed module version
-                            update (dict): update data::
-                                {
-                                    version (string): update version
-                                    changelog (string): update changelog
-                                }
-                        },
+                    module name (string): dict returned by __get_module_update_data
                     ...
                 }
 
@@ -161,19 +337,49 @@ class Update(CleepModule):
             if not inventory_modules[module_name][u'installed']:
                 continue
 
-            # add new entry
-            modules[module_name] = {
-                'updatable': self._modules_updates[module_name]['updatable'] if module_name in self._modules_updates else False,
-                'updating': self._modules_updates[module_name]['updating'] if module_name in self._modules_updates else False,
-                'name': module_name,
-                'version': inventory_modules[module_name]['version'],
-                'update': {
-                    'version': self._modules_updates[module_name]['update']['version'] if module_name in self._modules_updates else None,
-                    'changelog': self._modules_updates[module_name]['update']['changelog'] if module_name in self._modules_updates else None,
+            modules[module_name] = self.__get_module_update_data(module_name, inventory_modules[module_name]['version'])
+
+        self._modules_updates = modules
+
+    def __get_module_update_data(self, module_name, installed_module_version, new_module_version=None):
+        """
+        Get module update data
+
+        Args:
+            module_name (string): module name
+            installed_module_version (string): installed module version (installed)
+            new_module_version (string): new module version after update
+
+        Returns:
+            dict: module update data::
+
+                {
+                    updatable (bool): True if module is updatable
+                    processing (bool): True if module has action in progress
+                    name (string): module name
+                    version (string): installed module version
+                    update (dict): update data::
+                        {
+                            progress (int): progress percentage (0-100)
+                            failed (bool): True if process has failed
+                            version (string): update version
+                            changelog (string): update changelog
+                        }
                 }
-            }
-            
-        return modules
+
+        """
+        return {
+            'updatable': False,
+            'processing': False,
+            'name': module_name,
+            'version': installed_module_version,
+            'update': {
+                'progress': 0,
+                'failed': False,
+                'version': new_module_version,
+                'changelog': None,
+            },
+        }
 
     def _restart_cleep(self, delay=10.0):
         """
@@ -182,7 +388,7 @@ class Update(CleepModule):
         Args:
             delay (float): delay before restarting (default 10.0 seconds)
         """
-        resp = self.send_command(u'restart', u'system', { 'delay': delay })
+        resp = self.send_command(u'restart', u'system', {'delay': delay})
         if not resp or resp['error']:
             self.logger.error('Unable to restart Cleep')
 
@@ -309,12 +515,9 @@ class Update(CleepModule):
                 }
 
         """
-        # get inventory modules
-        self._modules_updates = self._get_installed_modules()
-
         # store local modules list (from modules.json)
         current_modules_json = self.modules_json.get_json()
-        
+
         # update modules.json content
         try:
             modules_json_updated = self.modules_json.update()
@@ -324,7 +527,7 @@ class Update(CleepModule):
         except:
             self.logger.warning('Unable to refresh modules list from repository')
             raise CommandError('Unable to refresh modules list from internet')
-        
+
         # check for modules updates available
         update_available = False
         if modules_json_updated:
@@ -334,12 +537,14 @@ class Update(CleepModule):
                     if Tools.compare_versions(module['version'], new_version):
                         # new version available for current module
                         update_available = True
+                        module['updatable'] = True
+                        module['update']['version'] = new_version
+                        module['update']['changelog'] = new_modules_json['list'][module_name]['changelog']
                         self.logger.info('New version available for app "%s" (v%s => v%s)' % (
                             module_name,
                             module['version'],
                             new_version
                         ))
-                        module['updatable'] = True
                     else:
                         self.logger.debug('No new version available for app "%s" (v%s => v%s)' % (
                             module_name,
@@ -418,8 +623,221 @@ class Update(CleepModule):
         package_url = cleep_update[u'packageurl']
         checksum_url = cleep_update[u'checksumurl']
         self.logger.debug(u'Update Cleep: package_url=%s checksum_url=%s' % (package_url, checksum_url))
-        update = InstallCleep(package_url, checksum_url, self._update_cleep_callback, self.cleep_filesystem, self.crash_report)
-        update.start()
+        update = InstallCleep(self.cleep_filesystem, self.crash_report)
+        update.install(package_url, checksum_url, self._update_cleep_callback)
+
+    def _postpone_main_action(self, action, module_name, extra=None):
+        """
+        Postpone main action (module install/update/uninstall) in a FIFO list.
+
+        Args:
+            action (string): action name (see ACTION_XXX constants)
+            module_name (string): module name concerned by action
+            extra (any): extra data to send to aaction
+
+        Returns:
+            bool: True if new action postponed, False if action was already postponed
+        """
+        try:
+            self.__main_actions_mutex.acquire()
+
+            # search if similar action for same module already exists
+            existing_actions = [action_obj for action_obj in self.__main_actions if action_obj['module'] == module_name and action_obj['action'] == action]
+            self.logger.trace('existing_actions: %s' % existing_actions)
+
+            if len(existing_actions) == 0:
+                self.__main_actions.insert(0, {
+                    'action': action,
+                    'module': module_name,
+                    'extra': extra,
+                    'processing': False,
+                })
+                return True
+
+        finally:
+            self.__main_actions_mutex.release()
+
+        self.logger.debug('Same action "%s" for "%s" module already exists, drop it' % (action, module_name))
+        return False
+
+    def _postpone_sub_action(self, action, module_name, module_infos, main_module_name, extra=None):
+        """
+        Postpone sub action (module install/update/uninstall) in a stand alone list.
+
+        Args:
+            action (string): action name (see ACTION_XXX constants)
+            module_name (string): module name concerned by action
+            module_infos (dict): module informations
+            main_module_name (string): main module name
+            extra (any): any extra data
+        """
+        self.__sub_actions.insert(0, {
+            'action': action,
+            'module': module_name,
+            'main': main_module_name,
+            'infos': module_infos,
+            'extra': extra,
+            'progressstep': None, # will be set after all sub actions are computed
+        })
+
+    # TODO returns updates data instead (cleep + modules)
+    def get_actions(self):
+        """
+        Return all actions in pipe
+
+        Returns:
+            list: list of actions::
+
+                [
+                    {
+                        action (string): type of action
+                        module (string): module name
+                        processing (bool): True if action is processing
+                    },
+                    ...
+                ]
+
+        """
+        return [{
+            'action': action['action'],
+            'module': action['module'],
+            'processing': action['processing']
+        } for action in self.__main_actions]
+
+    def set_automatic_update(self, cleep_update_enabled, modules_update_enabled):
+        """
+        Set automatic update values
+
+        Args:
+            cleep_update_enabled (bool): enable cleep automatic update
+            modules_update_enabled (bool): enable modules automatic update
+
+        Returns:
+            dict: update flags::
+
+                {
+                    cleepupdateenabled (bool): True if cleep update enabled
+                    modulesupdateenabled (bool): True if module update enabled
+                }
+
+        """
+        if not isinstance(cleep_update_enabled, bool):
+            raise InvalidParameter('Parameter "cleep_update_enabled" is invalid')
+        if not isinstance(modules_update_enabled, bool):
+            raise InvalidParameter('Parameter "modules_update_enabled" is invalid')
+
+        return self._update_config({
+            u'cleepupdateenabled': cleep_update_enabled,
+            u'modulesupdateenabled': modules_update_enabled
+        })
+
+    def _get_module_infos_from_modules_json(self, module_name):
+        """
+        Return modules infos from modules.json file
+
+        Args:
+            module_name (string): module name
+
+        Returns:
+            dict: module infos
+
+        Raises:
+            Exception if modules.json is invalid
+        """
+        modules_json = self.modules_json.get_json()
+        if module_name in modules_json['list']:
+            return modules_json['list'][module_name]
+
+        return None
+
+    def _get_module_infos_from_inventory(self, module_name):
+        """
+        Return module infos from modules.json file
+
+        Args:
+            module_name (string): module name
+
+        Returns:
+            dict: module infos
+
+        Raises:
+            Exception if unknown module or error
+        """
+        # get infos from inventory
+        resp = self.send_command('get_module_infos', u'inventory', {'module': module_name})
+        if resp['error']:
+            self.logger.error(u'Unable to get module "%s" infos: %s' % (module_name, resp[u'msg']))
+            raise Exception('Unable to get module "%s" infos' % module_name)
+        if resp['data'] is None:
+            self.logger.error(u'Module "%s" not found in modules list' % module_name)
+            raise Exception(u'Module "%s" not found in installable modules list' % module_name)
+
+        return resp[u'data']
+
+    def _get_module_dependencies(self, module_name, modules_infos, get_module_infos_callback, context=None):
+        """
+        Get module dependencies. Specified module will be returned in result.
+        Returned items are ordered by descent with first item as deepest leaf.
+
+        Args:
+            module_name (string): module name
+            module_infos (dict): module infos (as returned by _get_module_infos). It must contains
+                                 infos of module_name to allow dependencies search.
+            get_module_infos_callback (function): callback to get module infos. Can be either _get_module_infos_from_inventory
+                                 or _get_module_infos_from_modules_json
+            context (None): internal context for recursive call. Do not set.
+
+        Returns:
+            list: list of dependencies
+            dict: input parameter modules_infos is also updated
+        """
+        if context is None:
+            # initiate recursive process
+            context = {
+                'dependencies': [],
+                'visited': [module_name],
+            }
+        elif module_name in context['visited']:
+            # avoid circular deps
+            return None
+
+        # get module infos
+        if module_name not in modules_infos:
+            infos = get_module_infos_callback(module_name)
+            modules_infos[module_name] = infos
+
+        # get dependencies (recursive call)
+        for dependency_name in infos[u'deps']:
+            if dependency_name == module_name:
+                # avoid infinite loop
+                continue
+            self._get_module_dependencies(dependency_name, modules_infos, get_module_infos_callback, context)
+
+        context['dependencies'].append(module_name)
+        return context['dependencies']
+
+    def _store_process_status(self, status):
+        """
+        Store last module process status in filesystem
+
+        Args:
+            status (dict): process status
+
+        """
+        # if no module name specified in status, it means it's cleep process
+        module_name = 'cleep'
+        if 'module' in status:
+            module_name = status['module']
+
+        # build and check path
+        fullpath = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FILENAME)
+        path = os.path.join(PATH_INSTALL, module_name)
+        if not os.path.exists(path):
+            self.cleep_filesystem.mkdir(path, True)
+
+        # store status
+        if not self.cleep_filesystem.write_json(fullpath, status):
+            self.logger.error('Error storing module "%s" process status into "%s"' % (module_name, fullpath))
 
     def __install_module_callback(self, status):
         """
@@ -451,47 +869,63 @@ class Update(CleepModule):
 
             # update cleep.conf
             self.cleep_conf.install_module(status[u'module'])
-        
+        elif status['status'] == Install.STATUS_ERROR:
+            # set main action failed
+            self._set_module_process(failed=True)
+
         # handle end of install to finalize install
         if status[u'status'] >= Install.STATUS_DONE:
-            # decrease counter
-            self.__processing_counter -= 1
+            # reset processor
+            self.__processor = None
 
-            # lock filesystem
-            if self.cleep_filesystem:
-                self.cleep_filesystem.disable_write(True, True)
-
-    def __install_module(self, module_name, installed_modules):
+    def _install_module(self, module_name, module_infos):
         """
-        Install module
+        Execute specified module installation
+
+        Args:
+            module_name (string): module name
+            module_infos (dict): module infos
+        """
+        # non blocking, end of process handled in specified callback
+        self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__install_module_callback)
+        self.__processor.install_module(module_name, module_infos)
+
+    def _install_main_module(self, module_name):
+        """
+        Install main module. This function will install all dependencies and update modules
+        if necessary.
 
         Args:
             module_name (string): module name to install
-            installed_modules (list): list of installed (or installing) modules names
         """
-        # increase counter
-        self.__processing_counter += 1
+        installed_modules = self._get_installed_modules_names()
 
-        # unlock filesystem
-        if self.cleep_filesystem:
-            self.cleep_filesystem.enable_write(True, True)
+        # compute dependencies to install
+        modules_infos_json = {}
+        dependencies = self._get_module_dependencies(module_name, modules_infos_json, self._get_module_infos_from_modules_json)
+        self.logger.debug(u'Module "%s" dependencies: %s' % (module_name, dependencies))
 
-        # get module infos
-        module_infos = self._get_module_infos_from_modules_json(module_name)
-        self.logger.trace(u'Module "%s" infos: %s' % (module_name, module_infos))
+        # schedule module + dependencies installs
+        for dependency_name in dependencies:
+            if dependency_name not in installed_modules:
+                # install dependency
+                self._postpone_sub_action(
+                    Update.ACTION_MODULE_INSTALL,
+                    dependency_name,
+                    modules_infos_json[dependency_name],
+                    module_name,
+                )
 
-        # install module dependencies if not already installed
-        for dep_name in module_infos[u'deps']:
-            # prevent from circular dependency
-            if dep_name not in installed_modules:
-                installed_modules.append(dep_name)
-                self.logger.debug('Install module "%s" dependency "%s"' % (module_name, dep_name))
-                self.__install_module(dep_name, installed_modules)
-
-        # launch module installation (non blocking)
-        self.logger.debug('Install module "%s"' % module_name)
-        install = Install(self.cleep_filesystem, self.crash_report, self.__install_module_callback)
-        install.install_module(module_name, module_infos)
+            else:
+                # check if already installed module need to be updated
+                module_infos_inventory = self._get_module_infos_from_inventory(dependency_name)
+                if Tools.compare_versions(module_infos_inventory['version'], modules_infos_json[dependency_name]['version']):
+                    self._postpone_sub_action(
+                        Update.ACTION_MODULE_UPDATE,
+                        dependency_name,
+                        modules_infos_json[dependency_name],
+                        module_name,
+                    )
 
     def install_module(self, module_name):
         """
@@ -499,31 +933,19 @@ class Update(CleepModule):
 
         Args:
             module_name (string): module name to install
-
-        Returns:
-            bool: True if module installation started. False if install is postponed
         """
         # check params
         if module_name is None or len(module_name) == 0:
             raise MissingParameter(u'Parameter "module_name" is missing')
-        installed_modules = list(self._get_installed_modules().keys())
+        installed_modules = self._get_installed_modules_names()
         if module_name in installed_modules:
             raise InvalidParameter('Module "%s" is already installed' % module_name)
 
-        if self.__processing_counter != 0:
-            # postpone install
-            self.__postponed_actions[module_name] = {
-                'action': Update.ACTION_MODULE_INSTALL,
-                'module': module_name,
-                'processing': self.__postponed_actions[module_name]['processing'] if module_name in self.__postponed_actions else False,
-            }
-            return self.__postponed_actions[module_name]['processing']
-
-        # launch install
-        installed_modules.append(module_name)
-        self.__install_module(module_name, installed_modules)
-
-        return True
+        # postpone module installation
+        return self._postpone_main_action(
+            Update.ACTION_MODULE_INSTALL,
+            module_name
+        )
 
     def __uninstall_module_callback(self, status):
         """
@@ -554,15 +976,73 @@ class Update(CleepModule):
 
             # update cleep.conf
             self.cleep_conf.uninstall_module(status[u'module'])
+        elif status['status'] == Install.STATUS_ERROR:
+            # set main action failed
+            self._set_module_process(failed=True)
 
         # handle end of process
         if status['status'] >= Install.STATUS_DONE:
-            # decrease counter
-            self.__processing_counter -= 1
+            # reset processor
+            self.__processor = None
 
-            # lock filesystem
-            if self.cleep_filesystem:
-                self.cleep_filesystem.disable_write(True, True)
+    def _uninstall_module(self, module_name, module_infos, extra):
+        """
+        Execute specified module uninstallation
+
+        Args:
+            module_name (string): module name
+            module_infos (dict): module infos
+            extra (any): extra data (not used here)
+        """
+        self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__uninstall_module_callback)
+        self.__processor.uninstall_module(module_name, module_infos, extra['force'])
+
+    def _uninstall_main_module(self, module_name, extra):
+        """
+        Uninstall module. This function will uninstall useless dependencies.
+
+        Args:
+            module_name (string): module name
+            extra (any): extra data
+        """
+        # compute dependencies to uninstall
+        modules_infos = {}
+        dependencies = self._get_module_dependencies(module_name, modules_infos, self._get_module_infos_from_inventory)
+        self.logger.debug(u'Module "%s" dependencies: %s' % (module_name, dependencies))
+        modules_to_uninstall = self._get_modules_to_uninstall(dependencies, modules_infos)
+        self.logger.info(u'Module "%s" uninstallation will remove "%s"' % (module_name, modules_to_uninstall))
+
+        # schedule module + dependencies uninstalls
+        for module_to_uninstall in modules_to_uninstall:
+            self._postpone_sub_action(
+                Update.ACTION_MODULE_UNINSTALL,
+                module_to_uninstall,
+                modules_infos[module_to_uninstall],
+                module_name,
+                extra,
+            )
+
+    def uninstall_module(self, module_name, force=False):
+        """
+        Uninstall specified module
+
+        Args:
+            module_name (string): module name to uninstall
+            force (bool): True to force uninstall even if error occured
+        """
+        # check params
+        if module_name is None or len(module_name) == 0:
+            raise MissingParameter(u'Parameter "module_name" is missing')
+        installed_modules = self._get_installed_modules_names()
+        if module_name not in installed_modules:
+            raise InvalidParameter('Module "%s" is not installed' % module_name)
+
+        # postpone uninstall
+        return self._postpone_main_action(
+            Update.ACTION_MODULE_UNINSTALL,
+            module_name,
+            extra={'force': force},
+        )
 
     def _get_modules_to_uninstall(self, modules_to_uninstall, modules_infos):
         """
@@ -577,7 +1057,7 @@ class Update(CleepModule):
             list: modules names to uninstall
         """
         out = modules_to_uninstall[:]
-        
+
         for module_to_uninstall in modules_to_uninstall:
             if module_to_uninstall not in modules_infos:
                 self.logger.warning('Module infos dict should contains "%s" module infos. Module won\'t be removed and can become an orphan.' % module_to_uninstall)
@@ -597,76 +1077,6 @@ class Update(CleepModule):
                     break
 
         return out
-
-    def __uninstall_module(self, module_name, force=False):
-        """
-        Uninstall specified module
-
-        Args:
-            module_name (string): module name
-            force (bool): force uninstallation even if error occured
-
-        Returns:
-            bool: True if module uninstalled successfully
-        """
-        # increase counter
-        self.__processing_counter += 1
-
-        # get module infos
-        module_infos = self._get_module_infos_from_inventory(module_name)
-        self.logger.debug(u'Module "%s" infos: %s' % (module_name, module_infos))
-
-        # unlock filesystem
-        if self.cleep_filesystem:
-            self.cleep_filesystem.enable_write(True, True)
-
-        # resolve module dependencies
-        modules_infos = {
-            module_name: module_infos
-        }
-        dependencies = self._get_module_dependencies(module_name, modules_infos, self._get_module_infos_from_inventory)
-        self.logger.debug(u'Module "%s" dependencies: %s' % (module_name, dependencies))
-        modules_to_uninstall = self._get_modules_to_uninstall(dependencies, modules_infos)
-
-        # uninstall module + dependencies
-        self.logger.info(u'Module "%s" uninstallation will remove "%s"' % (module_name, modules_to_uninstall))
-        for module_to_uninstall in modules_to_uninstall:
-            install = Install(self.cleep_filesystem, self.crash_report, self.__uninstall_module_callback)
-            install.uninstall_module(module_to_uninstall, modules_infos[module_to_uninstall], force)
-
-        return True
-
-    def uninstall_module(self, module_name, force=False):
-        """
-        Uninstall specified module
-
-        Args:
-            module_name (string): module name to uninstall
-            force (bool): True to force uninstall even if error occured
-
-        Returns:
-            bool: True if module uninstallation started. False if uninstall is postponed
-        """
-        # check params
-        if module_name is None or len(module_name) == 0:
-            raise MissingParameter(u'Parameter "module_name" is missing')
-        installed_modules = list(self._get_installed_modules().keys())
-        if module_name not in installed_modules:
-            raise InvalidParameter('Module "%s" is not installed' % module_name)
-
-        if self.__processing_counter != 0:
-            # postpone uninstall
-            self.__postponed_actions[module_name] = {
-                'action': Update.ACTION_MODULE_UNINSTALL,
-                'module': module_name,
-                'processing': self.__postponed_actions[module_name]['processing'] if module_name in self.__postponed_actions else False,
-            }
-            return self.__postponed_actions[module_name]['processing']
-
-        # launch install
-        self.__uninstall_module(module_name, force)
-
-        return True
 
     def __update_module_callback(self, status):
         """
@@ -689,7 +1099,7 @@ class Update(CleepModule):
         self.update_module_update.send(params=status)
 
         # save last module processing
-        self.__update_last_module_processing(status)
+        self._store_process_status(status)
 
         # handle process success
         if status[u'status'] == Install.STATUS_DONE:
@@ -697,46 +1107,55 @@ class Update(CleepModule):
 
             # update cleep.conf adding module to updated ones
             self.cleep_conf.update_module(status[u'module'])
+        elif status['status'] == Install.STATUS_ERROR:
+            # set main action failed
+            self._set_module_process(failed=True)
 
         # handle end of process
         if status['status'] >= Install.STATUS_DONE:
-            # decrease counter
-            self.__processing_counter -= 1
+            # reset processor
+            self.__processor = None
 
-            # lock filesystem
-            if self.cleep_filesystem:
-                self.cleep_filesystem.disable_write(True, True)
-
-    def __update_module(self, module_name):
+    def _update_module(self, module_name, module_infos):
         """
-        Update specified module
+        Execute module update
 
         Params:
             module_name (string): module name to install
+            module_infos (dict): module infos
         """
-        # get module infos
-        module_infos = self._get_module_infos_from_modules_json(module_name)
-        self.logger.debug(u'Module "%s" infos: %s' % (module_name, module_infos))
+        self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__update_module_callback)
+        self.__processor.update_module(module_name, module_infos)
 
-        # unlock filesystem
-        if self.cleep_filesystem:
-            self.cleep_filesystem.enable_write(True, True)
+    def _update_main_module(self, module_name):
+        """
+        Update main module performing:
+            - install of new dependencies
+            - uninstall of old dependencies
+            - update of modules
 
+        Args:
+            module_name (string): module name
+        """
         # compute module dependencies
-        modules_infos_inventory = {
-            module_name: module_infos
-        }
-        modules_infos_json = {
-            module_name: module_infos
-        }
-        old_dependencies = self._get_module_dependencies(module_name, modules_infos_inventory, self._get_module_infos_from_inventory)
-        self.logger.trace('Module "%s" old dependencies: %s' % (module_name, old_dependencies))
-        new_dependencies = self._get_module_dependencies(module_name, modules_infos_json, self._get_module_infos_from_modules_json)
-        self.logger.trace('Module "%s" new dependencies: %s' % (module_name, new_dependencies))
+        modules_infos_inventory = {}
+        modules_infos_json = {}
+        old_dependencies = self._get_module_dependencies(
+            module_name,
+            modules_infos_inventory,
+            self._get_module_infos_from_inventory
+        )
+        self.logger.debug('Module "%s" old dependencies: %s' % (module_name, old_dependencies))
+        new_dependencies = self._get_module_dependencies(
+            module_name,
+            modules_infos_json,
+            self._get_module_infos_from_modules_json
+        )
+        self.logger.debug('Module "%s" new dependencies: %s' % (module_name, new_dependencies))
         dependencies_to_uninstall = [mod_name for mod_name in old_dependencies if mod_name not in new_dependencies]
         self.logger.debug('Module "%s" requires to uninstall modules: %s' % (module_name, dependencies_to_uninstall))
         dependencies_to_install = [mod_name for mod_name in new_dependencies if mod_name not in old_dependencies]
-        self.logger.debug('Module "%s" requires to install new modules: %s' % (module_name, dependencies_to_uninstall))
+        self.logger.debug('Module "%s" requires to install new modules: %s' % (module_name, dependencies_to_install))
         dependencies_to_update = [
             mod_name for mod_name in new_dependencies
             if mod_name in old_dependencies
@@ -744,24 +1163,33 @@ class Update(CleepModule):
         ]
         self.logger.debug('Module "%s" requires to update modules: %s' % (module_name, dependencies_to_update))
 
-        # uninstall old dependencies
+        # postpone old dependencies uninstallations
         for mod_name in dependencies_to_uninstall:
-            uninstall = Install(self.cleep_filesystem, self.crash_report, self.__update_module_callback)
-            uninstall.uninstall_module(mod_name, modules_infos_from_inventory)
+            self._postpone_sub_action(
+                Update.ACTION_MODULE_UNINSTALL,
+                mod_name,
+                modules_infos_inventory[mod_name],
+                module_name,
+                extra={'force': True}, # always force to make sure module is completely uninstalled
+            )
 
-        # install new dependencies
+        # postpone new dependencies installations
         for mod_name in dependencies_to_install:
-            install = Install(self.cleep_filesystem, self.crash_report, self.__update_module_callback)
-            install.install_module(mod_name, modules_infos_json)
+            self._postpone_sub_action(
+                Update.ACTION_MODULE_INSTALL,
+                mod_name,
+                modules_infos_json[mod_name],
+                module_name,
+            )
 
-        # update dependencies
+        # postpone dependencies update
         for mod_name in dependencies_to_update:
-            update = Install(self.cleep_filesystem, self.crash_report, self.__update_module_callback)
-            update.update_module(mod_name, module_infos_json)
-
-        # update module
-        install = Install(self.cleep_filesystem, self.crash_report, self.__update_module_callback)
-        install.update_module(module_name, module_infos)
+            self._postpone_sub_action(
+                Update.ACTION_MODULE_UPDATE,
+                mod_name,
+                modules_infos_json[mod_name],
+                module_name,
+            )
 
     def update_module(self, module_name):
         """
@@ -776,139 +1204,13 @@ class Update(CleepModule):
         # check params
         if module_name is None or len(module_name) == 0:
             raise MissingParameter(u'Parameter "module_name" is missing')
-        installed_modules = list(self._get_installed_modules().keys())
+        installed_modules = self._get_installed_modules_names()
         if module_name not in installed_modules:
             raise InvalidParameter('Module "%s" is not installed' % module_name)
 
-        # schedule update
-        self.__postponed_actions[module_name] = {
-            'uuid': str(uuid.uuid4()),
-            'action': Update.ACTION_MODULE_UPDATE,
-            'module': module_name,
-            'processing': self.__postponed_actions[module_name]['processing'] if module_name in self.__postponed_actions else False,
-        }
-        
-        return self.__postponed_actions[module_name]['processing']
-
-    def set_automatic_update(self, cleep_update_enabled, modules_update_enabled):
-        """
-        Set automatic update values
-
-        Args:
-            cleep_update_enabled (bool): enable cleep automatic update
-            modules_update_enabled (bool): enable modules automatic update
-
-        Returns:
-            dict: update flags::
-
-                {
-                    cleepupdateenabled (bool): True if cleep update enabled
-                    modulesupdateenabled (bool): True if module update enabled
-                }
-
-        """
-        if not isinstance(cleep_update_enabled, bool):
-            raise InvalidParameter('Parameter "cleep_update_enabled" is invalid')
-        if not isinstance(modules_update_enabled, bool):
-            raise InvalidParameter('Parameter "modules_update_enabled" is invalid')
-
-        return self._update_config({
-            u'cleepupdateenabled': cleep_update_enabled,
-            u'modulesupdateenabled': modules_update_enabled
-        })
-
-    def _get_module_infos_from_modules_json(self, module_name):
-        """
-        """
-        modules_json = self.modules_json.get_json()
-        if module_name in modules_json['list']:
-            return modules_json['list'][module_name]
-
-        return None
-
-    def _get_module_infos_from_inventory(self, module_name):
-        """
-        Return module infos from modules.json file
-
-        Args:
-            module_name (string): module name
-
-        Returns:
-            dict: module infos
-
-        Raises:
-            Exception if unknown module or error
-        """
-        # get infos from inventory
-        resp = self.send_command('get_module_infos', u'inventory', {'module': module_name})
-        if resp['error'] == True:
-            self.logger.error(u'Unable to get module "%s" infos: %s' % (module_name, resp[u'msg']))
-            raise Exception('Unable to get module "%s" infos' % module_name)
-        if resp['data'] is None:
-            self.logger.error(u'Module "%s" not found in modules list' % module_name)
-            raise Exception(u'Module "%s" not found in installable modules list' % module_name)
-
-        return resp[u'data']
-
-    def _get_module_dependencies(self, module_name, modules_infos, get_module_infos_callback, dependencies=None):
-        """
-        Get module dependencies. Specified module will be returned in result.
-
-        Args:
-            module_name (string): module name
-            module_infos (dict): module infos (as returned by _get_module_infos). It must contains
-                                 infos of module_name to allow dependencies search.
-            get_module_infos_callback (function): callback to get module infos. Can be either _get_modules_infos_from_inventory
-                                 or _get_modules_infos_from_modules_json
-
-        Returns:
-            list: list of dependencies
-            dict: input parameter modules_infos is also updated
-        """
-        if dependencies is None:
-            # initiate recursive process
-            dependencies = [module_name]
-        elif module_name in dependencies:
-            # avoid circular deps
-            return
-
-        # get module infos
-        if module_name in modules_infos:
-            infos = modules_infos[module_name]
-        else:
-            infos = get_module_infos_callback(module_name)
-            modules_infos[module_name] = infos
-
-        # get dependencies (recursive call)
-        for dependency_name in infos[u'deps']:
-            if dependency_name == module_name:
-                # avoid infinite loop
-                continue
-            if self._get_module_dependencies(dependency_name, modules_infos, get_module_infos_callback, dependencies):
-                dependencies.append(dependency_name)
-
-        return dependencies
-
-    def _store_process_status(self, status):
-        """
-        Store last module process status in filesystem
-
-        Args:
-            status (dict): process status
-
-        """
-        # if no module name specified in status, it means it's cleep process
-        module_name = 'cleep'
-        if 'module' in status:
-            module_name = status['module']
-
-        # build and check path
-        path = os.path.join(PATH_INSTALL, module_name, PROCESS_STATUS_FILENAME)
-        if not os.path.exists(path):
-            self.cleep_filesystem.mkdir(PATH_INSTALL, True)
-
-        # store status
-        if not self.cleep_filesystem.write_json(path, status):
-            self.logger.error('Error storing module "%s" process status' % module_name)
-
+        # postpone uninstall
+        return self._postpone_main_action(
+            Update.ACTION_MODULE_UPDATE,
+            module_name,
+        )
 

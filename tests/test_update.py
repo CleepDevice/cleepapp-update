@@ -10,7 +10,7 @@ from cleep.exception import InvalidParameter, MissingParameter, CommandError, Un
 from cleep.libs.tests import session
 from cleep.libs.internals.installcleep import InstallCleep
 from cleep.libs.internals.install import Install
-from mock import Mock, patch, MagicMock, call
+from mock import Mock, patch, MagicMock, call, PropertyMock
 
 MODULES_JSON = {
     "list": {
@@ -118,27 +118,78 @@ class TestUpdate(unittest.TestCase):
         self.session.clean()
 
     def init_context(self, mock_sendcommand=None):
-        self.module = self.session.setup(Update)
+        self.module = self.session.setup(Update, start_module=False)
         if mock_sendcommand:
             self.module.send_command = mock_sendcommand
         else:
             self.module.send_command = Mock(return_value=INVENTORY_GETMODULES)
+        self.session.start_module(self.module)
 
-    @patch('backend.update.ModulesJson')
-    def test_configure(self, mock_modules_json):
-        mock_modules_json.return_value.exists.return_value = False
+    @patch('backend.update.Task')
+    def test_configure(self, mock_task):
+        mock_task.return_value = Mock()
+        mock_task.return_value.start = Mock()
         self.init_context()
 
-        self.assertTrue(mock_modules_json.return_value.update.called)
+        self.module.send_command.assert_called_with('get_modules', 'inventory', timeout=20)
+        self.assertTrue(mock_task.return_value.start.called)
+
+    def test_event_received_updates_allowed(self):
+        self.init_context()
+        self.module._set_config_field('cleepupdateenabled', True)
+        self.module._set_config_field('modulesupdateenabled', True)
+        self.module.check_cleep_updates = Mock()
+        self.module.check_modules_updates = Mock()
+        self.module.update_cleep = Mock()
+        event = {
+            'event': 'parameters.time.now',
+            'params': {
+                'hour': self.module._check_update_time['hour'],
+                'minute': self.module._check_update_time['minute'],
+            },
+        }
+
+        self.module._event_received(event)
+
+        self.assertTrue(self.module.check_cleep_updates.called)
+        self.assertTrue(self.module.check_modules_updates.called)
+        self.assertTrue(self.module.update_cleep.called)
+
+    def test_event_received_updates_not_allowed(self):
+        self.init_context()
+        self.module._set_config_field('cleepupdateenabled', False)
+        self.module._set_config_field('modulesupdateenabled', False)
+        self.module.check_cleep_updates = Mock()
+        self.module.check_modules_updates = Mock()
+        self.module.update_cleep = Mock()
+        event = {
+            'event': 'parameters.time.now',
+            'params': {
+                'hour': self.module._check_update_time['hour'],
+                'minute': self.module._check_update_time['minute'],
+            },
+        }
+
+        self.module._event_received(event)
+
+        self.assertTrue(self.module.check_cleep_updates.called)
+        self.assertTrue(self.module.check_modules_updates.called)
+        self.assertFalse(self.module.update_cleep.called)
 
     def test_restart_cleep(self):
-        mock_sendcommand = Mock(return_value={'error': False, 'data': None, 'msg': ''})
+        mock_sendcommand = Mock(side_effect=[
+            {'error': False, 'data': {}, 'msg': ''},
+            {'error': False, 'data': None, 'msg': ''}
+        ])
         self.init_context(mock_sendcommand=mock_sendcommand)
         self.module._restart_cleep()
         self.assertTrue(mock_sendcommand.called)
 
     def test_restart_cleep_failed(self):
-        mock_sendcommand = Mock(return_value={'error': True, 'data': None, 'msg': ''})
+        mock_sendcommand = Mock(side_effect=[
+            {'error': False, 'data': {}, 'msg': ''},
+            {'error': True, 'data': None, 'msg': ''}
+        ])
         self.init_context(mock_sendcommand=mock_sendcommand)
         self.module._restart_cleep()
         self.assertTrue(mock_sendcommand.called)
@@ -255,63 +306,693 @@ class TestUpdate(unittest.TestCase):
         logging.debug('update: %s' % update)
         mock_cleepgithub.assert_called_with('token mysupertoken')
 
-    def test_get_installed_modules(self):
+    def test_fill_modules_updates(self):
         self.init_context()
-        self.module._modules_updates = {
-            'system': {
-                'name': 'system',
-                'version': '0.0.0',
-                'updatable': False,
-                'updating': False,
-                'update': {
-                    'version': None,
-                    'changelog': None,
-                },
-            },
-            'parameters': {
-                'name': 'parameters',
-                'version': '0.0.9',
-                'updatable': True,
-                'updating': True,
-                'update': {
-                    'version': '1.1.2',
-                    'changelog': 'some changelog',
-                }
-            }
-        }
-
-        modules = self.module._get_installed_modules()
-        logging.debug('Modules list: %s' % modules)
+        self.module._fill_modules_updates()
+        modules_updates = self.module.get_modules_updates()
+        logging.debug('Modules updates: %s' % modules_updates)
 
         inventory_keys = list(INVENTORY_GETMODULES['data'].keys())
         inventory_keys.remove('cleepbus')
-        self.assertEqual(sorted(inventory_keys), sorted(list(modules.keys())))
-        # with previous data and no update
-        self.assertEqual(modules['system']['updatable'], False)
-        self.assertEqual(modules['system']['updating'], False)
-        self.assertEqual(modules['system']['version'], '1.1.0')
-        self.assertEqual(modules['system']['update']['version'], None)
-        self.assertEqual(modules['system']['update']['changelog'], None)
-        # with previous data and update data
-        self.assertEqual(modules['parameters']['updatable'], True)
-        self.assertEqual(modules['parameters']['updating'], True)
-        self.assertEqual(modules['parameters']['version'], '1.1.0')
-        self.assertEqual(modules['parameters']['update']['version'], '1.1.2')
-        self.assertEqual(modules['parameters']['update']['changelog'], 'some changelog')
-        # with no previous info
-        self.assertEqual(modules['audio']['updatable'], False)
-        self.assertEqual(modules['audio']['updating'], False)
-        self.assertEqual(modules['audio']['version'], '1.1.0')
-        self.assertEqual(modules['audio']['update']['version'], None)
-        self.assertEqual(modules['audio']['update']['changelog'], None)
+        self.assertEqual(sorted(inventory_keys), sorted(list(modules_updates.keys())))
+        module_name = list(modules_updates.keys())[0]
+        module_update = modules_updates[module_name]
+        self.assertTrue('updatable' in module_update)
+        self.assertTrue('processing' in module_update)
+        self.assertTrue('name' in module_update)
+        self.assertTrue('version' in module_update)
+        self.assertTrue('version' in module_update['update'])
+        self.assertTrue('changelog' in module_update['update'])
+        self.assertTrue('progress' in module_update['update'])
+        self.assertTrue('failed' in module_update['update'])
+        self.assertEqual(module_update['name'], module_name)
 
-    def test_get_installed_modules_exception(self):
+    def test_fill_modules_updates_exception(self):
         mock_sendcommand = Mock(return_value={'error': True, 'msg': '', 'data': None})
         self.init_context(mock_sendcommand=mock_sendcommand)
 
         with self.assertRaises(Exception) as cm:
-            modules = self.module._get_installed_modules()
+            self.module._fill_modules_updates()
         self.assertEqual(str(cm.exception), 'Unable to get modules list from inventory')
+
+    def test_get_actions(self):
+        self.init_context()
+
+        self.module.install_module('dummy')
+
+        actions = self.module.get_actions()
+        logging.debug('Actions: %s' % actions)
+
+        self.assertEqual(len(actions), 1)
+        self.assertCountEqual(list(actions[0].keys()), ['action', 'module', 'processing'])
+
+    @patch('backend.update.Task')
+    def test_execute_main_action_task_install(self, mock_task):
+        self.init_context()
+        self.module._install_main_module = Mock()
+        self.module._uninstall_main_module = Mock()
+        self.module._update_main_module = Mock()
+        action_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        action_update = {
+            'action': Update.ACTION_MODULE_UPDATE,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        action_uninstall = {
+            'action': Update.ACTION_MODULE_UNINSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': {'force': True},
+        }
+        infos_mod1 = {
+            'loadedby': [],
+            'deps': [],
+            'version': '1.0.0',
+        }
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_mod1])
+        with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
+            with patch.object(self.module, '_Update__main_actions', [action_install]) as mock_main_actions:
+                self.module._execute_main_action_task()
+                self.assertTrue(action_install['processing'])
+                self.assertFalse(action_uninstall['processing'])
+                self.assertFalse(action_update['processing'])
+                self.assertTrue(mock_task.return_value.start.called)
+
+    @patch('backend.update.Task')
+    def test_execute_main_action_task_update(self, mock_task):
+        self.init_context()
+        self.module._install_main_module = Mock()
+        self.module._uninstall_main_module = Mock()
+        self.module._update_main_module = Mock()
+        action_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        action_update = {
+            'action': Update.ACTION_MODULE_UPDATE,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        action_uninstall = {
+            'action': Update.ACTION_MODULE_UNINSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': {'force': True},
+        }
+        infos_mod1 = {
+            'loadedby': [],
+            'deps': [],
+            'version': '1.0.0',
+        }
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_mod1])
+        with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
+            with patch.object(self.module, '_Update__main_actions', [action_update]) as mock_main_actions:
+                self.module._execute_main_action_task()
+                self.assertFalse(action_install['processing'])
+                self.assertFalse(action_uninstall['processing'])
+                self.assertTrue(action_update['processing'])
+                self.assertTrue(mock_task.return_value.start.called)
+
+    @patch('backend.update.Task')
+    def test_execute_main_action_task_uninstall(self, mock_task):
+        self.init_context()
+        self.module._install_main_module = Mock()
+        self.module._uninstall_main_module = Mock()
+        self.module._update_main_module = Mock()
+        action_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        action_update = {
+            'action': Update.ACTION_MODULE_UPDATE,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        action_uninstall = {
+            'action': Update.ACTION_MODULE_UNINSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': {'force': True},
+        }
+        infos_mod1 = {
+            'loadedby': [],
+            'deps': [],
+            'version': '1.0.0',
+        }
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_mod1])
+        with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
+            with patch.object(self.module, '_Update__main_actions', [action_uninstall]) as mock_main_actions:
+                self.module._execute_main_action_task()
+                self.assertFalse(action_install['processing'])
+                self.assertTrue(action_uninstall['processing'])
+                self.assertFalse(action_update['processing'])
+                self.assertTrue(mock_task.return_value.start.called)
+
+    def test_execute_main_action_task_running_action(self):
+        self.init_context()
+        self.module.logger.debug = Mock()
+        with patch.object(self.module, '_Update__sub_actions', ['dummy']) as mock_subactions:
+            self.assertIsNone(self.module._execute_main_action_task())
+            self.module.logger.debug.assert_has_calls([
+                call('Main action is already processing, stop here.'),
+            ], any_order=True)
+
+    def test_execute_main_action_task_last_action_terminated_no_more_after(self):
+        self.init_context()
+        self.module.logger.debug = Mock()
+        main_action = {
+            'processing': True
+        }
+        with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
+            with patch.object(self.module, '_Update__main_actions', [main_action]) as mock_main_actions:
+                with patch.object(self.module, '_Update__sub_actions_task') as mock_subactionstask:
+                    self.assertIsNone(self.module._execute_main_action_task())
+                    # logging.debug('logs: %s' % self.module.logger.debug.call_args_list)
+                    self.assertTrue(mock_subactionstask.stop.called)
+                    self.module.logger.debug.assert_has_calls([
+                        call('No more main action to execute, stop here'),
+                    ], any_order=True)
+
+    def test_execute_main_action_task_mutex(self):
+        self.init_context()
+        with patch.object(self.module, '_Update__main_actions_mutex') as mock_mainactionsmutex:
+            self.module._execute_main_action_task()
+            self.assertTrue(mock_mainactionsmutex.acquire.called)
+            self.assertTrue(mock_mainactionsmutex.release.called)
+
+    def test_execute_main_action_task_mutex_with_exception(self):
+        self.init_context()
+        self.module._set_module_process = Mock(side_effect=Exception('Test exception'))
+        with patch.object(self.module, '_Update__main_actions_mutex') as mock_mainactionsmutex:
+            self.module._execute_main_action_task()
+            self.assertTrue(mock_mainactionsmutex.acquire.called)
+            self.assertTrue(mock_mainactionsmutex.release.called)
+
+    def test_execute_main_action_task_set_processstep_single_sub_action(self):
+        self.init_context()
+        action_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        infos_mod1 = {
+            'loadedby': [],
+            'deps': [],
+            'version': '1.0.0',
+        }
+        self.module._set_module_process = Mock()
+        self.module._get_module_infos_from_modules_json = Mock(return_value=infos_mod1)
+        with patch.object(self.module, '_Update__main_actions', [action_install]) as mock_mainactions:
+            with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
+                self.module._execute_main_action_task()
+
+                self.module._set_module_process.assert_called_once_with(progress=0)
+                self.assertEqual(mock_subactions[0]['progressstep'], 100)
+
+    def test_execute_main_action_task_set_processstep_three_sub_actions(self):
+        self.init_context()
+        action_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        infos_mod1 = {
+            'loadedby': [],
+            'deps': ['mod2'],
+            'version': '1.0.0',
+        }
+        infos_mod2 = {
+            'loadedy': [],
+            'deps': ['mod3'],
+            'version': '0.0.0',
+        }
+        infos_mod3 = {
+            'loadedy': [],
+            'deps': [],
+            'version': '0.0.0',
+        }
+        self.module._set_module_process = Mock()
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_mod1, infos_mod2, infos_mod3])
+        with patch.object(self.module, '_Update__main_actions', [action_install]) as mock_mainactions:
+            with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
+                self.module._execute_main_action_task()
+
+                self.module._set_module_process.assert_called_once_with(progress=0)
+                self.assertEqual(mock_subactions[0]['progressstep'], 33)
+                self.assertEqual(mock_subactions[1]['progressstep'], 33)
+                self.assertEqual(mock_subactions[2]['progressstep'], 33)
+
+    def test_execute_sub_action_task_install(self):
+        self.init_context()
+        subaction_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'module': 'mod1',
+            'main': 'mod1',
+            'infos': {},
+            'extra': None,
+            'progressstep': 12,
+        }
+
+        self.module._is_module_process_failed = Mock(return_value=False)
+        self.module._set_module_process = Mock()
+        self.module._install_module = Mock()
+        self.module._uninstall_module = Mock()
+        self.module._update_module = Mock()
+
+        with patch.object(self.module, '_Update__sub_actions', [subaction_install]) as mock_sub_actions:
+            self.module._execute_sub_actions_task()
+            
+            self.assertTrue(self.module._install_module.called)
+            self.assertFalse(self.module._uninstall_module.called)
+            self.assertFalse(self.module._update_module.called)
+            self.assertEqual(len(mock_sub_actions), 0)
+            self.module._set_module_process.assert_called_once_with(inc_progress=12)
+
+    def test_execute_sub_action_task_uninstall(self):
+        self.init_context()
+        subaction_uninstall = {
+            'action': Update.ACTION_MODULE_UNINSTALL,
+            'module': 'mod1',
+            'main': 'mod1',
+            'infos': {},
+            'extra': {'force': True},
+            'progressstep': 12,
+        }
+
+        self.module._is_module_process_failed = Mock(return_value=False)
+        self.module._set_module_process = Mock()
+        self.module._install_module = Mock()
+        self.module._uninstall_module = Mock()
+        self.module._update_module = Mock()
+
+        with patch.object(self.module, '_Update__sub_actions', [subaction_uninstall]) as mock_sub_actions:
+            self.module._execute_sub_actions_task()
+            
+            self.assertFalse(self.module._install_module.called)
+            self.assertTrue(self.module._uninstall_module.called)
+            self.assertFalse(self.module._update_module.called)
+            self.assertEqual(len(mock_sub_actions), 0)
+            self.module._set_module_process.assert_called_once_with(inc_progress=12)
+
+    def test_execute_sub_action_task_update(self):
+        self.init_context()
+        subaction_update = {
+            'action': Update.ACTION_MODULE_UPDATE,
+            'module': 'mod1',
+            'main': 'mod1',
+            'infos': {},
+            'extra': None,
+            'progressstep': 12,
+        }
+
+        self.module._is_module_process_failed = Mock(return_value=False)
+        self.module._set_module_process = Mock()
+        self.module._install_module = Mock()
+        self.module._uninstall_module = Mock()
+        self.module._update_module = Mock()
+
+        with patch.object(self.module, '_Update__sub_actions', [subaction_update]) as mock_sub_actions:
+            self.module._execute_sub_actions_task()
+            
+            self.assertFalse(self.module._install_module.called)
+            self.assertFalse(self.module._uninstall_module.called)
+            self.assertTrue(self.module._update_module.called)
+            self.assertEqual(len(mock_sub_actions), 0)
+            self.module._set_module_process.assert_called_once_with(inc_progress=12)
+
+    def test_execute_sub_action_task_already_running(self):
+        self.init_context()
+        subaction_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'module': 'mod1',
+            'main': 'mod1',
+            'infos': {},
+            'extra': None,
+            'progressstep': 100,
+        }
+
+        self.module._is_module_process_failed = Mock(return_value=False)
+        self.module._set_module_process = Mock()
+        self.module._install_module = Mock()
+        self.module._uninstall_module = Mock()
+        self.module._update_module = Mock()
+
+        with patch.object(self.module, '_Update__sub_actions', [subaction_install]) as mock_sub_actions:
+            with patch.object(self.module, '_Update__processor') as mock_processor:
+                self.module._execute_sub_actions_task()
+            
+                self.assertFalse(self.module._install_module.called)
+                self.assertFalse(self.module._uninstall_module.called)
+                self.assertFalse(self.module._update_module.called)
+                self.assertEqual(len(mock_sub_actions), 1)
+
+    def test_execute_sub_action_task_previous_subaction_failed(self):
+        self.init_context()
+        subaction_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'module': 'mod1',
+            'main': 'mod1',
+            'infos': {},
+            'extra': None,
+            'progressstep': 100,
+        }
+
+        self.module._is_module_process_failed = Mock(return_value=True)
+        self.module._set_module_process = Mock()
+        self.module._install_module = Mock()
+        self.module._uninstall_module = Mock()
+        self.module._update_module = Mock()
+
+        with patch.object(self.module, '_Update__sub_actions', [subaction_install]) as mock_sub_actions:
+            self.module._execute_sub_actions_task()
+            
+            self.assertFalse(self.module._install_module.called)
+            self.assertFalse(self.module._uninstall_module.called)
+            self.assertFalse(self.module._update_module.called)
+            self.assertEqual(len(mock_sub_actions), 0)
+
+    def test_get_processing_module_name(self):
+        self.init_context()
+        action_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        action_uninstall = {
+            'action': Update.ACTION_MODULE_UNINSTALL,
+            'processing': False,
+            'module': 'mod2',
+            'extra': {'force': True},
+        }
+        action_update = {
+            'action': Update.ACTION_MODULE_UPDATE,
+            'processing': True,
+            'module': 'mod3',
+            'extra': None,
+        }
+
+        with patch.object(self.module, '_Update__main_actions', [action_install, action_uninstall, action_update]) as mock_main_actions:
+            self.assertEqual(self.module._get_processing_module_name(), 'mod3')
+
+    def test_get_processing_module_name_no_main_action(self):
+        self.init_context()
+
+        with patch.object(self.module, '_Update__main_actions', []) as mock_main_actions:
+            self.assertEqual(self.module._get_processing_module_name(), None)
+
+    def test_get_processing_module_name_no_main_action_processing(self):
+        self.init_context()
+        action_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        action_uninstall = {
+            'action': Update.ACTION_MODULE_UNINSTALL,
+            'processing': False,
+            'module': 'mod2',
+            'extra': {'force': True},
+        }
+        action_update = {
+            'action': Update.ACTION_MODULE_UPDATE,
+            'processing': False,
+            'module': 'mod3',
+            'extra': None,
+        }
+
+        with patch.object(self.module, '_Update__main_actions', [action_install, action_uninstall, action_update]) as mock_main_actions:
+            self.assertEqual(self.module._get_processing_module_name(), None)
+
+    def test_set_module_process_update_progress(self):
+        self.init_context()
+        self.module._get_processing_module_name = Mock(return_value='mod1')
+        self.module._modules_updates = {
+            'mod1': {
+                'processing': False,
+                'name': 'mod1',
+                'version': '0.0.0',
+                'updatable': False,
+                'update': {
+                    'changelog': 'changelog',
+                    'version': None,
+                    'progress': 0,
+                    'failed': False,
+                }
+            },
+        }
+        self.module._set_module_process(progress=15)
+        self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
+        self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 15)
+
+    def test_set_module_process_update_progress_greater_100(self):
+        self.init_context()
+        self.module._get_processing_module_name = Mock(return_value='mod1')
+        self.module._modules_updates = {
+            'mod1': {
+                'processing': False,
+                'name': 'mod1',
+                'version': '0.0.0',
+                'updatable': False,
+                'update': {
+                    'changelog': 'changelog',
+                    'version': None,
+                    'progress': 0,
+                    'failed': False,
+                }
+            },
+        }
+        self.module._set_module_process(progress=150)
+        self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
+        self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 100)
+
+    def test_set_module_process_update_inc_progress(self):
+        self.init_context()
+        self.module._get_processing_module_name = Mock(return_value='mod1')
+        self.module._modules_updates = {
+            'mod1': {
+                'processing': False,
+                'name': 'mod1',
+                'version': '0.0.0',
+                'updatable': False,
+                'update': {
+                    'changelog': 'changelog',
+                    'version': None,
+                    'progress': 10,
+                    'failed': False,
+                }
+            },
+        }
+        self.module._set_module_process(inc_progress=10)
+        self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
+        self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 20)
+
+    def test_set_module_process_update_inc_progress_greater_100(self):
+        self.init_context()
+        self.module._get_processing_module_name = Mock(return_value='mod1')
+        self.module._modules_updates = {
+            'mod1': {
+                'processing': False,
+                'name': 'mod1',
+                'version': '0.0.0',
+                'updatable': False,
+                'update': {
+                    'changelog': 'changelog',
+                    'version': None,
+                    'progress': 90,
+                    'failed': False,
+                }
+            },
+        }
+        self.module._set_module_process(inc_progress=30)
+        self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
+        self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 100)
+
+    def test_set_module_process_update_failed(self):
+        self.init_context()
+        self.module._get_processing_module_name = Mock(return_value='mod1')
+        self.module._modules_updates = {
+            'mod1': {
+                'processing': False,
+                'name': 'mod1',
+                'version': '0.0.0',
+                'updatable': False,
+                'update': {
+                    'changelog': 'changelog',
+                    'version': None,
+                    'progress': 90,
+                    'failed': False,
+                }
+            },
+        }
+        self.module._set_module_process(failed=True)
+        self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
+        self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 100)
+        self.assertEqual(self.module._modules_updates['mod1']['update']['failed'], True)
+
+    def test_set_module_process_update_no_action_running(self):
+        self.init_context()
+        self.module._get_processing_module_name = Mock(return_value=None)
+        self.module._modules_updates = {
+            'mod1': {
+                'processing': False,
+                'name': 'mod1',
+                'version': '0.0.0',
+                'updatable': False,
+                'update': {
+                    'changelog': 'changelog',
+                    'version': None,
+                    'progress': 90,
+                    'failed': False,
+                }
+            },
+        }
+        self.module._set_module_process(failed=True)
+        self.assertEqual(self.module._modules_updates['mod1']['processing'], False)
+
+    def test_set_module_process_update_new_module_install(self):
+        self.init_context()
+        self.module._get_processing_module_name = Mock(return_value='mod1')
+        self.module._get_module_infos_from_modules_json = Mock(return_value=MODULES_JSON['list']['system'])
+        self.module._modules_updates = {
+            'mod2': {
+                'processing': False,
+                'name': 'mod1',
+                'version': '0.0.0',
+                'updatable': False,
+                'update': {
+                    'changelog': 'changelog',
+                    'version': None,
+                    'progress': 0,
+                    'failed': False,
+                }
+            },
+        }
+        self.module._set_module_process(inc_progress=15)
+        self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
+        self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 15)
+        self.assertEqual(self.module._modules_updates['mod1']['update']['version'], MODULES_JSON['list']['system']['version'])
+
+    def test_is_module_process_failed_return_false(self):
+        self.init_context()
+        self.module._get_processing_module_name = Mock(return_value='mod1')
+        self.module._modules_updates = {
+            'mod1': {
+                'processing': False,
+                'name': 'mod1',
+                'version': '0.0.0',
+                'updatable': False,
+                'update': {
+                    'changelog': 'changelog',
+                    'version': None,
+                    'progress': 90,
+                    'failed': False,
+                }
+            },
+        }
+        self.assertFalse(self.module._is_module_process_failed())
+
+    def test_is_module_process_failed_return_true(self):
+        self.init_context()
+        self.module._get_processing_module_name = Mock(return_value='mod1')
+        self.module._modules_updates = {
+            'mod1': {
+                'processing': False,
+                'name': 'mod1',
+                'version': '0.0.0',
+                'updatable': False,
+                'update': {
+                    'changelog': 'changelog',
+                    'version': None,
+                    'progress': 90,
+                    'failed': True,
+                }
+            },
+        }
+        self.assertTrue(self.module._is_module_process_failed())
+
+    def test_is_module_process_failed_no_processing_action(self):
+        self.init_context()
+        self.module._get_processing_module_name = Mock(return_value=None)
+        self.assertTrue(self.module._is_module_process_failed())
+
+    def test_set_automatic_update(self):
+        self.init_context()
+
+        # all True
+        self.assertTrue(self.module.set_automatic_update(True, True))
+        config = self.module._get_config()
+        logging.debug('Config: %s' % config)
+        self.assertTrue(config['cleepupdateenabled'])
+        self.assertTrue(config['modulesupdateenabled'])
+
+        # all False
+        self.assertTrue(self.module.set_automatic_update(False, False))
+        config = self.module._get_config()
+        logging.debug('Config: %s' % config)
+        self.assertFalse(config['cleepupdateenabled'])
+        self.assertFalse(config['modulesupdateenabled'])
+
+    def test_set_automatic_update_invalid_parameters(self):
+        self.init_context()
+
+        with self.assertRaises(InvalidParameter) as cm:
+            self.module.set_automatic_update('hello', False)
+        self.assertEqual(str(cm.exception), 'Parameter "cleep_update_enabled" is invalid')
+        with self.assertRaises(InvalidParameter) as cm:
+            self.module.set_automatic_update(666, False)
+        self.assertEqual(str(cm.exception), 'Parameter "cleep_update_enabled" is invalid')
+        with self.assertRaises(InvalidParameter) as cm:
+            self.module.set_automatic_update(True, 'hello')
+        self.assertEqual(str(cm.exception), 'Parameter "modules_update_enabled" is invalid')
+        with self.assertRaises(InvalidParameter) as cm:
+            self.module.set_automatic_update(True, 666)
+        self.assertEqual(str(cm.exception), 'Parameter "modules_update_enabled" is invalid')
+
+    def test_get_module_infos_from_modules_json(self):
+        self.init_context()
+        self.module.modules_json = Mock()
+        content = {
+            'list': {
+                'dummy': {
+                    'hello': 'world'
+                }
+            }
+        }
+        self.module.modules_json.get_json = Mock(return_value=content)
+
+        infos = self.module._get_module_infos_from_modules_json('dummy')
+        self.assertEqual(infos, content['list']['dummy'])
+
+    def test_get_module_infos_from_modules_json_unknown_module(self):
+        self.init_context()
+        self.module.modules_json = Mock()
+        content = {
+            'list': {
+                'other': {
+                    'hello': 'world'
+                }
+            }
+        }
+        self.module.modules_json.get_json = Mock(return_value=content)
+
+        infos = self.module._get_module_infos_from_modules_json('dummy')
+        self.assertIsNone(infos)
 
     @patch('backend.update.ModulesJson')
     def test_check_modules_updates_modules_json_not_updated(self, mock_modulesjson):
@@ -341,17 +1022,28 @@ class TestUpdate(unittest.TestCase):
     @patch('backend.update.ModulesJson')
     def test_check_modules_updates_modules_json_updated_with_module_update(self, mock_modulesjson):
         modules_json = copy.deepcopy(MODULES_JSON)
-        modules_json['list']['system']['version'] = '6.6.6'
-        modules_json['list']['system']['changelog'] = 'new version'
+        version = '6.6.6'
+        changelog = 'new version changelog'
+        modules_json['list']['system']['version'] = version
+        modules_json['list']['system']['changelog'] = changelog
         mock_modulesjson.return_value.get_json.return_value = modules_json
         mock_modulesjson.return_value.update.return_value = True
         self.init_context()
 
         updates = self.module.check_modules_updates()
         logging.debug('updates: %s' % updates)
+        modules_updates = self.module.get_modules_updates()
+        logging.debug('modules updates: %s' % modules_updates)
         
         self.assertTrue(updates['modulesupdates'])
         self.assertTrue(updates['modulesjsonupdated'])
+        self.assertTrue(modules_updates['system']['updatable'])
+        self.assertFalse(modules_updates['audio']['updatable'])
+        self.assertFalse(modules_updates['sensors']['updatable'])
+        self.assertFalse(modules_updates['network']['updatable'])
+        self.assertFalse(modules_updates['parameters']['updatable'])
+        self.assertEqual(modules_updates['system']['update']['changelog'], changelog)
+        self.assertEqual(modules_updates['system']['update']['version'], version)
         
     @patch('backend.update.ModulesJson')
     def test_check_modules_updates_modules_json_exception(self, mock_modulesjson):
@@ -390,6 +1082,7 @@ class TestUpdate(unittest.TestCase):
     
     @patch('backend.update.InstallCleep')
     def test_update_cleep_update_available(self, mock_installcleep):
+        mock_installcleep.return_value.install = Mock()
         self.init_context()
         cleep_filesystem = MagicMock()
         crash_report = MagicMock()
@@ -407,8 +1100,7 @@ class TestUpdate(unittest.TestCase):
         self.module.update_cleep()
 
         self.assertTrue(self.module.cleep_filesystem.enable_write.called)
-        mock_installcleep.assert_called_once_with(config['packageurl'], config['checksumurl'], self.module._update_cleep_callback, cleep_filesystem, crash_report)
-        self.assertTrue(mock_installcleep.return_value.start.called)
+        mock_installcleep.return_value.install.assert_called_once_with(config['packageurl'], config['checksumurl'], self.module._update_cleep_callback)
 
     def test_update_cleep_callback_success(self):
         self.init_context()
@@ -455,7 +1147,10 @@ class TestUpdate(unittest.TestCase):
         self.assertFalse(self.module._restart_cleep.called)
 
     def test_get_module_infos_from_inventory(self):
-        mock_sendcommand = Mock(return_value={'error': False, 'msg': '', 'data': INVENTORY_GETMODULES['data']['audio']})
+        mock_sendcommand = Mock(side_effect=[
+            {'error': False, 'data': {}, 'msg': ''},
+            {'error': False, 'msg': '', 'data': INVENTORY_GETMODULES['data']['audio']}
+        ])
         self.init_context(mock_sendcommand=mock_sendcommand)
 
         infos = self.module._get_module_infos_from_inventory('audio')
@@ -464,7 +1159,10 @@ class TestUpdate(unittest.TestCase):
         self.assertEqual(infos, INVENTORY_GETMODULES['data']['audio'])
 
     def test_get_module_infos_from_inventory_failed(self):
-        mock_sendcommand = Mock(return_value={'error': True, 'msg': '', 'data': None})
+        mock_sendcommand = Mock(side_effect=[
+            {'error': False, 'data': {}, 'msg': ''},
+            {'error': True, 'msg': '', 'data': INVENTORY_GETMODULES['data']['audio']}
+        ])
         self.init_context(mock_sendcommand=mock_sendcommand)
 
         with self.assertRaises(Exception) as cm:
@@ -472,61 +1170,224 @@ class TestUpdate(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'Unable to get module "audio" infos')
 
     def test_get_module_infos_from_inventory_unknown_module(self):
-        mock_sendcommand = Mock(return_value={'error': False, 'msg': '', 'data': None})
+        mock_sendcommand = Mock(side_effect=[
+            {'error': False, 'data': {}, 'msg': ''},
+            {'error': False, 'msg': '', 'data': None}
+        ])
         self.init_context(mock_sendcommand=mock_sendcommand)
 
         with self.assertRaises(Exception) as cm:
             self.module._get_module_infos_from_inventory('audio')
         self.assertEqual(str(cm.exception), 'Module "audio" not found in installable modules list')
 
-    @patch('backend.update.Install')
-    def test_install_module(self, mock_install):
+    def test_store_process_status_module(self):
         self.init_context()
-        self.module._get_module_infos_from_modules_json = Mock(return_value=MODULES_JSON['list']['audio'])
-        mock_install.return_value.install_module = Mock()
+        with patch('os.path.exists', return_value=True) as mock_os_path_exists:
+            cleep_filesystem = MagicMock()
+            cleep_filesystem.mkdir = Mock()
+            cleep_filesystem.write_json = Mock()
+            self.module.cleep_filesystem = cleep_filesystem
+            status = {
+                'status': 'testing',
+                'module': 'dummy',
+                'stdout': ['info'],
+                'stderr': ['error'],
+            }
+
+            self.module._store_process_status(status)
+
+            self.assertFalse(cleep_filesystem.mkdir.called)
+            cleep_filesystem.write_json.assert_called_with('/opt/cleep/install/dummy/process.log', status)
+
+    def test_store_process_status_cleep(self):
+        self.init_context()
+        with patch('os.path.exists', return_value=True) as mock_os_path_exists:
+            cleep_filesystem = MagicMock()
+            cleep_filesystem.mkdir = Mock()
+            cleep_filesystem.write_json = Mock()
+            self.module.cleep_filesystem = cleep_filesystem
+            status = {
+                'status': 'testing',
+                'stdout': ['info'],
+                'stderr': ['error'],
+            }
+
+            self.module._store_process_status(status)
+
+            self.assertFalse(cleep_filesystem.mkdir.called)
+            status.update({'module': 'cleep'})
+            cleep_filesystem.write_json.assert_called_with('/opt/cleep/install/cleep/process.log', status)
+
+    def test_store_process_status_create_log_dir(self):
+        self.init_context()
+        with patch('os.path.exists', return_value=False) as mock_os_path_exists:
+            cleep_filesystem = MagicMock()
+            cleep_filesystem.mkdir = Mock()
+            cleep_filesystem.write_json = Mock()
+            self.module.cleep_filesystem = cleep_filesystem
+            status = {
+                'status': 'testing',
+                'module': 'dummy',
+                'stdout': ['info'],
+                'stderr': ['error'],
+            }
+
+            self.module._store_process_status(status)
+
+            mock_os_path_exists.assert_called_with('/opt/cleep/install/dummy')
+            self.assertTrue(cleep_filesystem.mkdir.called)
+
+    def test_store_process_status_handle_write_error(self):
+        self.init_context()
+        with patch('os.path.exists', return_value=True) as mock_os_path_exists:
+            self.module.logger = Mock()
+            self.module.logger.error = Mock()
+            cleep_filesystem = MagicMock()
+            cleep_filesystem.mkdir = Mock()
+            cleep_filesystem.write_json = Mock(return_value=False)
+            self.module.cleep_filesystem = cleep_filesystem
+            status = {
+                'status': 'testing',
+                'module': 'dummy',
+                'stdout': ['info'],
+                'stderr': ['error'],
+            }
+
+            self.module._store_process_status(status)
+
+            self.assertTrue(self.module.logger.error.called)
+
+    def test_install_module(self):
+        self.init_context()
+        self.module._postpone_main_action = Mock(return_value=True)
+
         self.assertTrue(self.module.install_module('dummy'))
+        self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_INSTALL, 'dummy')
 
-        self.assertEqual(mock_install.return_value.install_module.call_count, 1)
-
-    @patch('backend.update.Install')
-    def test_install_module_circular_deps(self, mock_install):
+    def test_install_module_already_installed(self):
         self.init_context()
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[
-            MODULES_JSON['list']['circular2'],
-            MODULES_JSON['list']['circular1'],
-        ])
-        mock_install.return_value.install_module = Mock()
-        self.assertTrue(self.module.install_module('circular1'))
+        self.module._get_installed_modules_names = Mock(return_value=['dummy'])
 
-        # self.assertEqual(mock_install.return_value.install_module.call_count, 1)
-
-    @patch('backend.update.Install')
-    def test_install_module_with_deps(self, mock_install):
-        self.init_context()
-        self.module._get_module_infos_from_modules_json = Mock(return_value=MODULES_JSON['list']['sensors'])
-        mock_install.return_value.install_module = Mock()
-        self.assertTrue(self.module.install_module('dummy'))
-
-        self.assertEqual(mock_install.return_value.install_module.call_count, 2)
-
-    @patch('backend.update.Install')
-    def test_install_module_postponed(self, mock_install):
-        self.init_context()
-        self.module._get_module_infos_from_modules_json = Mock(return_value=MODULES_JSON['list']['sensors'])
-        mock_install.return_value.install_module = Mock()
-        
-        self.assertTrue(self.module.install_module('dummy'))
-        self.assertFalse(self.module.install_module('dummy2'))
-
-    @patch('backend.update.Install')
-    def test_install_module_already_installed(self, mock_install):
-        self.init_context()
-        self.module._get_module_infos_from_modules_json = Mock(return_value=MODULES_JSON['list']['sensors'])
-        mock_install.return_value.install_module = Mock()
-        
         with self.assertRaises(InvalidParameter) as cm:
-            self.module.install_module('system')
-        self.assertEqual(str(cm.exception), 'Module "system" is already installed')
+            self.module.install_module('dummy')
+        self.assertEqual(str(cm.exception), 'Module "dummy" is already installed')
+
+    def test_install_main_module_circular_deps(self):
+        self.init_context()
+        infos_dummy = {
+            'loadedby': [],
+            'deps': ['dep1']
+        }
+        infos_dep1 = {
+            'loadedby': [],
+            'deps': ['dep2']
+        }
+        infos_dep2 = {
+            'loadedby': [],
+            'deps': ['dummy']
+        }
+        self.module._get_installed_modules_names = Mock(return_value=[])
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
+        self.module._postpone_sub_action = Mock()
+
+        self.module._install_main_module('dummy')
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, 'dummy'),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, 'dummy'),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep2', infos_dep2, 'dummy'),
+        ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 3)
+
+    def test_install_main_module_with_deps(self):
+        self.init_context()
+        infos_dummy = {
+            'loadedby': [],
+            'deps': ['dep1']
+        }
+        infos_dep1 = {
+            'loadedby': [],
+            'deps': ['dep2']
+        }
+        infos_dep2 = {
+            'loadedby': [],
+            'deps': []
+        }
+        self.module._get_installed_modules_names = Mock(return_value=[])
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
+        self.module._postpone_sub_action = Mock()
+
+        main_module = 'dummy'
+        self.module._install_main_module(main_module)
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, main_module),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, main_module),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep2', infos_dep2, main_module),
+        ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 3)
+
+    def test_install_main_module_with_deps_already_installed(self):
+        self.init_context()
+        infos_dummy = {
+            'loadedby': [],
+            'deps': ['dep1'],
+            'version': '0.0.0',
+        }
+        infos_dep1 = {
+            'loadedby': [],
+            'deps': ['dep2'],
+            'version': '0.0.0',
+        }
+        infos_dep2 = {
+            'loadedby': [],
+            'deps': [],
+            'version': '0.0.0',
+        }
+        self.module._get_installed_modules_names = Mock(return_value=['dep2'])
+        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dep1])
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
+        self.module._postpone_sub_action = Mock()
+
+        self.module._install_main_module('dummy')
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, 'dummy'),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, 'dummy'),
+        ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 2)
+
+    def test_install_main_module_with_dependency_update(self):
+        self.init_context()
+        infos_dummy = {
+            'loadedby': [],
+            'deps': ['dep1'],
+            'version': '0.0.1',
+        }
+        infos_dep1 = {
+            'loadedby': [],
+            'deps': ['dep2'],
+            'version': '0.0.2',
+        }
+        infos_dep2 = {
+            'loadedby': [],
+            'deps': [],
+            'version': '0.0.3',
+        }
+        self.module._get_installed_modules_names = Mock(return_value=['dep2'])
+        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dep1])
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
+        self.module._postpone_sub_action = Mock()
+
+        self.module._install_main_module('dummy')
+
+        # logging.debug('Calls: %s' % self.module._postpone_sub_action.call_args_list)
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, 'dummy'),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, 'dummy'),
+            call(self.module.ACTION_MODULE_UPDATE, 'dep2', infos_dep2, 'dummy'),
+        ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 3)
 
     def test_install_module_check_params(self):
         self.init_context()
@@ -555,7 +1416,6 @@ class TestUpdate(unittest.TestCase):
         self.assertEqual(self.session.get_event_calls('update.module.install'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.install_module.called)
-        self.assertFalse(self.module.cleep_filesystem.disable_write.called)
 
     @patch('backend.update.CleepConf')
     def test_install_module_callback_done(self, mock_cleepconf):
@@ -574,7 +1434,6 @@ class TestUpdate(unittest.TestCase):
         self.assertEqual(self.session.get_event_calls('update.module.install'), 1)
         self.assertTrue(self.module._need_restart)
         mock_cleepconf.return_value.install_module.assert_called_with('dummy')
-        self.module.cleep_filesystem.disable_write.assert_called_with(True, True)
 
     @patch('backend.update.CleepConf')
     def test_install_module_callback_error(self, mock_cleepconf):
@@ -586,6 +1445,7 @@ class TestUpdate(unittest.TestCase):
         }
         self.init_context()
         self.module._store_process_status = Mock()
+        self.module._set_module_process = Mock()
 
         self.module._Update__install_module_callback(status)
 
@@ -593,7 +1453,21 @@ class TestUpdate(unittest.TestCase):
         self.assertEqual(self.session.get_event_calls('update.module.install'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.install_module.called)
-        self.module.cleep_filesystem.disable_write.assert_called_with(True, True)
+        self.module._set_module_process.assert_called_once_with(failed=True)
+
+    @patch('backend.update.Install')
+    def test_final_install_module(self, mock_install):
+        mock_install.return_value.install_module = Mock()
+        mock_install.return_value.uninstall_module = Mock()
+        mock_install.return_value.update_module = Mock()
+        self.init_context()
+        infos = {'version': '0.0.0'}
+        module_name = 'dummy'
+        self.module._install_module(module_name, infos)
+
+        mock_install.return_value.install_module.assert_called_with(module_name, infos)
+        self.assertFalse(mock_install.return_value.uninstall_module.called)
+        self.assertFalse(mock_install.return_value.update_module.called)
 
     def test_get_modules_to_uninstall(self):
         self.init_context()
@@ -648,79 +1522,70 @@ class TestUpdate(unittest.TestCase):
 
     def test_get_module_dependencies(self):
         callback = Mock(side_effect=[
+            { 'deps': ['dummy2'] }, # dummy1 deps
             { 'deps': ['dummy3'] }, # dummy2 deps
             { 'deps': ['dummy4'] }, # dummy3 deps
             { 'deps': [] }, # dummy4 deps
         ])
-        modules_infos = {
-            'dummy1': {
-                'deps': ['dummy2'],
-            }
-        }
         self.init_context()
 
+        modules_infos = {}
         deps = self.module._get_module_dependencies('dummy1', modules_infos, callback)
         logging.debug('Deps: %s' % deps)
 
-        self.assertEqual(sorted(deps), ['dummy1', 'dummy2', 'dummy3', 'dummy4'])
+        self.assertEqual(deps, ['dummy4', 'dummy3', 'dummy2', 'dummy1'])
+        self.assertCountEqual(deps, list(modules_infos.keys()))
 
     def test_get_module_dependencies_complex(self):
         callback = Mock(side_effect=[
+            { 'deps': ['dummy2'] }, # dummy1 deps
             { 'deps': ['dummy3', 'dummy4'] }, # dummy2 deps
             { 'deps': ['dummy5'] }, # dummy3 deps
             { 'deps': ['dummy5', 'dummy6'] }, # dummy4 deps
             { 'deps': ['dummy6'] }, # dummy5 deps
             { 'deps': [] }, # dummy6 deps
         ])
-        modules_infos = {
-            'dummy1': {
-                'deps': ['dummy2'],
-            }
-        }
         self.init_context()
 
+        modules_infos = {}
         deps = self.module._get_module_dependencies('dummy1', modules_infos, callback)
         logging.debug('Deps: %s' % deps)
 
-        self.assertEqual(sorted(deps), ['dummy1', 'dummy2', 'dummy3', 'dummy4', 'dummy5', 'dummy6'])
+        self.assertEqual(deps, ['dummy6', 'dummy5', 'dummy3', 'dummy4', 'dummy2', 'dummy1'])
+        self.assertCountEqual(deps, list(modules_infos.keys()))
 
     def test_get_module_dependencies_circular_deps(self):
         callback = Mock(side_effect=[
+            { 'deps': ['dummy2'] }, # dummy1 deps
             { 'deps': ['dummy3'] }, # dummy2 deps
             { 'deps': ['dummy1'] }, # dummy3 deps
         ])
-        modules_infos = {
-            'dummy1': {
-                'deps': ['dummy2'],
-            }
-        }
         self.init_context()
 
+        modules_infos = {}
         deps = self.module._get_module_dependencies('dummy1', modules_infos, callback)
         logging.debug('Deps: %s' % deps)
 
         self.assertEqual(sorted(deps), ['dummy1', 'dummy2', 'dummy3'])
+        self.assertCountEqual(deps, list(modules_infos.keys()))
 
-    @patch('backend.update.Install')
-    def test_uninstall_module(self, mock_install):
+    def test_uninstall_module(self):
         self.init_context()
-        self.module._get_installed_modules = Mock(return_value={'dummy': {'deps':[], 'loadedby': []}})
+        self.module._get_installed_modules_names = Mock(return_value=['dummy'])
         infos_dummy = {
             'loadedby': [],
             'deps': []
         }
+        extra = {'force': False}
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy])
-        mock_install.return_value.uninstall_module = Mock()
+        self.module._postpone_main_action = Mock()
+
         self.assertTrue(self.module.uninstall_module('dummy'))
+        self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_UNINSTALL, 'dummy', extra=extra)
 
-        self.assertEqual(mock_install.return_value.uninstall_module.call_count, 1)
-        self.assertTrue(self.module.cleep_filesystem.enable_write.called)
-        mock_install.return_value.uninstall_module.assert_called_with('dummy', infos_dummy, False)
-
-    @patch('backend.update.Install')
-    def test_uninstall_module_with_deps(self, mock_install):
+    def test_uninstall_main_module_with_deps(self):
         self.init_context()
-        self.module._get_installed_modules = Mock(return_value={'dummy': {'deps':['audio'], 'loadedby': []}})
+        self.module._get_installed_modules_names = Mock(return_value=['dummy'])
         infos_dummy = {
             'loadedby': [],
             'deps': ['dep1']
@@ -733,22 +1598,22 @@ class TestUpdate(unittest.TestCase):
             'loadedby': [],
             'deps': []
         }
+        extra = {'force': False}
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
-        mock_install.return_value.uninstall_module = Mock()
-        self.assertTrue(self.module.uninstall_module('dummy'))
+        self.module._postpone_sub_action = Mock()
 
-        self.assertEqual(mock_install.return_value.uninstall_module.call_count, 3)
-        self.assertTrue(self.module.cleep_filesystem.enable_write.called)
-        mock_install.return_value.uninstall_module.assert_has_calls([
-            call('dummy', infos_dummy, False),
-            call('dep1', infos_dep1, False),
-            call('dep2', infos_dep2, False)
+        self.module._uninstall_main_module('dummy', extra)
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dummy', infos_dummy, 'dummy', extra),
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dep1', infos_dep1, 'dummy', extra),
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dep2', infos_dep2, 'dummy', extra),
         ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 3)
 
-    @patch('backend.update.Install')
-    def test_uninstall_module_with_circular_deps(self, mock_install):
+    def test_uninstall_main_module_with_circular_deps(self):
         self.init_context()
-        self.module._get_installed_modules = Mock(return_value={'dummy': {'deps':['audio'], 'loadedby': []}})
+        self.module._get_installed_modules_names = Mock(return_value=['dummy'])
         infos_dummy = {
             'loadedby': [],
             'deps': ['dep1']
@@ -761,22 +1626,23 @@ class TestUpdate(unittest.TestCase):
             'loadedby': [],
             'deps': ['dummy']
         }
+        extra = {'force': False}
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
-        mock_install.return_value.uninstall_module = Mock()
-        self.assertTrue(self.module.uninstall_module('dummy'))
+        self.module._postpone_sub_action = Mock()
 
-        self.assertEqual(mock_install.return_value.uninstall_module.call_count, 3)
-        self.assertTrue(self.module.cleep_filesystem.enable_write.called)
-        mock_install.return_value.uninstall_module.assert_has_calls([
-            call('dummy', infos_dummy, False),
-            call('dep1', infos_dep1, False),
-            call('dep2', infos_dep2, False),
+        self.module.uninstall_module('dummy')
+        self.module._uninstall_main_module('dummy', extra)
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dummy', infos_dummy, 'dummy', extra),
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dep1', infos_dep1, 'dummy', extra),
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dep2', infos_dep2, 'dummy', extra),
         ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 3)
 
-    @patch('backend.update.Install')
-    def test_uninstall_module_with_uninstallable_deps(self, mock_install):
+    def test_uninstall_main_module_with_uninstallable_deps(self):
         self.init_context()
-        self.module._get_installed_modules = Mock(return_value={'dummy': {'deps':['audio'], 'loadedby': []}})
+        self.module._get_installed_modules_names = Mock(return_value=['dummy'])
         infos_dummy = {
             'loadedby': [],
             'deps': ['dep1']
@@ -789,43 +1655,44 @@ class TestUpdate(unittest.TestCase):
             'loadedby': [],
             'deps': ['dummy']
         }
+        extra = {'force': False}
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
-        mock_install.return_value.uninstall_module = Mock()
-        self.assertTrue(self.module.uninstall_module('dummy'))
+        self.module._postpone_sub_action = Mock()
 
-        self.assertEqual(mock_install.return_value.uninstall_module.call_count, 2)
-        self.assertTrue(self.module.cleep_filesystem.enable_write.called)
-        mock_install.return_value.uninstall_module.assert_has_calls([
-            call('dummy', infos_dummy, False),
-            call('dep2', infos_dep2, False),
+        self.module.uninstall_module('dummy')
+        self.module._uninstall_main_module('dummy', extra)
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dummy', infos_dummy, 'dummy', extra),
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dep2', infos_dep2, 'dummy', extra),
         ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 2)
 
-    @patch('backend.update.Install')
-    def test_uninstall_module_forced(self, mock_install):
+    def test_uninstall_main_module_forced(self):
         self.init_context()
-        self.module._get_installed_modules = Mock(return_value={'dummy': {'deps':[], 'loadedby': []}})
+        self.module._get_installed_modules_names = Mock(return_value=['dummy'])
+        infos_dummy = {
+            'loadedby': [],
+            'deps': []
+        }
+        extra = {'force': True}
+        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy])
+        self.module._postpone_sub_action = Mock()
+        self.module._postpone_main_action = Mock()
+
+        self.module._uninstall_main_module('dummy', extra)
+        self.module._postpone_sub_action.assert_called_once_with(self.module.ACTION_MODULE_UNINSTALL, 'dummy', infos_dummy, 'dummy', extra)
+
+        self.module.uninstall_module('dummy', force=True)
+        self.module._postpone_main_action.assert_called_once_with(self.module.ACTION_MODULE_UNINSTALL, 'dummy', extra=extra)
+
+    def test_uninstall_module_check_params(self):
+        self.init_context()
         infos_dummy = {
             'loadedby': [],
             'deps': []
         }
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy])
-        mock_install.return_value.uninstall_module = Mock()
-        self.assertTrue(self.module.uninstall_module('dummy', force=True))
-
-        self.assertEqual(mock_install.return_value.uninstall_module.call_count, 1)
-        self.assertTrue(self.module.cleep_filesystem.enable_write.called)
-        mock_install.return_value.uninstall_module.assert_called_with('dummy', infos_dummy, True)
-
-    @patch('backend.update.Install')
-    def test_uninstall_module_check_params(self, mock_install):
-        self.init_context()
-        self.module._get_installed_modules = Mock(return_value={'dummy': {'deps':[], 'loadedby': []}})
-        infos_dummy = {
-            'loadedby': [],
-            'deps': []
-        }
-        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy])
-        mock_install.return_value.uninstall_module = Mock()
 
         with self.assertRaises(MissingParameter) as cm:
             self.module.uninstall_module('')
@@ -834,31 +1701,24 @@ class TestUpdate(unittest.TestCase):
             self.module.uninstall_module(None)
         self.assertEqual(str(cm.exception), 'Parameter "module_name" is missing')
 
-    @patch('backend.update.Install')
-    def test_uninstall_module_not_installed_module(self, mock_install):
+    def test_uninstall_module_not_installed_module(self):
         self.init_context()
-        self.module._get_installed_modules = Mock(return_value={})
 
         with self.assertRaises(InvalidParameter) as cm:
             self.module.uninstall_module('dummy')
         self.assertEqual(str(cm.exception), 'Module "dummy" is not installed')
 
-    @patch('backend.update.Install')
-    def test_uninstall_module_postponed(self, mock_install):
+    def test_uninstall_module_already_postponed(self):
         self.init_context()
-        self.module._get_installed_modules = Mock(return_value={
-            'dummy': {'deps':[], 'loadedby': []},
-            'dummy2': {'deps':[], 'loadedby': []}
-        })
+        self.module._get_installed_modules_names = Mock(return_value=['dummy', 'dummy2'])
         infos_dummy = {
             'loadedby': [],
             'deps': []
         }
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy])
-        mock_install.return_value.uninstall_module = Mock()
 
         self.assertTrue(self.module.uninstall_module('dummy'))
-        self.assertFalse(self.module.uninstall_module('dummy2'))
+        self.assertFalse(self.module.uninstall_module('dummy'))
 
     @patch('backend.update.CleepConf')
     def test_uninstall_module_callback_processing(self, mock_cleepconf):
@@ -877,7 +1737,6 @@ class TestUpdate(unittest.TestCase):
         self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.uninstall_module.called)
-        self.assertFalse(self.module.cleep_filesystem.disable_write.called)
 
     @patch('backend.update.CleepConf')
     def test_uninstall_module_callback_done(self, mock_cleepconf):
@@ -896,7 +1755,6 @@ class TestUpdate(unittest.TestCase):
         self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 1)
         self.assertTrue(self.module._need_restart)
         mock_cleepconf.return_value.uninstall_module.assert_called_with('dummy')
-        self.module.cleep_filesystem.disable_write.assert_called_with(True, True)
 
     @patch('backend.update.CleepConf')
     def test_uninstall_module_callback_error(self, mock_cleepconf):
@@ -908,6 +1766,7 @@ class TestUpdate(unittest.TestCase):
         }
         self.init_context()
         self.module._store_process_status = Mock()
+        self.module._set_module_process = Mock()
 
         self.module._Update__uninstall_module_callback(status)
 
@@ -915,22 +1774,255 @@ class TestUpdate(unittest.TestCase):
         self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.uninstall_module.called)
-        self.module.cleep_filesystem.disable_write.assert_called_with(True, True)
+        self.module._set_module_process.assert_called_once_with(failed=True)
 
     @patch('backend.update.Install')
-    def test_update_module(self, mock_install):
-        self.init_context()
-        self.module._get_installed_modules = Mock(return_value={'dummy': {'deps':[], 'loadedby': []}})
-        infos_dummy_old = MODULES_JSON['list']['sensors']
-        infos_dummy_new = INVENTORY_GETMODULES['data']['sensors']
-        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_old])
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_new])
+    def test_final_uninstall_module(self, mock_install):
+        mock_install.return_value.install_module = Mock()
         mock_install.return_value.uninstall_module = Mock()
-        self.assertTrue(self.module.update_module('dummy'))
+        mock_install.return_value.update_module = Mock()
+        self.init_context()
+        infos = {'version': '0.0.0'}
+        module_name = 'dummy'
+        extra = {'force': True}
+        self.module._uninstall_module(module_name, infos, extra)
 
-        self.assertEqual(mock_install.return_value.update_module.call_count, 1)
-        self.assertTrue(self.module.cleep_filesystem.enable_write.called)
-        mock_install.return_value.update_module.assert_called_with('dummy', infos_dummy_new)
+        self.assertFalse(mock_install.return_value.install_module.called)
+        mock_install.return_value.uninstall_module.assert_called_with(module_name, infos, extra['force'])
+        self.assertFalse(mock_install.return_value.update_module.called)
+
+    def test_update_module(self):
+        self.init_context()
+        self.module._get_installed_modules_names = Mock(return_value=['dummy'])
+        self.module._postpone_main_action = Mock(return_value=True)
+
+        self.assertTrue(self.module.update_module('dummy'))
+        self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_UPDATE, 'dummy')
+
+    def test_update_module_not_installed(self):
+        self.init_context()
+        self.module._get_installed_modules_names = Mock(return_value=[])
+
+        with self.assertRaises(InvalidParameter) as cm:
+            self.module.update_module('dummy')
+        self.assertEqual(str(cm.exception), 'Module "dummy" is not installed')
+
+    def test_update_module_check_params(self):
+        self.init_context()
+
+        with self.assertRaises(MissingParameter) as cm:
+            self.module.update_module(None)
+        self.assertEqual(str(cm.exception), 'Parameter "module_name" is missing')
+        with self.assertRaises(MissingParameter) as cm:
+            self.module.update_module('')
+        self.assertEqual(str(cm.exception), 'Parameter "module_name" is missing')
+
+    def __generate_module_infos(self, loadedby, deps, version):
+        return {
+            'loadedby': loadedby,
+            'deps': deps,
+            'version': version
+        }
+
+    def test_update_main_module_all_deps_updated_none_uninstalled_none_installed(self):
+        self.init_context()
+        self.module._get_installed_modules_names = Mock(return_value=['dummy', 'dep1', 'dep2'])
+        infos_dummy_inv = self.__generate_module_infos([], ['dep1'], '0.0.0')
+        infos_dep1_inv = self.__generate_module_infos([], ['dep2'], '0.0.0')
+        infos_dep2_inv = self.__generate_module_infos([], [], '0.0.0')
+        infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
+        infos_dep1_json = self.__generate_module_infos([], ['dep2'], '0.1.0')
+        infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv, infos_dep2_inv])
+        self.module._postpone_sub_action = Mock()
+
+        self.module._update_main_module('dummy')
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_UPDATE, 'dummy', infos_dummy_json, 'dummy'),
+            call(self.module.ACTION_MODULE_UPDATE, 'dep1', infos_dep1_json, 'dummy'),
+            call(self.module.ACTION_MODULE_UPDATE, 'dep2', infos_dep2_json, 'dummy'),
+        ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 3)
+
+    def test_update_main_module_some_deps_updated_none_uninstalled_none_installed(self):
+        self.init_context()
+        self.module._get_installed_modules_names = Mock(return_value=['dummy', 'dep1', 'dep2'])
+        infos_dummy_inv = self.__generate_module_infos([], ['dep1'], '0.0.0')
+        infos_dep1_inv = self.__generate_module_infos([], ['dep2'], '0.0.0')
+        infos_dep2_inv = self.__generate_module_infos([], [], '0.0.0')
+        infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
+        infos_dep1_json = self.__generate_module_infos([], ['dep2'], '0.0.0')
+        infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv, infos_dep2_inv])
+        self.module._postpone_sub_action = Mock()
+
+        self.module._update_main_module('dummy')
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_UPDATE, 'dummy', infos_dummy_json, 'dummy'),
+            call(self.module.ACTION_MODULE_UPDATE, 'dep2', infos_dep2_json, 'dummy'),
+        ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 2)
+
+    def test_update_main_module_all_deps_updated_some_uninstalled_none_installed(self):
+        self.init_context()
+        self.module._get_installed_modules_names = Mock(return_value=['dummy', 'dep1', 'dep2'])
+        infos_dummy_inv = self.__generate_module_infos([], ['dep1'], '0.0.0')
+        infos_dep1_inv = self.__generate_module_infos([], ['dep2'], '0.0.0')
+        infos_dep2_inv = self.__generate_module_infos([], [], '0.0.0')
+        infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
+        infos_dep1_json = self.__generate_module_infos([], [], '0.1.0')
+        infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv, infos_dep2_inv])
+        self.module._postpone_sub_action = Mock()
+
+        self.module._update_main_module('dummy')
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_UPDATE, 'dummy', infos_dummy_json, 'dummy'),
+            call(self.module.ACTION_MODULE_UPDATE, 'dep1', infos_dep1_json, 'dummy'),
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dep2', infos_dep2_inv, 'dummy', extra={'force': True}),
+        ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 3)
+
+    def test_update_main_module_some_deps_updated_some_uninstalled_none_installed(self):
+        self.init_context()
+        self.module._get_installed_modules_names = Mock(return_value=['dummy', 'dep1', 'dep2'])
+        infos_dummy_inv = self.__generate_module_infos([], ['dep1'], '0.0.0')
+        infos_dep1_inv = self.__generate_module_infos([], ['dep2'], '0.0.0')
+        infos_dep2_inv = self.__generate_module_infos([], [], '0.0.0')
+        infos_dummy_json = self.__generate_module_infos([], ['dep1'], '0.0.0')
+        infos_dep1_json = self.__generate_module_infos([], [], '0.1.0')
+        infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv, infos_dep2_inv])
+        self.module._postpone_sub_action = Mock()
+
+        self.module._update_main_module('dummy')
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_UPDATE, 'dep1', infos_dep1_json, 'dummy'),
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dep2', infos_dep2_inv, 'dummy', extra={'force': True}),
+        ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 2)
+
+    def test_update_main_module_all_deps_updated_none_uninstalled_some_installed(self):
+        self.init_context()
+        self.module._get_installed_modules_names = Mock(return_value=['dummy', 'dep1', 'dep2'])
+        infos_dummy_inv = self.__generate_module_infos([], ['dep1'], '0.0.0')
+        infos_dep1_inv = self.__generate_module_infos([], [], '0.0.0')
+        infos_dep2_inv = self.__generate_module_infos([], [], '0.0.0')
+        infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
+        infos_dep1_json = self.__generate_module_infos([], ['dep2'], '0.1.0')
+        infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv, infos_dep2_inv])
+        self.module._postpone_sub_action = Mock()
+
+        self.module._update_main_module('dummy')
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_UPDATE, 'dummy', infos_dummy_json, 'dummy'),
+            call(self.module.ACTION_MODULE_UPDATE, 'dep1', infos_dep1_json, 'dummy'),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep2', infos_dep2_json, 'dummy'),
+        ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 3)
+
+    def test_update_main_module_all_deps_updated_some_uninstalled_some_installed(self):
+        self.init_context()
+        self.module._get_installed_modules_names = Mock(return_value=['dummy', 'dep1', 'dep2'])
+        infos_dummy_inv = self.__generate_module_infos([], ['dep1'], '0.0.0')
+        infos_dep1_inv = self.__generate_module_infos([], [], '0.0.0')
+        infos_dep2_inv = self.__generate_module_infos([], [], '0.0.0')
+        infos_dummy_json = self.__generate_module_infos([], ['dep2'], '1.0.0')
+        infos_dep1_json = self.__generate_module_infos([], [], '0.1.0')
+        infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep2_json])
+        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv])
+        self.module._postpone_sub_action = Mock()
+
+        self.module._update_main_module('dummy')
+
+        self.module._postpone_sub_action.assert_has_calls([
+            call(self.module.ACTION_MODULE_UPDATE, 'dummy', infos_dummy_json, 'dummy'),
+            call(self.module.ACTION_MODULE_UNINSTALL, 'dep1', infos_dep1_inv, 'dummy', extra={'force': True}),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep2', infos_dep2_json, 'dummy'),
+        ], any_order=True)
+        self.assertEqual(self.module._postpone_sub_action.call_count, 3)
+
+    @patch('backend.update.CleepConf')
+    def test_update_module_callback_processing(self, mock_cleepconf):
+        status = {
+            'status': Install.STATUS_PROCESSING,
+            'module': 'dummy',
+            'stdout': ['hello'],
+            'stderr': ['world'],
+        }
+        self.init_context()
+        self.module._store_process_status = Mock()
+
+        self.module._Update__update_module_callback(status)
+
+        self.module._store_process_status.assert_called_with(status)
+        self.assertEqual(self.session.get_event_calls('update.module.update'), 1)
+        self.assertFalse(self.module._need_restart)
+        self.assertFalse(mock_cleepconf.return_value.update_module.called)
+
+    @patch('backend.update.CleepConf')
+    def test_update_module_callback_done(self, mock_cleepconf):
+        status = {
+            'status': Install.STATUS_DONE,
+            'module': 'dummy',
+            'stdout': ['hello'],
+            'stderr': ['world'],
+        }
+        self.init_context()
+        self.module._store_process_status = Mock()
+
+        self.module._Update__update_module_callback(status)
+
+        self.module._store_process_status.assert_called_with(status)
+        self.assertEqual(self.session.get_event_calls('update.module.update'), 1)
+        self.assertTrue(self.module._need_restart)
+        mock_cleepconf.return_value.update_module.assert_called_with('dummy')
+
+    @patch('backend.update.CleepConf')
+    def test_update_module_callback_error(self, mock_cleepconf):
+        status = {
+            'status': Install.STATUS_ERROR,
+            'module': 'dummy',
+            'stdout': ['hello'],
+            'stderr': ['world'],
+        }
+        self.init_context()
+        self.module._store_process_status = Mock()
+        self.module._set_module_process = Mock()
+
+        self.module._Update__update_module_callback(status)
+
+        self.module._store_process_status.assert_called_with(status)
+        self.assertEqual(self.session.get_event_calls('update.module.update'), 1)
+        self.assertFalse(self.module._need_restart)
+        self.assertFalse(mock_cleepconf.return_value.update_module.called)
+        self.module._set_module_process.assert_called_once_with(failed=True)
+
+    @patch('backend.update.Install')
+    def test_final_update_module(self, mock_install):
+        mock_install.return_value.install_module = Mock()
+        mock_install.return_value.uninstall_module = Mock()
+        mock_install.return_value.update_module = Mock()
+        self.init_context()
+        infos = {'version': '0.0.0'}
+        module_name = 'dummy'
+        self.module._update_module(module_name, infos)
+
+        self.assertFalse(mock_install.return_value.install_module.called)
+        self.assertFalse(mock_install.return_value.uninstall_module.called)
+        mock_install.return_value.update_module.assert_called_with(module_name, infos)
 
 
 
