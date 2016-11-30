@@ -117,22 +117,37 @@ class TestUpdate(unittest.TestCase):
     def tearDown(self):
         self.session.clean()
 
-    def init_context(self, mock_sendcommand=None):
+    def init_context(self, mock_sendcommand=None, mock_getconfig=None):
         self.module = self.session.setup(Update, start_module=False)
         if mock_sendcommand:
             self.module.send_command = mock_sendcommand
         else:
             self.module.send_command = Mock(return_value=INVENTORY_GETMODULES)
+        if mock_getconfig:
+            self.module._get_config = mock_getconfig
         self.session.start_module(self.module)
 
     @patch('backend.update.Task')
     def test_configure(self, mock_task):
         mock_task.return_value = Mock()
         mock_task.return_value.start = Mock()
-        self.init_context()
+        mock_getconfig = Mock(return_value={'modulesupdateenabled': True})
+        self.init_context(mock_getconfig=mock_getconfig)
 
         self.module.send_command.assert_called_with('get_modules', 'inventory', timeout=20)
+
         self.assertTrue(mock_task.return_value.start.called)
+
+    @patch('backend.update.Task')
+    def test_configure_dont_start_module_update_task(self, mock_task):
+        mock_task.return_value = Mock()
+        mock_task.return_value.start = Mock()
+        mock_getconfig = Mock(return_value={'modulesupdateenabled': False})
+        self.init_context(mock_getconfig=mock_getconfig)
+
+        self.module.send_command.assert_called_with('get_modules', 'inventory', timeout=20)
+
+        self.assertFalse(mock_task.return_value.start.called)
 
     def test_event_received_updates_allowed(self):
         self.init_context()
@@ -141,6 +156,7 @@ class TestUpdate(unittest.TestCase):
         self.module.check_cleep_updates = Mock()
         self.module.check_modules_updates = Mock()
         self.module.update_cleep = Mock()
+        self.module.update_modules = Mock()
         event = {
             'event': 'parameters.time.now',
             'params': {
@@ -154,6 +170,7 @@ class TestUpdate(unittest.TestCase):
         self.assertTrue(self.module.check_cleep_updates.called)
         self.assertTrue(self.module.check_modules_updates.called)
         self.assertTrue(self.module.update_cleep.called)
+        self.assertFalse(self.module.update_modules.called)
 
     def test_event_received_updates_not_allowed(self):
         self.init_context()
@@ -162,6 +179,7 @@ class TestUpdate(unittest.TestCase):
         self.module.check_cleep_updates = Mock()
         self.module.check_modules_updates = Mock()
         self.module.update_cleep = Mock()
+        self.module.update_modules = Mock()
         event = {
             'event': 'parameters.time.now',
             'params': {
@@ -175,6 +193,30 @@ class TestUpdate(unittest.TestCase):
         self.assertTrue(self.module.check_cleep_updates.called)
         self.assertTrue(self.module.check_modules_updates.called)
         self.assertFalse(self.module.update_cleep.called)
+        self.assertFalse(self.module.update_modules.called)
+
+    def test_event_received_update_modules(self):
+        self.init_context()
+        self.module._set_config_field('cleepupdateenabled', False)
+        self.module._set_config_field('modulesupdateenabled', True)
+        self.module.check_cleep_updates = Mock()
+        self.module.check_modules_updates = Mock()
+        self.module.update_cleep = Mock()
+        self.module.update_modules = Mock()
+        event = {
+            'event': 'parameters.time.now',
+            'params': {
+                'hour': self.module._check_update_time['hour'],
+                'minute': self.module._check_update_time['minute'],
+            },
+        }
+
+        self.module._event_received(event)
+
+        self.assertTrue(self.module.check_cleep_updates.called)
+        self.assertTrue(self.module.check_modules_updates.called)
+        self.assertFalse(self.module.update_cleep.called)
+        self.assertTrue(self.module.update_modules.called)
 
     def test_restart_cleep(self):
         mock_sendcommand = Mock(side_effect=[
@@ -335,17 +377,6 @@ class TestUpdate(unittest.TestCase):
             self.module._fill_modules_updates()
         self.assertEqual(str(cm.exception), 'Unable to get modules list from inventory')
 
-    def test_get_actions(self):
-        self.init_context()
-
-        self.module.install_module('dummy')
-
-        actions = self.module.get_actions()
-        logging.debug('Actions: %s' % actions)
-
-        self.assertEqual(len(actions), 1)
-        self.assertCountEqual(list(actions[0].keys()), ['action', 'module', 'processing'])
-
     @patch('backend.update.Task')
     def test_execute_main_action_task_install(self, mock_task):
         self.init_context()
@@ -493,12 +524,26 @@ class TestUpdate(unittest.TestCase):
             self.assertTrue(mock_mainactionsmutex.release.called)
 
     def test_execute_main_action_task_mutex_with_exception(self):
+        action_install1 = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        action_install2 = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'processing': False,
+            'module': 'mod2',
+            'extra': None,
+        }
         self.init_context()
         self.module._set_module_process = Mock(side_effect=Exception('Test exception'))
-        with patch.object(self.module, '_Update__main_actions_mutex') as mock_mainactionsmutex:
-            self.module._execute_main_action_task()
-            self.assertTrue(mock_mainactionsmutex.acquire.called)
-            self.assertTrue(mock_mainactionsmutex.release.called)
+        self.module._install_main_module = Mock()
+        with patch.object(self.module, '_Update__main_actions', [action_install1, action_install2]):
+            with patch.object(self.module, '_Update__main_actions_mutex') as mock_mainactionsmutex:
+                self.module._execute_main_action_task()
+                self.assertTrue(mock_mainactionsmutex.acquire.called)
+                self.assertTrue(mock_mainactionsmutex.release.called)
 
     def test_execute_main_action_task_set_processstep_single_sub_action(self):
         self.init_context()
@@ -947,6 +992,17 @@ class TestUpdate(unittest.TestCase):
         logging.debug('Config: %s' % config)
         self.assertFalse(config['cleepupdateenabled'])
         self.assertFalse(config['modulesupdateenabled'])
+
+    def test_set_automatic_update_main_task(self):
+        self.init_context()
+
+        with patch.object(self.module, '_Update__main_actions_task') as mock_task:
+            self.module.set_automatic_update(True, True)
+            self.assertFalse(mock_task.stop.called)
+
+        with patch.object(self.module, '_Update__main_actions_task') as mock_task:
+            self.module.set_automatic_update(False, False)
+            self.assertTrue(mock_task.stop.called)
 
     def test_set_automatic_update_invalid_parameters(self):
         self.init_context()

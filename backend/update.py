@@ -714,7 +714,7 @@ class Update(CleepModule):
 
         # stop modules update task if necessary
         if not modules_update_enabled and self.__main_actions_task:
-            self.__main_action_task.stop()
+            self.__main_actions_task.stop()
 
         return self._update_config({
             u'cleepupdateenabled': cleep_update_enabled,
