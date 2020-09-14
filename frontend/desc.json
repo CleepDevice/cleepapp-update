@@ -4,10 +4,6 @@
         "js": ["update.service.js"],
         "html": [],
         "css": []
-    },
-    "config": {
-        "js": [],
-        "html": []
     }
 }
     
