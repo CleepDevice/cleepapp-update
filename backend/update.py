@@ -96,9 +96,9 @@ class Update(CleepModule):
         self.update_module_update = self._get_event(u'update.module.update')
         self.update_cleep_update = self._get_event(u'update.cleep.update')
 
-    def _configure(self):
+    def _on_start(self):
         """
-        Configure module
+        Module is started
         """
         # init installed modules
         self._fill_modules_updates()
