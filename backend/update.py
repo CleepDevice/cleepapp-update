@@ -260,7 +260,7 @@ class Update(CleepModule):
         action = self.__main_actions[len(self.__main_actions)-1]
         return action['module'] if action['processing'] else None
 
-    def _set_module_process(self, progress=None, inc_progress=None, failed=None):
+    def _set_module_process(self, progress=None, inc_progress=None, failed=None, pending=False):
         """
         Set module process infos. Nothing is updated if no module is processing.
 
@@ -292,6 +292,8 @@ class Update(CleepModule):
         if failed is not None:
             module['update']['failed'] = failed
             module['update']['progress'] = 100
+        if pending is not None:
+            module['pending'] = pending
 
     def _is_module_process_failed(self):
         """
@@ -355,6 +357,7 @@ class Update(CleepModule):
                 {
                     updatable (bool): True if module is updatable
                     processing (bool): True if module has action in progress
+                    pending (bool): True if module has been updated/uninstalled/installed
                     name (string): module name
                     version (string): installed module version
                     update (dict): update data::
@@ -370,6 +373,7 @@ class Update(CleepModule):
         return {
             'updatable': False,
             'processing': False,
+            'pending': False,
             'name': module_name,
             'version': installed_module_version,
             'update': {
@@ -856,6 +860,7 @@ class Update(CleepModule):
         if status[u'status'] == Install.STATUS_DONE:
             # need to restart
             self._need_restart = True
+            self._set_module_process(pending=True)
 
             # update cleep.conf
             self.cleep_conf.install_module(status[u'module'])
@@ -963,6 +968,7 @@ class Update(CleepModule):
         # handle process success
         if status[u'status'] == Install.STATUS_DONE:
             self._need_restart = True
+            self._set_module_process(pending=True)
 
             # update cleep.conf
             self.cleep_conf.uninstall_module(status[u'module'])
@@ -1094,6 +1100,7 @@ class Update(CleepModule):
         # handle process success
         if status[u'status'] == Install.STATUS_DONE:
             self._need_restart = True
+            self._set_module_process(pending=True)
 
             # update cleep.conf adding module to updated ones
             self.cleep_conf.update_module(status[u'module'])
