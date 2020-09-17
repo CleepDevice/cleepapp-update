@@ -9,6 +9,10 @@ var updateService = function($q, $rootScope, rpcService) {
         return rpcService.sendCommand('get_modules_updates', 'update');
     };
 
+    self.getCleepUpdates = function() {
+        return rpcService.sendCommand('get_cleep_updates', 'update');
+    };
+
     self.checkCleepUpdates = function() {
         return rpcService.sendCommand('check_cleep_updates', 'update');
     };

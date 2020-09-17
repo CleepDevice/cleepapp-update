@@ -1,0 +1,95 @@
+<div layout="column" layout-padding ng-cloak>
+
+    <!-- navigation tabs -->
+    <md-nav-bar md-selected-nav-item="updateCtl.tabIndex" nav-bar-aria-label="Updates tabs">
+        <md-nav-item md-nav-click="goto('modules')" name="modules">Applications updates</md-nav-item>
+        <md-nav-item md-nav-click="goto('cleep')" name="cleep">Cleep updates</md-nav-item>
+        <md-nav-item md-nav-click="goto('options')" name="options">Options</md-nav-item>
+    </md-nav-bar>
+
+    <div layout="column" layout-padding ng-if="updateCtl.tabIndex==='modules'">
+        <md-list ng-cloak>
+            <md-list-item>
+                <p>
+                    Cleep version {{updateCtl.config.cleepversion}} is installed 
+                </p>
+                <md-button
+                    class="md-secondary md-raised md-primary"
+                    ng-click="updateCtl.checkCleepUpdates()"
+                    ng-disabled="updateCtl.cleepInstalling || updateCtl.cleepPending"
+                >
+                    Check updates
+                </md-button>
+            </md-list-item>
+            <md-list-item ng-if="!updateCtl.cleepUpdates.updatable">
+                <md-icon md-svg-icon="chevron-right"></md-icon>
+                <p>No update available (last check {{updateCtl.cleepLastCheck | hrDatetime}})</p>
+            </md-list-item>
+            <md-list-item ng-if="updateCtl.cleepUpdates.updatable">
+                <md-icon md-svg-icon="chevron-right"></md-icon>
+                <p>New Cleep version available (v{{updateCtl.cleepUpdates.version}})</p>
+                <md-button
+                    class="md-secondary md-raised md-accent"
+                    ng-click="updateCtl.showCleepUpdateDialog()"
+                >
+                    Update Cleep
+                </md-button>
+            </md-list-item>
+            <!--<md-list-item ng-if="updateCtl.">
+                <md-icon md-svg-icon="chevron-right"></md-icon>
+                <p>New Cleep version available (v{{updateCtl.cleepUpdate.version}})</p>
+                <md-button class="md-secondary md-raised md-accent" ng-click="updateCtl.showCleepUpdateDialog()">Update Cleep</md-button>
+            </md-list-item>
+			<md-list-item ng-if="updateCtl.cleepUpdatePending">
+                <md-icon md-svg-icon="chevron-right"></md-icon>
+                <p>Cleep updated, please reboot</p>
+                <md-button class="md-secondary md-raised md-accent" ng-click="updateCtl.reboot()">Reboot</md-button>
+            </md-list-item>
+            <md-list-item ng-if="updateCtl.lastCleepUpdate.time!==0 && updateCtl.systemService.cleepinstallStatus===0">
+                <md-icon md-svg-icon="chevron-right"></md-icon>
+                <p>Last update installed at {{updateCtl.lastCleepUpdate.time | hrDatetime}}</p>
+                <md-button class="md-secondary md-raised md-primary" ng-click="updateCtl.showLogsDialog()">Show logs</md-button>
+            </md-list-item>
+            <md-list-item ng-if="updateCtl.systemService.cleepinstallStatus!==0">
+                <md-icon md-svg-icon="chevron-right"></md-icon>
+                <p>
+                    <span ng-if="updateCtl.systemService.cleepinstallStatus===1">Installing update...</span>
+                    <span ng-if="updateCtl.systemService.cleepinstallStatus===2">Installation completed successfully</span>
+                    <span ng-if="updateCtl.systemService.cleepinstallStatus===3">Installation failed (internal error)</span>
+                    <span ng-if="updateCtl.systemService.cleepinstallStatus===4">Download failed</span>
+                    <span ng-if="updateCtl.systemService.cleepinstallStatus===5">Download failed (file is corrupted)</span>
+                    <span ng-if="updateCtl.systemService.cleepinstallStatus===6">Installation failed (decompression error)</span>
+                    <span ng-if="updateCtl.systemService.cleepinstallStatus===7">Installation failed (pre-instal script failed)</span>
+                    <span ng-if="updateCtl.systemService.cleepinstallStatus===8">Installation failed (package install failed)</span>
+                    <span ng-if="updateCtl.systemService.cleepinstallStatus===9">Installation failed (post-install failed)</span>
+                </p>
+                <div ng-if="updateCtl.systemService.cleepinstallStatus===1" class="md-secondary">
+                    <md-progress-linear md-mode="indeterminate" class="md-accent" style="min-width:250px;"></md-progress-linear>
+                </div>
+            </md-list-item>-->
+        </md-list>
+	</div>
+
+    <div layout="column" layout-padding ng-if="updateCtl.tabIndex==='cleep'">
+	</div>
+
+    <div layout="column" layout-padding ng-if="updateCtl.tabIndex==='options'">
+        <md-list ng-cloak>
+            <md-list-item>
+                <p>To enjoy new features and bug fixes automatically, enable automatic update</p>
+            </md-list-item>
+            <md-list-item ng-click="updateCtl.setAutomaticUpdate('cleep')">
+                <md-icon md-svg-icon="chevron-right"></md-icon>
+                <p>Enable automatic device application updates</p>
+                <md-checkbox class="md-secondary" ng-model="updateCtl.cleepUpdateEnabled" ng-change="updateCtl.setAutomaticUpdate()"></md-checkbox>
+            </md-list-item>
+            <md-list-item ng-click="updateCtl.setAutomaticUpdate('modules')">
+                <md-icon md-svg-icon="chevron-right"></md-icon>
+                <p>Enable automatic modules updates</p>
+                <md-checkbox class="md-secondary" ng-model="updateCtl.modulesUpdateEnabled" ng-change="updateCtl.setAutomaticUpdate()"></md-checkbox>
+            </md-list-item>
+		</md-list>
+	</div>
+
+</div>
+

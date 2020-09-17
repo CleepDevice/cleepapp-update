@@ -4,6 +4,10 @@
         "js": ["update.service.js"],
         "html": [],
         "css": []
+    },
+    "config": {
+        "js": ["update.config.js"],
+        "html": ["update.config.html", "cleep-update.dialog.html"]
     }
 }
     

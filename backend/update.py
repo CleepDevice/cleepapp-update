@@ -4,6 +4,7 @@
 import os
 import time
 import random
+import copy
 from threading import Lock
 from cleep.exception import MissingParameter, InvalidParameter, CommandError, CommandInfo
 from cleep.core import CleepModule
@@ -21,36 +22,30 @@ class Update(CleepModule):
     """
     Update application
     """
-    MODULE_AUTHOR = u'Cleep'
-    MODULE_VERSION = u'1.0.0'
+    MODULE_AUTHOR = 'Cleep'
+    MODULE_VERSION = '1.0.0'
     MODULE_DEPS = []
-    MODULE_DESCRIPTION = u'Applications and Cleep updater'
-    MODULE_LONGDESCRIPTION = u'Manage all Cleep applications and Cleep core updates.'
+    MODULE_DESCRIPTION = 'Applications and Cleep updater'
+    MODULE_LONGDESCRIPTION = 'Manage all Cleep applications and Cleep core updates.'
     MODULE_TAGS = ['update', 'application', 'module']
-    MODULE_CATEGORY = u'APPLICATION'
+    MODULE_CATEGORY = 'APPLICATION'
     MODULE_COUNTRY = None
-    MODULE_URLINFO = u'https://github.com/tangb/cleepmod-update'
+    MODULE_URLINFO = 'https://github.com/tangb/cleepmod-update'
     MODULE_URLHELP = None
     MODULE_URLSITE = None
-    MODULE_URLBUGS = u'https://github.com/tangb/cleepmod-update/issues'
+    MODULE_URLBUGS = 'https://github.com/tangb/cleepmod-update/issues'
 
-    MODULE_CONFIG_FILE = u'update.conf'
+    MODULE_CONFIG_FILE = 'update.conf'
     DEFAULT_CONFIG = {
         'cleepupdateenabled': False,
         'modulesupdateenabled': False,
-        'cleepupdate': {
-            'version': None,
-            'changelog': None,
-            'packageurl': None,
-            'checksumurl': None,
-        },
+        'cleepversion': '0.0.0',
         'cleeplastcheck': None,
-        'modulesupdate': False,
         'moduleslastcheck': None,
     }
 
-    CLEEP_GITHUB_OWNER = u'tangb'
-    CLEEP_GITHUB_REPO = u'cleep'
+    CLEEP_GITHUB_OWNER = 'tangb'
+    CLEEP_GITHUB_REPO = 'raspiot'
     PROCESS_STATUS_FILENAME = 'process.log'
     CLEEP_STATUS_FILEPATH = ''
     ACTION_MODULE_INSTALL = 'install'
@@ -74,11 +69,20 @@ class Update(CleepModule):
         self.modules_json = ModulesJson(self.cleep_filesystem)
         self.cleep_conf = CleepConf(self.cleep_filesystem)
         self._modules_updates = {}
+        self._cleep_updates = {
+            'updatable': False,
+            'processing': False,
+            'pending': False,
+            'version': None,
+            'changelog': None,
+            'packageurl': None,
+            'checksumurl': None,
+        }
         self._check_update_time = {
             'hour': int(random.uniform(0, 24)),
             'minute': int(random.uniform(0, 60))
         }
-        self.logger.debug('Software updates will be checked every day at %(hour)02d:%(minute)02d' % self._check_update_time)
+        self.logger.info('Software updates will be checked every day at %(hour)02d:%(minute)02d' % self._check_update_time)
         self.__processor = None
         self._need_restart = False
         # contains main actions (install/uninstall/update)
@@ -91,10 +95,16 @@ class Update(CleepModule):
         self.__sub_actions_task = None
 
         # events
-        self.update_module_install = self._get_event(u'update.module.install')
-        self.update_module_uninstall = self._get_event(u'update.module.uninstall')
-        self.update_module_update = self._get_event(u'update.module.update')
-        self.update_cleep_update = self._get_event(u'update.cleep.update')
+        self.update_module_install = self._get_event('update.module.install')
+        self.update_module_uninstall = self._get_event('update.module.uninstall')
+        self.update_module_update = self._get_event('update.module.update')
+        self.update_cleep_update = self._get_event('update.cleep.update')
+
+    def _configure(self):
+        """
+        Configure module
+        """
+        self._set_config_field('cleepversion', VERSION)
 
     def _on_start(self):
         """
@@ -105,7 +115,7 @@ class Update(CleepModule):
 
         # launch main actions task if module auto update enabled
         config = self._get_config()
-        if config[u'modulesupdateenabled']:
+        if config['modulesupdateenabled']:
             self.update_modules()
 
     def event_received(self, event):
@@ -115,9 +125,9 @@ class Update(CleepModule):
         Params:
             event (MessageRequest): event data
         """
-        if event[u'event'] == u'parameters.time.now':
+        if event['event'] == 'parameters.time.now':
             # update
-            if event[u'params'][u'hour'] == self._check_update_time['hour'] and event[u'params'][u'minute'] == self._check_update_time['minute']:
+            if event['params']['hour'] == self._check_update_time['hour'] and event['params']['minute'] == self._check_update_time['minute']:
                 # check updates
                 self.check_cleep_updates()
                 self.check_modules_updates()
@@ -125,12 +135,12 @@ class Update(CleepModule):
                 # and perform updates if allowed
                 # update in priority cleep then modules
                 config = self._get_config()
-                if config[u'cleepupdateenabled']:
+                if config['cleepupdateenabled']:
                     try:
                         self.update_cleep()
                     except Exception: # pragma: no cover
                         self.crash_report.report_exception()
-                elif config[u'modulesupdateenabled']:
+                elif config['modulesupdateenabled']:
                     try:
                         self.update_modules()
                     except Exception: # pragma: no cover
@@ -141,9 +151,36 @@ class Update(CleepModule):
         Return list of modules updates
 
         Returns:
-            
+            dict: list of modules updates::
+
+            {
+                module name (string): {
+                },
+                ...
+            }
+
         """
         return self._modules_updates
+
+    def get_cleep_updates(self):
+        """
+        Return cleep update infos
+
+        Returns:
+            dict: Cleep update infos::
+
+            {
+                updatable (bool): true if new version available
+                processing (bool): true if cleep update is running
+                pending (bool): true if cleep update has been done and a restart is required
+                version (string): new available version (format x.x.x) (None if no update)
+                changelog (string): update changelog (None if no update)
+                packageurl (string): package url (None if no update)
+                checksumurl (string): package checksum url (None if no update)
+            }
+
+        """
+        return self._cleep_updates
 
     def _get_installed_modules_names(self):
         """
@@ -326,16 +363,16 @@ class Update(CleepModule):
             Exception if send command failed
         """
         # retrieve modules from inventory
-        resp = self.send_command(u'get_modules', u'inventory', timeout=20)
-        if not resp or resp[u'error']:
-            raise Exception(u'Unable to get modules list from inventory')
-        inventory_modules = resp[u'data']
+        resp = self.send_command('get_modules', 'inventory', timeout=20)
+        if not resp or resp['error']:
+            raise Exception('Unable to get modules list from inventory')
+        inventory_modules = resp['data']
 
         # save modules
         modules = {}
         for module_name in inventory_modules:
             # drop not installed modules
-            if not inventory_modules[module_name][u'installed']:
+            if not inventory_modules[module_name]['installed']:
                 continue
 
             modules[module_name] = self.__get_module_update_data(module_name, inventory_modules[module_name]['version'])
@@ -391,7 +428,7 @@ class Update(CleepModule):
         Args:
             delay (float): delay before restarting (default 10.0 seconds)
         """
-        resp = self.send_command(u'restart', u'system', {'delay': delay})
+        resp = self.send_command('restart', 'system', {'delay': delay})
         if not resp or resp['error']:
             self.logger.error('Unable to restart Cleep')
 
@@ -419,20 +456,14 @@ class Update(CleepModule):
                 }
 
         """
-        # init
-        update = {
-            'version': None,
-            'changelog': None,
-            'packageurl': None,
-            'checksumurl': None
-        }
+        update = copy.deepcopy(self._cleep_updates)
 
         try:
             # get beta release if GITHUB_TOKEN env variable registered
             auth_string = None
             only_released = True
-            if u'GITHUB_TOKEN' in os.environ:
-                auth_string = 'token %s' % os.environ[u'GITHUB_TOKEN']
+            if 'GITHUB_TOKEN' in os.environ:
+                auth_string = 'token %s' % os.environ['GITHUB_TOKEN']
                 only_released = False # used to get beta release
 
             github = CleepGithub(auth_string)
@@ -446,7 +477,7 @@ class Update(CleepModule):
                 # get latest version available
                 latest_version = github.get_release_version(releases[0])
                 latest_changelog = github.get_release_changelog(releases[0])
-                self.logger.debug(u'Found latest update: %s - %s' % (latest_version, latest_changelog))
+                self.logger.debug('Found latest update: %s - %s' % (latest_version, latest_changelog))
 
                 self.logger.info('Cleep version status: latest %s - installed %s' % (latest_version, VERSION))
                 if Tools.compare_versions(VERSION, latest_version):
@@ -457,24 +488,25 @@ class Update(CleepModule):
                     # search for deb file
                     package_asset = None
                     for asset in assets:
-                        if asset[u'name'].startswith(u'cleep_') and asset[u'name'].endswith('.zip'):
-                            self.logger.debug(u'Found Cleep package asset: %s' % asset)
+                        if asset['name'].startswith('cleep_') and asset['name'].endswith('.zip'):
+                            self.logger.debug('Found Cleep package asset: %s' % asset)
                             package_asset = asset
-                            update[u'packageurl'] = asset['url']
+                            update['packageurl'] = asset['url']
                             break
 
                     # search for checksum file
                     if package_asset:
-                        package_name = os.path.splitext(package_asset[u'name'])[0]
-                        checksum_name = u'%s.%s' % (package_name, u'sha256')
-                        self.logger.debug(u'Checksum filename to search: %s' % checksum_name)
+                        package_name = os.path.splitext(package_asset['name'])[0]
+                        checksum_name = '%s.%s' % (package_name, 'sha256')
+                        self.logger.debug('Checksum filename to search: %s' % checksum_name)
                         for asset in assets:
-                            if asset[u'name'] == checksum_name:
-                                self.logger.debug(u'Found checksum asset: %s' % asset)
-                                update[u'checksumurl'] = asset['url']
+                            if asset['name'] == checksum_name:
+                                self.logger.debug('Found checksum asset: %s' % asset)
+                                update['checksumurl'] = asset['url']
                                 break
 
-                    if update[u'packageurl'] and update[u'checksumurl']:
+                    if update['packageurl'] and update['checksumurl']:
+                        update['updatable'] = True
                         update['version'] = latest_version
                         update['changelog'] = latest_changelog
                     else:
@@ -488,21 +520,18 @@ class Update(CleepModule):
 
             else:
                 # no release found
-                self.logger.warning(u'No Cleep release found during check')
+                self.logger.warning('No Cleep release found during check')
 
         except:
-            self.logger.exception(u'Error occured during updates checking:')
+            self.logger.exception('Error occured during updates checking:')
             self.crash_report.report_exception()
-            raise CommandError(u'Error occured during cleep update check')
+            raise CommandError('Error occured during cleep update check')
 
         # update config
-        config = {
-            u'cleepupdate': update,
-            u'cleeplastcheck': int(time.time())
-        }
-        self._update_config(config)
+        self._set_config_field('cleeplastcheck', int(time.time()))
+        self._cleep_updates = update
 
-        return config
+        return self._cleep_updates
 
     def check_modules_updates(self):
         """
@@ -560,15 +589,15 @@ class Update(CleepModule):
 
         # update config
         config = {
-            u'modulesupdates': update_available,
-            u'moduleslastcheck': int(time.time())
+            'modulesupdates': update_available,
+            'moduleslastcheck': int(time.time())
         }
         self._update_config(config)
 
         return {
-            u'modulesupdates': update_available,
-            u'modulesjsonupdated': modules_json_updated,
-            u'moduleslastcheck': config[u'moduleslastcheck']
+            'modulesupdates': update_available,
+            'modulesjsonupdated': modules_json_updated,
+            'moduleslastcheck': config['moduleslastcheck']
         }
 
     def _update_cleep_callback(self, status):
@@ -577,34 +606,33 @@ class Update(CleepModule):
         Args:
             status (dict): update status
         """
-        self.logger.debug(u'Cleep update callback status: %s' % status)
+        self.logger.debug('Cleep update callback status: %s' % status)
 
         # send process status (only status)
-        self.update_cleep_update.send(params={u'status': status[u'status']})
+        self.update_cleep_update.send(params={'status': status['status']})
 
         # store final status when update terminated (successfully or not)
-        if status[u'status'] >= InstallCleep.STATUS_UPDATED:
+        if status['status'] >= InstallCleep.STATUS_UPDATED:
             self._store_process_status(status)
 
             # reset cleep update config
-            self._update_config({
-                'cleepupdate': {
-                    'version': None,
-                    'changelog': None,
-                    'packageurl': None,
-                    'checksumurl': None,
-                }
+            self._cleep_updates.update({
+                'updatable': False,
+                'version': None,
+                'changelog': None,
+                'packageurl': None,
+                'checksumurl': None,
             })
 
             # lock filesystem
             self.cleep_filesystem.disable_write(True, True)
 
         # handle end of cleep update
-        if status[u'status'] == InstallCleep.STATUS_UPDATED:
+        if status['status'] == InstallCleep.STATUS_UPDATED:
             # update successful
             self.logger.info('Cleep update installed successfully. Restart now')
             self._restart_cleep()
-        elif status[u'status'] > InstallCleep.STATUS_UPDATED:
+        elif status['status'] > InstallCleep.STATUS_UPDATED:
             # error occured
             self.logger.error('Cleep update failed. Please check process outpout')
 
@@ -621,9 +649,9 @@ class Update(CleepModule):
         self.cleep_filesystem.enable_write(True, True)
 
         # launch update
-        package_url = cleep_update[u'packageurl']
-        checksum_url = cleep_update[u'checksumurl']
-        self.logger.debug(u'Update Cleep: package_url=%s checksum_url=%s' % (package_url, checksum_url))
+        package_url = cleep_update['packageurl']
+        checksum_url = cleep_update['checksumurl']
+        self.logger.debug('Update Cleep: package_url=%s checksum_url=%s' % (package_url, checksum_url))
         update = InstallCleep(self.cleep_filesystem, self.crash_report)
         update.install(package_url, checksum_url, self._update_cleep_callback)
 
@@ -721,8 +749,8 @@ class Update(CleepModule):
             self.__main_actions_task.stop()
 
         return self._update_config({
-            u'cleepupdateenabled': cleep_update_enabled,
-            u'modulesupdateenabled': modules_update_enabled
+            'cleepupdateenabled': cleep_update_enabled,
+            'modulesupdateenabled': modules_update_enabled
         })
 
     def _get_module_infos_from_modules_json(self, module_name):
@@ -758,15 +786,15 @@ class Update(CleepModule):
             Exception if unknown module or error
         """
         # get infos from inventory
-        resp = self.send_command('get_module_infos', u'inventory', {'module': module_name})
+        resp = self.send_command('get_module_infos', 'inventory', {'module': module_name})
         if resp['error']:
-            self.logger.error(u'Unable to get module "%s" infos: %s' % (module_name, resp[u'msg']))
+            self.logger.error('Unable to get module "%s" infos: %s' % (module_name, resp['msg']))
             raise Exception('Unable to get module "%s" infos' % module_name)
         if resp['data'] is None:
-            self.logger.error(u'Module "%s" not found in modules list' % module_name)
-            raise Exception(u'Module "%s" not found in installable modules list' % module_name)
+            self.logger.error('Module "%s" not found in modules list' % module_name)
+            raise Exception('Module "%s" not found in installable modules list' % module_name)
 
-        return resp[u'data']
+        return resp['data']
 
     def _get_module_dependencies(self, module_name, modules_infos, get_module_infos_callback, context=None):
         """
@@ -801,7 +829,7 @@ class Update(CleepModule):
             modules_infos[module_name] = infos
 
         # get dependencies (recursive call)
-        for dependency_name in infos[u'deps']:
+        for dependency_name in infos['deps']:
             if dependency_name == module_name:
                 # avoid infinite loop
                 continue
@@ -848,7 +876,7 @@ class Update(CleepModule):
                 }
 
         """
-        self.logger.debug(u'Module install callback status: %s' % status)
+        self.logger.debug('Module install callback status: %s' % status)
 
         # send process status
         self.update_module_install.send(params=status)
@@ -857,19 +885,19 @@ class Update(CleepModule):
         self._store_process_status(status)
 
         # handle install success
-        if status[u'status'] == Install.STATUS_DONE:
+        if status['status'] == Install.STATUS_DONE:
             # need to restart
             self._need_restart = True
             self._set_module_process(pending=True)
 
             # update cleep.conf
-            self.cleep_conf.install_module(status[u'module'])
+            self.cleep_conf.install_module(status['module'])
         elif status['status'] == Install.STATUS_ERROR:
             # set main action failed
             self._set_module_process(failed=True)
 
         # handle end of install to finalize install
-        if status[u'status'] >= Install.STATUS_DONE:
+        if status['status'] >= Install.STATUS_DONE:
             # reset processor
             self.__processor = None
 
@@ -898,7 +926,7 @@ class Update(CleepModule):
         # compute dependencies to install
         modules_infos_json = {}
         dependencies = self._get_module_dependencies(module_name, modules_infos_json, self._get_module_infos_from_modules_json)
-        self.logger.debug(u'Module "%s" dependencies: %s' % (module_name, dependencies))
+        self.logger.debug('Module "%s" dependencies: %s' % (module_name, dependencies))
 
         # schedule module + dependencies installs
         for dependency_name in dependencies:
@@ -931,7 +959,7 @@ class Update(CleepModule):
         """
         # check params
         if module_name is None or len(module_name) == 0:
-            raise MissingParameter(u'Parameter "module_name" is missing')
+            raise MissingParameter('Parameter "module_name" is missing')
         installed_modules = self._get_installed_modules_names()
         if module_name in installed_modules:
             raise InvalidParameter('Module "%s" is already installed' % module_name)
@@ -957,7 +985,7 @@ class Update(CleepModule):
                 }
 
         """
-        self.logger.debug(u'Module uninstall callback status: %s' % status)
+        self.logger.debug('Module uninstall callback status: %s' % status)
 
         # send process status to ui
         self.update_module_uninstall.send(params=status)
@@ -966,12 +994,12 @@ class Update(CleepModule):
         self._store_process_status(status)
 
         # handle process success
-        if status[u'status'] == Install.STATUS_DONE:
+        if status['status'] == Install.STATUS_DONE:
             self._need_restart = True
             self._set_module_process(pending=True)
 
             # update cleep.conf
-            self.cleep_conf.uninstall_module(status[u'module'])
+            self.cleep_conf.uninstall_module(status['module'])
         elif status['status'] == Install.STATUS_ERROR:
             # set main action failed
             self._set_module_process(failed=True)
@@ -1004,9 +1032,9 @@ class Update(CleepModule):
         # compute dependencies to uninstall
         modules_infos = {}
         dependencies = self._get_module_dependencies(module_name, modules_infos, self._get_module_infos_from_inventory)
-        self.logger.debug(u'Module "%s" dependencies: %s' % (module_name, dependencies))
+        self.logger.debug('Module "%s" dependencies: %s' % (module_name, dependencies))
         modules_to_uninstall = self._get_modules_to_uninstall(dependencies, modules_infos)
-        self.logger.info(u'Module "%s" uninstallation will remove "%s"' % (module_name, modules_to_uninstall))
+        self.logger.info('Module "%s" uninstallation will remove "%s"' % (module_name, modules_to_uninstall))
 
         # schedule module + dependencies uninstalls
         for module_to_uninstall in modules_to_uninstall:
@@ -1028,7 +1056,7 @@ class Update(CleepModule):
         """
         # check params
         if module_name is None or len(module_name) == 0:
-            raise MissingParameter(u'Parameter "module_name" is missing')
+            raise MissingParameter('Parameter "module_name" is missing')
         installed_modules = self._get_installed_modules_names()
         if module_name not in installed_modules:
             raise InvalidParameter('Module "%s" is not installed' % module_name)
@@ -1056,13 +1084,14 @@ class Update(CleepModule):
 
         for module_to_uninstall in modules_to_uninstall:
             if module_to_uninstall not in modules_infos:
-                self.logger.warning('Module infos dict should contains "%s" module infos. Module won\'t be removed and can become an orphan.' % module_to_uninstall)
+                self.logger.warning('Module infos dict should contains "%s" module infos. '
+                    'Module won\'t be removed and can become an orphan.' % module_to_uninstall)
                 module_infos = {
                     'loadedby': ['orphan']
                 }
             else:
                 module_infos = modules_infos[module_to_uninstall]
-            for loaded_by in module_infos[u'loadedby']:
+            for loaded_by in module_infos['loadedby']:
                 if loaded_by not in modules_to_uninstall:
                     # do not uninstall this module because it is a dependency of another module
                     self.logger.debug('Do not uninstall module "%s" which is still needed by "%s" module' % (
@@ -1089,7 +1118,7 @@ class Update(CleepModule):
                 }
 
         """
-        self.logger.debug(u'Module update callback status: %s' % status)
+        self.logger.debug('Module update callback status: %s' % status)
 
         # send process status to ui
         self.update_module_update.send(params=status)
@@ -1098,12 +1127,12 @@ class Update(CleepModule):
         self._store_process_status(status)
 
         # handle process success
-        if status[u'status'] == Install.STATUS_DONE:
+        if status['status'] == Install.STATUS_DONE:
             self._need_restart = True
             self._set_module_process(pending=True)
 
             # update cleep.conf adding module to updated ones
-            self.cleep_conf.update_module(status[u'module'])
+            self.cleep_conf.update_module(status['module'])
         elif status['status'] == Install.STATUS_ERROR:
             # set main action failed
             self._set_module_process(failed=True)
@@ -1200,7 +1229,7 @@ class Update(CleepModule):
         """
         # check params
         if module_name is None or len(module_name) == 0:
-            raise MissingParameter(u'Parameter "module_name" is missing')
+            raise MissingParameter('Parameter "module_name" is missing')
         installed_modules = self._get_installed_modules_names()
         if module_name not in installed_modules:
             raise InvalidParameter('Module "%s" is not installed' % module_name)
