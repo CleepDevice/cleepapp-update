@@ -4,6 +4,7 @@
  */
 var updateService = function($q, $rootScope, rpcService) {
     var self = this;
+    self.cleepUpdateStatus = 0;
 
     self.getModulesUpdates = function() {
         return rpcService.sendCommand('get_modules_updates', 'update');
@@ -55,6 +56,11 @@ var updateService = function($q, $rootScope, rpcService) {
         });
     };
 
+    self.getCleepLogs = function(moduleName) {
+        return rpcService.sendCommand('get_logs', 'update', {
+            'module_name': 'cleep',
+        });
+    };
 
     /**
      * Catch events
@@ -69,6 +75,7 @@ var updateService = function($q, $rootScope, rpcService) {
     });
 
     $rootScope.$on('update.cleep.update', function(event, uuid, params) {
+        self.cleepUpdateStatus = params.status;
     });
 }
     

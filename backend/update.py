@@ -73,6 +73,7 @@ class Update(CleepModule):
             'updatable': False,
             'processing': False,
             'pending': False,
+            'failed': False,
             'version': None,
             'changelog': None,
             'packageurl': None,
@@ -118,6 +119,20 @@ class Update(CleepModule):
         if config['modulesupdateenabled']:
             self.update_modules()
 
+    def get_module_config(self):
+        """
+        Return module configuration
+
+        Returns:
+            dict: configuration
+        """
+        config = self._get_config()
+        config.update({
+            'cleepupdatelogs': self._get_last_update_logs('cleep'),
+        })
+
+        return config
+
     def event_received(self, event):
         """
         Event received
@@ -146,6 +161,52 @@ class Update(CleepModule):
                     except Exception: # pragma: no cover
                         self.crash_report.report_exception()
 
+    def _get_last_update_logs(self, module_name):
+        """
+        Return infos about last cleep update logs
+
+        Args:
+            module_name (string): module name to search log for. If it is cleep last update
+                                  log, specify "cleep" as module name.
+
+        Returns:
+            dict: last cleep update logs::
+
+            {
+                timestamp (int): logs file timestamp
+                path (string): log file path
+            }
+
+        """
+        out = {
+            'timestamp': None,
+            'path': None,
+        }
+
+        path = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FILENAME)
+        if os.path.exists(path):
+            out['timestamp'] = int(os.path.getmtime(path))
+            out['path'] = path
+
+        return out
+
+    def get_logs(self, module_name):
+        """
+        Get logs content for specified module or cleep
+
+        Args:
+            module_name (string): module name. Specify "cleep" to retrieve logs for cleep
+        """
+        path = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FILENAME)
+        if not os.path.exists(path):
+            raise CommandError('There is no logs for module "%s"' % module_name)
+
+        lines = self.cleep_filesystem.read_data(path, encoding='utf8')
+        if lines is None:
+            raise CommandError('Error reading logs')
+
+        return ''.join(lines)
+
     def get_modules_updates(self):
         """
         Return list of modules updates
@@ -173,6 +234,7 @@ class Update(CleepModule):
                 updatable (bool): true if new version available
                 processing (bool): true if cleep update is running
                 pending (bool): true if cleep update has been done and a restart is required
+                failed (bool): True if last update failed
                 version (string): new available version (format x.x.x) (None if no update)
                 changelog (string): update changelog (None if no update)
                 packageurl (string): package url (None if no update)
@@ -488,7 +550,7 @@ class Update(CleepModule):
                     # search for deb file
                     package_asset = None
                     for asset in assets:
-                        if asset['name'].startswith('cleep_') and asset['name'].endswith('.zip'):
+                        if asset['name'].startswith('cleep_') and asset['name'].endswith('.deb'):
                             self.logger.debug('Found Cleep package asset: %s' % asset)
                             package_asset = asset
                             update['packageurl'] = asset['url']
@@ -615,15 +677,6 @@ class Update(CleepModule):
         if status['status'] >= InstallCleep.STATUS_UPDATED:
             self._store_process_status(status)
 
-            # reset cleep update config
-            self._cleep_updates.update({
-                'updatable': False,
-                'version': None,
-                'changelog': None,
-                'packageurl': None,
-                'checksumurl': None,
-            })
-
             # lock filesystem
             self.cleep_filesystem.disable_write(True, True)
 
@@ -632,25 +685,52 @@ class Update(CleepModule):
             # update successful
             self.logger.info('Cleep update installed successfully. Restart now')
             self._restart_cleep()
+
+            # reset cleep update
+            self._cleep_updates.update({
+                'updatable': False,
+                'processing': False,
+                'pending': True,
+                'failed': False,
+                'version': None,
+                'changelog': None,
+                'packageurl': None,
+                'checksumurl': None,
+            })
+
         elif status['status'] > InstallCleep.STATUS_UPDATED:
             # error occured
+            update_failed = True
             self.logger.error('Cleep update failed. Please check process outpout')
+
+            # reset cleep update
+            self._cleep_updates.update({
+                'processing': False,
+                'pending': False,
+                'failed': True,
+            })
 
     def update_cleep(self):
         """
         Update Cleep installing debian package
         """
         # check
-        cleep_update = self._get_config_field('cleepupdate')
-        if cleep_update['version'] is None:
-            raise CommandInfo('No Cleep update available, please launch update check')
+        if not self._cleep_updates['updatable']:
+            raise CommandInfo('No Cleep update available, please launch update check first')
 
         # unlock filesystem
         self.cleep_filesystem.enable_write(True, True)
 
+        # reset flags
+        self._cleep_updates.update({
+            'failed': False,
+            'pending': False,
+            'processing': True,
+        })
+
         # launch update
-        package_url = cleep_update['packageurl']
-        checksum_url = cleep_update['checksumurl']
+        package_url = self._cleep_updates['packageurl']
+        checksum_url = self._cleep_updates['checksumurl']
         self.logger.debug('Update Cleep: package_url=%s checksum_url=%s' % (package_url, checksum_url))
         update = InstallCleep(self.cleep_filesystem, self.crash_report)
         update.install(package_url, checksum_url, self._update_cleep_callback)
@@ -847,9 +927,7 @@ class Update(CleepModule):
 
         """
         # if no module name specified in status, it means it's cleep process
-        module_name = 'cleep'
-        if 'module' in status:
-            module_name = status['module']
+        module_name = 'cleep' if 'module' not in status else status['module']
 
         # build and check path
         fullpath = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FILENAME)

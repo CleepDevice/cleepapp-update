@@ -1,0 +1,23 @@
+<md-dialog aria-label="Update infos" flex="75">
+    <form ng-cloak>
+        <md-toolbar>
+            <div class="md-toolbar-tools">
+                <h2>Cleep update logs</h2>
+                <span flex></span>
+                <md-button class="md-icon-button" ng-click="logsCtl.closeDialog()" aria-label="Close dialog">
+                    <md-icon md-svg-icon="close"></md-icon>
+                </md-button>
+            </div>
+        </md-toolbar>
+
+        <md-dialog-content>
+            <div class="md-dialog-content">
+                <span class="md-caption" ng-if="logsCtl.cleepLogs.length>0" style="white-space: pre-wrap;">{{logsCtl.cleepLogs}}</span>
+                <span class="md-caption" ng-if="logsCtl.cleepLogs.length===0">
+                    There is no log.
+                </span>
+            </div>
+        </md-dialog-content>
+    </form>
+</md-dialog>
+

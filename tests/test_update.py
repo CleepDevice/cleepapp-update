@@ -1133,7 +1133,7 @@ class TestUpdate(unittest.TestCase):
 
         with self.assertRaises(CommandInfo) as cm:
             self.module.update_cleep()
-        self.assertEqual(str(cm.exception), 'No Cleep update available, please launch update check')
+        self.assertEqual(str(cm.exception), 'No Cleep update available, please launch update check first')
         self.assertFalse(self.module.cleep_filesystem.enable_write.called)
     
     @patch('backend.update.InstallCleep')

@@ -5,6 +5,7 @@
 var updateConfigDirective = function($rootScope, cleepService, updateService, $location, toast, $mdDialog, marked) {
     var updateController = ['$scope', function($scope) {   
         var self = this;
+        self.updateService = updateService;
         self.tabIndex = 'modules';
         self.config = {};
         self.cleepUpdateEnabled = false;
@@ -12,6 +13,7 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
         self.cleepUpdates = null;
         self.modulesUpdates = null;
         self.cleepLastCheck = null;
+        self.cleepLogs = '';
 
 		/**
 		 * Set automatic update
@@ -70,17 +72,21 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
         /**
          * Show logs dialog (the same for Cleep and modules)
          */
-        self.showLogsDialog = function(ev) {
-            $mdDialog.show({
-                controller: function() { return self; },
-                controllerAs: 'logsCtl',
-                templateUrl: 'logs.dialog.html',
-                parent: angular.element(document.body),
-                targetEvent: ev,
-                clickOutsideToClose: true,
-                fullscreen: true
-            })
-            .then(function() {}, function() {});
+        self.showCleepLogsDialog = function(ev) {
+            updateService.getCleepLogs()
+                .then(function(resp) {
+                    self.cleepLogs = resp.data;
+                    $mdDialog.show({
+                        controller: function() { return self; },
+                        controllerAs: 'logsCtl',
+                        templateUrl: 'cleep-logs.dialog.html',
+                        parent: angular.element(document.body),
+                        targetEvent: ev,
+                        clickOutsideToClose: true,
+                        fullscreen: true
+                    })
+                    .then(function() {}, function() {});
+                });
         };
 
         /**
@@ -94,7 +100,13 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
                 parent: angular.element(document.body),
                 targetEvent: ev,
                 clickOutsideToClose: true,
-                fullscreen: true
+                fullscreen: true,
+                onShowing: function() {
+                    self.updateService.getCleepLogs()
+                        .then(function(resp) {
+                            self.cleepLogs = resp.data;
+                        });
+                },
             })
             .then(function() {}, function() {});
         };
@@ -103,7 +115,7 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
          * Update cleep
          */
         self.updateCleep = function() {
-            toast.loading('Updating Cleep...');
+            self.cleepUpdates.processing = true;
             updateService.updateCleep();
         }
 
