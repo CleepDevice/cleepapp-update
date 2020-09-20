@@ -46,7 +46,8 @@ class Update(CleepModule):
 
     CLEEP_GITHUB_OWNER = 'tangb'
     CLEEP_GITHUB_REPO = 'raspiot'
-    PROCESS_STATUS_FILENAME = 'process.log'
+    PROCESS_STATUS_SUCCESS_FILENAME = 'process_success.log'
+    PROCESS_STATUS_FAILURE_FILENAME = 'process_failure.log'
     CLEEP_STATUS_FILEPATH = ''
     ACTION_MODULE_INSTALL = 'install'
     ACTION_MODULE_UPDATE = 'update'
@@ -175,6 +176,7 @@ class Update(CleepModule):
             {
                 timestamp (int): logs file timestamp
                 path (string): log file path
+                failed (bool): True if last update failed
             }
 
         """
@@ -183,10 +185,23 @@ class Update(CleepModule):
             'path': None,
         }
 
-        path = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FILENAME)
+        path = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_SUCCESS_FILENAME)
         if os.path.exists(path):
-            out['timestamp'] = int(os.path.getmtime(path))
-            out['path'] = path
+            out.update({
+                'timestamp': int(os.path.getmtime(path)),
+                'path': path,
+                'failed': False,
+            })
+            return out
+
+        path = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FAILURE_FILENAME)
+        if os.path.exists(path):
+            out.update({
+                'timestamp': int(os.path.getmtime(path)),
+                'path': path,
+                'failed': True,
+            })
+            return out
 
         return out
 
@@ -197,8 +212,14 @@ class Update(CleepModule):
         Args:
             module_name (string): module name. Specify "cleep" to retrieve logs for cleep
         """
-        path = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FILENAME)
-        if not os.path.exists(path):
+        path_success = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_SUCCESS_FILENAME)
+        path_failure = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FAILURE_FILENAME)
+        path = None
+        if os.path.exists(path_success):
+            path = path_success
+        elif os.path.exists(path_failure):
+            path = path_failure
+        if not path:
             raise CommandError('There is no logs for module "%s"' % module_name)
 
         lines = self.cleep_filesystem.read_data(path, encoding='utf8')
@@ -675,8 +696,6 @@ class Update(CleepModule):
 
         # store final status when update terminated (successfully or not)
         if status['status'] >= InstallCleep.STATUS_UPDATED:
-            self._store_process_status(status)
-
             # lock filesystem
             self.cleep_filesystem.disable_write(True, True)
 
@@ -684,7 +703,7 @@ class Update(CleepModule):
         if status['status'] == InstallCleep.STATUS_UPDATED:
             # update successful
             self.logger.info('Cleep update installed successfully. Restart now')
-            self._restart_cleep()
+            self._store_process_status(status, success=True)
 
             # reset cleep update
             self._cleep_updates.update({
@@ -698,9 +717,13 @@ class Update(CleepModule):
                 'checksumurl': None,
             })
 
+            # restart cleep
+            self._restart_cleep()
+
         elif status['status'] > InstallCleep.STATUS_UPDATED:
             # error occured
             update_failed = True
+            self._store_process_status(status, success=False)
             self.logger.error('Cleep update failed. Please check process outpout')
 
             # reset cleep update
@@ -918,19 +941,21 @@ class Update(CleepModule):
         context['dependencies'].append(module_name)
         return context['dependencies']
 
-    def _store_process_status(self, status):
+    def _store_process_status(self, status, success=True):
         """
         Store last module process status in filesystem
 
         Args:
             status (dict): process status
-
         """
         # if no module name specified in status, it means it's cleep process
         module_name = 'cleep' if 'module' not in status else status['module']
 
         # build and check path
-        fullpath = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FILENAME)
+        if success:
+            fullpath = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_SUCCESS_FILENAME)
+        else:
+            fullpath = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FAILURE_FILENAME)
         path = os.path.join(PATH_INSTALL, module_name)
         if not os.path.exists(path):
             self.cleep_filesystem.mkdir(path, True)
@@ -959,19 +984,19 @@ class Update(CleepModule):
         # send process status
         self.update_module_install.send(params=status)
 
-        # save last module processing
-        self._store_process_status(status)
-
         # handle install success
         if status['status'] == Install.STATUS_DONE:
             # need to restart
             self._need_restart = True
             self._set_module_process(pending=True)
+            self._store_process_status(status, success=True)
 
             # update cleep.conf
             self.cleep_conf.install_module(status['module'])
+
         elif status['status'] == Install.STATUS_ERROR:
             # set main action failed
+            self._store_process_status(status, success=Failed)
             self._set_module_process(failed=True)
 
         # handle end of install to finalize install
@@ -1068,19 +1093,19 @@ class Update(CleepModule):
         # send process status to ui
         self.update_module_uninstall.send(params=status)
 
-        # save last module processing
-        self._store_process_status(status)
-
         # handle process success
         if status['status'] == Install.STATUS_DONE:
             self._need_restart = True
             self._set_module_process(pending=True)
+            self._store_process_status(status, success=True)
 
             # update cleep.conf
             self.cleep_conf.uninstall_module(status['module'])
+
         elif status['status'] == Install.STATUS_ERROR:
             # set main action failed
             self._set_module_process(failed=True)
+            self._store_process_status(status, success=False)
 
         # handle end of process
         if status['status'] >= Install.STATUS_DONE:
@@ -1201,19 +1226,19 @@ class Update(CleepModule):
         # send process status to ui
         self.update_module_update.send(params=status)
 
-        # save last module processing
-        self._store_process_status(status)
-
         # handle process success
         if status['status'] == Install.STATUS_DONE:
             self._need_restart = True
             self._set_module_process(pending=True)
+            self._store_process_status(status, success=True)
 
             # update cleep.conf adding module to updated ones
             self.cleep_conf.update_module(status['module'])
+
         elif status['status'] == Install.STATUS_ERROR:
             # set main action failed
             self._set_module_process(failed=True)
+            self._store_process_status(status, success=False)
 
         # handle end of process
         if status['status'] >= Install.STATUS_DONE:

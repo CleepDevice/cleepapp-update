@@ -53,9 +53,16 @@
                     <md-progress-linear md-mode="indeterminate" class="md-accent" style="min-width:250px;"></md-progress-linear>
                 </div>
             </md-list-item>
-            <md-list-item ng-if="updateCtl.config.cleepupdatelogs.timestamp">
+            <md-list-item ng-if="updateCtl.config.cleepupdatelogs.timestamp && !updateCtl.config.cleepupdatelogs.failed">
                 <md-icon md-svg-icon="chevron-right"></md-icon>
-                <p>Last update installed at {{updateCtl.config.cleepupdatelogs.timestamp | hrDatetime}}</p>
+                <p>Last update installed successfully at {{updateCtl.config.cleepupdatelogs.timestamp | hrDatetime}}</p>
+                <md-button class="md-secondary md-raised" ng-click="updateCtl.showCleepLogsDialog()">
+                    See logs
+                </md-button>
+            </md-list-item>
+            <md-list-item ng-if="updateCtl.config.cleepupdatelogs.timestamp && updateCtl.config.cleepupdatelogs.failed">
+                <md-icon md-svg-icon="alert-circle"></md-icon>
+                <p>Last update installation failed at {{updateCtl.config.cleepupdatelogs.timestamp | hrDatetime}}</p>
                 <md-button class="md-secondary md-raised" ng-click="updateCtl.showCleepLogsDialog()">
                     See logs
                 </md-button>

@@ -54,13 +54,13 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
                 .finally(function() {
                     toast.info(message);
                 });
-		}
+		};
 
         /**
          * Check for modules updates
          */
         self.checkModulesUpdates = function() {
-		}
+		};
 
         /**
          * Close opened dialog
@@ -73,20 +73,22 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
          * Show logs dialog (the same for Cleep and modules)
          */
         self.showCleepLogsDialog = function(ev) {
-            updateService.getCleepLogs()
-                .then(function(resp) {
-                    self.cleepLogs = resp.data;
-                    $mdDialog.show({
-                        controller: function() { return self; },
-                        controllerAs: 'logsCtl',
-                        templateUrl: 'cleep-logs.dialog.html',
-                        parent: angular.element(document.body),
-                        targetEvent: ev,
-                        clickOutsideToClose: true,
-                        fullscreen: true
-                    })
-                    .then(function() {}, function() {});
-                });
+            $mdDialog.show({
+                controller: function() { return self; },
+                controllerAs: 'logsCtl',
+                templateUrl: 'cleep-logs.dialog.html',
+                parent: angular.element(document.body),
+                targetEvent: ev,
+                clickOutsideToClose: true,
+                fullscreen: true,
+                onShowing: function() {
+                    self.updateService.getCleepLogs()
+                        .then(function(resp) {
+                            self.cleepLogs = resp.data;
+                        });
+                    },
+                })
+                .then(function() {}, function() {});
         };
 
         /**
@@ -101,12 +103,6 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
                 targetEvent: ev,
                 clickOutsideToClose: true,
                 fullscreen: true,
-                onShowing: function() {
-                    self.updateService.getCleepLogs()
-                        .then(function(resp) {
-                            self.cleepLogs = resp.data;
-                        });
-                },
             })
             .then(function() {}, function() {});
         };
@@ -116,8 +112,9 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
          */
         self.updateCleep = function() {
             self.cleepUpdates.processing = true;
+            self.closeDialog();
             updateService.updateCleep();
-        }
+        };
 
 		/**
 		 * Controller init
@@ -131,7 +128,7 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
             // load module config
             cleepService.getModuleConfig('update')
                 .then(function(config) {
-                    self.config = config;
+                    Object.assign(self.config, config);
                     self.cleepUpdateEnabled = config.cleepupdateenabled;
                     self.modulesUpdateEnabled = config.modulesupdateenabled;
                     self.cleepLastCheck = config.cleeplastcheck;
@@ -141,7 +138,22 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
                 .then(function(resp) {
                     self.cleepUpdates = resp.data;
                 });
-        }
+        };
+
+        $rootScope.$watch(
+            function() {
+                return updateService.cleepUpdateStatus;
+            },
+            function(newVal, oldVal) {
+                if( newVal && newVal>=2 ) {
+                    // cleep install terminated, refresh config to get last results
+                    cleepService.reloadModuleConfig('update')
+                        .then(function(config) {
+                            Object.assign(self.config, config);
+                        });
+                }
+            }
+        );
     }];
 
     return {
