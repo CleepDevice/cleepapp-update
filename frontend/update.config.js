@@ -76,7 +76,7 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
             $mdDialog.show({
                 controller: function() { return self; },
                 controllerAs: 'logsCtl',
-                templateUrl: 'cleep-logs.dialog.html',
+                templateUrl: 'logs.dialog.html',
                 parent: angular.element(document.body),
                 targetEvent: ev,
                 clickOutsideToClose: true,
@@ -86,9 +86,9 @@ var updateConfigDirective = function($rootScope, cleepService, updateService, $l
                         .then(function(resp) {
                             self.cleepLogs = resp.data;
                         });
-                    },
-                })
-                .then(function() {}, function() {});
+                },
+            })
+            .then(function() {}, function() {});
         };
 
         /**

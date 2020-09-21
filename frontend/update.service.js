@@ -5,6 +5,18 @@
 var updateService = function($q, $rootScope, rpcService) {
     var self = this;
     self.cleepUpdateStatus = 0;
+    self.moduleInstallStatus = {
+        status: 0,
+        module: null,
+    };
+    self.moduleUninstallStatus = {
+        status: 0,
+        module: null,
+    };
+    self.moduleUpdateStatus = {
+        status: 0,
+        module: null,
+    };
 
     self.getModulesUpdates = function() {
         return rpcService.sendCommand('get_modules_updates', 'update');
@@ -66,16 +78,19 @@ var updateService = function($q, $rootScope, rpcService) {
      * Catch events
      */
     $rootScope.$on('update.module.install', function(event, uuid, params) {
+        Object.assign(self.moduleInstallStatus, params);
     });
 
     $rootScope.$on('update.module.uninstall', function(event, uuid, params) {
+        Object.assign(self.moduleUninstallStatus, params);
     });
 
     $rootScope.$on('update.module.update', function(event, uuid, params) {
+        Object.assign(self.moduleUpdateStatus, params);
     });
 
     $rootScope.$on('update.cleep.update', function(event, uuid, params) {
-        self.cleepUpdateStatus = params.status;
+        self.moduleInstallStatus = params.status;
     });
 }
     
