@@ -53,8 +53,8 @@ class Update(CleepModule):
     ACTION_MODULE_UPDATE = 'update'
     ACTION_MODULE_UNINSTALL = 'uninstall'
 
-    MAIN_ACTIONS_TASK_INTERVAL = 60.0
-    SUB_ACTIONS_TASK_INTERVAL = 10.0
+    MAIN_ACTIONS_TASK_INTERVAL = 10.0
+    SUB_ACTIONS_TASK_INTERVAL = 5.0
 
     def __init__(self, bootstrap, debug_enabled):
         """
@@ -97,10 +97,10 @@ class Update(CleepModule):
         self.__sub_actions_task = None
 
         # events
-        self.update_module_install = self._get_event('update.module.install')
-        self.update_module_uninstall = self._get_event('update.module.uninstall')
-        self.update_module_update = self._get_event('update.module.update')
-        self.update_cleep_update = self._get_event('update.cleep.update')
+        self.module_install_event = self._get_event('update.module.install')
+        self.module_uninstall_event = self._get_event('update.module.uninstall')
+        self.module_update_event = self._get_event('update.module.update')
+        self.cleep_update_event = self._get_event('update.cleep.update')
 
     def _configure(self):
         """
@@ -274,6 +274,47 @@ class Update(CleepModule):
         """
         return list(self._modules_updates.keys())
 
+    def __start_actions_tasks(self):
+        """
+        Start actions tasks.
+
+        Tasks are not started if there are already running.
+        Main-actions and sub-actions tasks are correlated, start them at the same time.
+        """
+        # main actions task
+        if not self.__main_actions_task:
+            self.logger.debug('Start main-actions task')
+            self.__main_actions_task = Task(
+                Update.MAIN_ACTIONS_TASK_INTERVAL,
+                self._execute_main_action_task,
+                logger=self.logger,
+            )
+            self.__main_actions_task.start()
+
+        # sub actions task
+        if not self.__sub_actions_task:
+            self.logger.debug('Start sub-actions task')
+            self.__sub_actions_task = Task(
+                Update.SUB_ACTIONS_TASK_INTERVAL,
+                self._execute_sub_actions_task,
+                logger=self.logger,
+            )
+            self.__sub_actions_task.start()
+
+    def __stop_actions_tasks(self):
+        """
+        Stop actions tasks.
+        """
+        if self.__main_actions_task:
+            self.logger.debug('Stop main-actions task')
+            self.__main_actions_task.stop()
+            self.__main_actions_task = None
+
+        if self.__sub_actions_task:
+            self.logger.debug('Stop sub-actions task')
+            self.__sub_actions_task.stop()
+            self.__sub_actions_task = None
+
     def _execute_main_action_task(self):
         """
         Function triggered regularly to process main actions (only one running at a time)
@@ -283,19 +324,17 @@ class Update(CleepModule):
 
             # check if action is already processing
             if len(self.__sub_actions) != 0:
-                self.logger.debug('Main action is already processing, stop here.')
+                self.logger.debug('Main action is already processing, stop main-action task here.')
                 return
 
-            # previous main action terminated (or first one to run)
             # remove previous action if necessary
             if len(self.__main_actions) > 0 and self.__main_actions[len(self.__main_actions)-1]['processing']:
                 self.__main_actions.pop()
 
             # is there main action to run ?
             if len(self.__main_actions) == 0:
-                self.logger.debug('No more main action to execute, stop here')
-                if self.__sub_actions_task:
-                    self.__sub_actions_task.stop()
+                self.logger.debug('No more main action to execute, stop all tasks.')
+                self.__stop_actions_tasks()
                 return
 
             # compute sub actions
@@ -322,14 +361,6 @@ class Update(CleepModule):
             for sub_action in self.__sub_actions:
                 sub_action['progressstep'] = progress_step
 
-            # launch sub actions task
-            self.__sub_actions_task = Task(
-                Update.SUB_ACTIONS_TASK_INTERVAL,
-                self._execute_sub_actions_task,
-                self.logger,
-            )
-            self.__sub_actions_task.start()
-
         except Exception:
             self.logger.exception('Error occured executing action: %s' % action)
 
@@ -342,7 +373,12 @@ class Update(CleepModule):
         """
         # check if sub action is being processed
         if self.__processor:
-            self.logger.trace('Sub action is processing, stop here')
+            self.logger.trace('Sub action is processing, stop sub-action task here')
+            return
+
+        # return if no sub action in pipe
+        if len(self.__sub_actions) == 0:
+            self.logger.trace('No more sub actions to process, stop sub-action task here')
             return
 
         # no running sub action, run next one
@@ -686,13 +722,14 @@ class Update(CleepModule):
     def _update_cleep_callback(self, status):
         """
         Cleep update callback
+
         Args:
             status (dict): update status
         """
         self.logger.debug('Cleep update callback status: %s' % status)
 
         # send process status (only status)
-        self.update_cleep_update.send(params={'status': status['status']})
+        self.cleep_update_event.send(params={'status': status['status']})
 
         # store final status when update terminated (successfully or not)
         if status['status'] >= InstallCleep.STATUS_UPDATED:
@@ -763,13 +800,12 @@ class Update(CleepModule):
         Update modules that can be updated. It consists of processing postponed main actions filled
         during module updates check.
         """
-        if not self.__main_actions_task:
-            self.__main_actions_task = Task(
-                Update.MAIN_ACTIONS_TASK_INTERVAL,
-                self._execute_main_action_task,
-                logger=self.logger,
-            )
-            self.__main_actions_task.start()
+        # fill main actions with upgradable modules
+        for module in [module for module in self._modules_updates.values() if module['updatable']]:
+            self._postpone_main_action(Update.ACTION_MODULE_UPDATE, module['name'])
+
+        # start main actions task
+        self.__start_actions_tasks()
 
     def _postpone_main_action(self, action, module_name, extra=None):
         """
@@ -972,6 +1008,7 @@ class Update(CleepModule):
             status (dict): process status::
 
                 {
+                    process (list): process output
                     stdout (list): stdout output
                     stderr (list): stderr output
                     status (int): install status
@@ -982,7 +1019,10 @@ class Update(CleepModule):
         self.logger.debug('Module install callback status: %s' % status)
 
         # send process status
-        self.update_module_install.send(params=status)
+        self.module_install_event.send(params={
+            'status': status['status'],
+            'module': status['module'],
+        })
 
         # handle install success
         if status['status'] == Install.STATUS_DONE:
@@ -1068,10 +1108,15 @@ class Update(CleepModule):
             raise InvalidParameter('Module "%s" is already installed' % module_name)
 
         # postpone module installation
-        return self._postpone_main_action(
+        out = self._postpone_main_action(
             Update.ACTION_MODULE_INSTALL,
             module_name
         )
+
+        # start main actions task
+        self.__start_actions_tasks()
+
+        return out
 
     def __uninstall_module_callback(self, status):
         """
@@ -1081,6 +1126,7 @@ class Update(CleepModule):
             status (dict): process status::
 
                 {
+                    process (list): process output
                     stdout (list): stdout output
                     stderr (list): stderr output
                     status (int): install status
@@ -1091,7 +1137,10 @@ class Update(CleepModule):
         self.logger.debug('Module uninstall callback status: %s' % status)
 
         # send process status to ui
-        self.update_module_uninstall.send(params=status)
+        self.module_uninstall_event.send(params={
+            'status': status['status'],
+            'module': status['module'],
+        })
 
         # handle process success
         if status['status'] == Install.STATUS_DONE:
@@ -1165,11 +1214,16 @@ class Update(CleepModule):
             raise InvalidParameter('Module "%s" is not installed' % module_name)
 
         # postpone uninstall
-        return self._postpone_main_action(
+        out = self._postpone_main_action(
             Update.ACTION_MODULE_UNINSTALL,
             module_name,
             extra={'force': force},
         )
+
+        # start main actions task
+        self.__start_actions_tasks()
+
+        return out
 
     def _get_modules_to_uninstall(self, modules_to_uninstall, modules_infos):
         """
@@ -1214,6 +1268,7 @@ class Update(CleepModule):
             status (dict): process status::
 
                 {
+                    process (list): process output
                     stdout (list): stdout output
                     stderr (list): stderr output
                     status (int): install status
@@ -1224,7 +1279,10 @@ class Update(CleepModule):
         self.logger.debug('Module update callback status: %s' % status)
 
         # send process status to ui
-        self.update_module_update.send(params=status)
+        self.module_update_event.send(params={
+            'status': status['status'],
+            'module': status['module'],
+        })
 
         # handle process success
         if status['status'] == Install.STATUS_DONE:
@@ -1338,8 +1396,13 @@ class Update(CleepModule):
             raise InvalidParameter('Module "%s" is not installed' % module_name)
 
         # postpone uninstall
-        return self._postpone_main_action(
+        out = self._postpone_main_action(
             Update.ACTION_MODULE_UPDATE,
             module_name,
         )
+
+        # start actions tasks
+        self.__start_actions_tasks()
+
+        return out
 
