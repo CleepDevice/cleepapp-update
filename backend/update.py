@@ -53,8 +53,8 @@ class Update(CleepModule):
     ACTION_MODULE_UPDATE = 'update'
     ACTION_MODULE_UNINSTALL = 'uninstall'
 
-    MAIN_ACTIONS_TASK_INTERVAL = 10.0
-    SUB_ACTIONS_TASK_INTERVAL = 5.0
+    MAIN_ACTIONS_TASK_INTERVAL = 5.0
+    SUB_ACTIONS_TASK_INTERVAL = 1.0
 
     def __init__(self, bootstrap, debug_enabled):
         """
@@ -143,7 +143,8 @@ class Update(CleepModule):
         """
         if event['event'] == 'parameters.time.now':
             # update
-            if event['params']['hour'] == self._check_update_time['hour'] and event['params']['minute'] == self._check_update_time['minute']:
+            if (event['params']['hour'] == self._check_update_time['hour'] and
+                    event['params']['minute'] == self._check_update_time['minute']):
                 # check updates
                 self.check_cleep_updates()
                 self.check_modules_updates()
@@ -272,18 +273,20 @@ class Update(CleepModule):
         Returns:
             list: list of modules names
         """
-        return list(self._modules_updates.keys())
+        # modules updates dict can contains module that are installing,
+        # but there are not yet so we must filter them
+        return [module['name'] for module in self._modules_updates.values() if module['version'] is not None]
 
     def __start_actions_tasks(self):
         """
         Start actions tasks.
 
         Tasks are not started if there are already running.
-        Main-actions and sub-actions tasks are correlated, start them at the same time.
+        Main actions and sub actions tasks are correlated, start them at the same time.
         """
         # main actions task
         if not self.__main_actions_task:
-            self.logger.debug('Start main-actions task')
+            self.logger.debug('Start main actions task')
             self.__main_actions_task = Task(
                 Update.MAIN_ACTIONS_TASK_INTERVAL,
                 self._execute_main_action_task,
@@ -293,7 +296,7 @@ class Update(CleepModule):
 
         # sub actions task
         if not self.__sub_actions_task:
-            self.logger.debug('Start sub-actions task')
+            self.logger.debug('Start sub actions task')
             self.__sub_actions_task = Task(
                 Update.SUB_ACTIONS_TASK_INTERVAL,
                 self._execute_sub_actions_task,
@@ -306,12 +309,12 @@ class Update(CleepModule):
         Stop actions tasks.
         """
         if self.__main_actions_task:
-            self.logger.debug('Stop main-actions task')
+            self.logger.debug('Stop main actions task')
             self.__main_actions_task.stop()
             self.__main_actions_task = None
 
         if self.__sub_actions_task:
-            self.logger.debug('Stop sub-actions task')
+            self.logger.debug('Stop sub actions task')
             self.__sub_actions_task.stop()
             self.__sub_actions_task = None
 
@@ -321,10 +324,11 @@ class Update(CleepModule):
         """
         try:
             self.__main_actions_mutex.acquire()
+            self.logger.debug('Main actions in progress: %s' % len(self.__main_actions))
 
             # check if action is already processing
             if len(self.__sub_actions) != 0:
-                self.logger.debug('Main action is already processing, stop main-action task here.')
+                self.logger.debug('Main action is already processing, stop main action task here.')
                 return
 
             # remove previous action if necessary
@@ -339,6 +343,7 @@ class Update(CleepModule):
 
             # compute sub actions
             action = self.__main_actions[len(self.__main_actions)-1]
+            self.logger.debug('Processing action %s' % action)
             action['processing'] = True
             if action['action'] == Update.ACTION_MODULE_INSTALL:
                 self._install_main_module(action['module'])
@@ -363,6 +368,18 @@ class Update(CleepModule):
 
         except Exception:
             self.logger.exception('Error occured executing action: %s' % action)
+            self._set_module_process(failed=True)
+            if action:
+                params = {
+                    'module': action['module'],
+                    'status': Install.STATUS_ERROR
+                }
+                if action['action'] == Update.ACTION_MODULE_INSTALL:
+                    self.module_install_event.send(params)
+                elif action['action'] == Update.ACTION_MODULE_UNINSTALL:
+                    self.module_uninstall_event.send(params)
+                elif action['action'] == Update.ACTION_MODULE_UPDATE:
+                    self.module_update_event.send(params)
 
         finally:
             self.__main_actions_mutex.release()
@@ -371,14 +388,15 @@ class Update(CleepModule):
         """
         Function triggered regularly to perform sub actions
         """
+        self.logger.debug('Sub actions in progress: %s' % len(self.__main_actions))
         # check if sub action is being processed
         if self.__processor:
-            self.logger.trace('Sub action is processing, stop sub-action task here')
+            self.logger.trace('Sub action is processing, stop sub action task here')
             return
 
         # return if no sub action in pipe
         if len(self.__sub_actions) == 0:
-            self.logger.trace('No more sub actions to process, stop sub-action task here')
+            self.logger.trace('No more sub actions to process, stop sub action task here')
             return
 
         # no running sub action, run next one
@@ -416,7 +434,7 @@ class Update(CleepModule):
         action = self.__main_actions[len(self.__main_actions)-1]
         return action['module'] if action['processing'] else None
 
-    def _set_module_process(self, progress=None, inc_progress=None, failed=None, pending=False):
+    def _set_module_process(self, progress=None, inc_progress=None, failed=None, pending=False, forced_module_name=None):
         """
         Set module process infos. Nothing is updated if no module is processing.
 
@@ -424,18 +442,14 @@ class Update(CleepModule):
             progress (int): set progress value to specified value (0-100)
             inc_progress (int): increase progress value with specified value
             failed (bool): action process failed if set to False
+            pending (bool): True if module action termined successfully and app needs to be restarted
+            forced_module_name (string): Force module name instead of getting it from currently processing one
         """
         # get processing module name
-        module_name = self._get_processing_module_name()
+        module_name = forced_module_name if forced_module_name is not None else self._get_processing_module_name()
         if not module_name:
             self.logger.debug('Can\'t update module infos when no module is processing')
             return
-
-        # add entry in module updates in case of new module install
-        if module_name not in self._modules_updates:
-            module_infos = self._get_module_infos_from_modules_json(module_name)
-            new_module_version = module_infos['version'] if module_infos else '0.0.0'
-            self._modules_updates[module_name] = self.__get_module_update_data(module_name, None, new_module_version)
 
         module = self._modules_updates[module_name]
         module['processing'] = True
@@ -450,6 +464,7 @@ class Update(CleepModule):
             module['update']['progress'] = 100
         if pending is not None:
             module['pending'] = pending
+            module['processing'] = not pending
 
     def _is_module_process_failed(self):
         """
@@ -504,7 +519,7 @@ class Update(CleepModule):
 
         Args:
             module_name (string): module name
-            installed_module_version (string): installed module version (installed)
+            installed_module_version (string): installed module version
             new_module_version (string): new module version after update
 
         Returns:
@@ -515,14 +530,16 @@ class Update(CleepModule):
                     processing (bool): True if module has action in progress
                     pending (bool): True if module has been updated/uninstalled/installed
                     name (string): module name
-                    version (string): installed module version
+                    version (string): installed module version, None if module is not installed yet
                     update (dict): update data::
+
                         {
                             progress (int): progress percentage (0-100)
                             failed (bool): True if process has failed
                             version (string): update version
                             changelog (string): update changelog
                         }
+
                 }
 
         """
@@ -759,7 +776,6 @@ class Update(CleepModule):
 
         elif status['status'] > InstallCleep.STATUS_UPDATED:
             # error occured
-            update_failed = True
             self._store_process_status(status, success=False)
             self.logger.error('Cleep update failed. Please check process outpout')
 
@@ -827,12 +843,35 @@ class Update(CleepModule):
             self.logger.trace('existing_actions: %s' % existing_actions)
 
             if len(existing_actions) == 0:
+                # make sure module has entry in modules updates dict (case of new module install)
+                if module_name not in self._modules_updates:
+                    module_infos = self._get_module_infos_from_modules_json(module_name)
+                    new_module_version = module_infos['version'] if module_infos else '0.0.0'
+                    self._modules_updates[module_name] = self.__get_module_update_data(module_name, None, new_module_version)
+
+                # set module is processing
+                self._set_module_process(forced_module_name=module_name)
+
+                # store main action
                 self.__main_actions.insert(0, {
                     'action': action,
                     'module': module_name,
                     'extra': extra,
                     'processing': False,
                 })
+
+                # send event before it really starts to warn api clients
+                params = {
+                    'status': Install.STATUS_PROCESSING,
+                    'module': module_name,
+                }
+                if action == self.ACTION_MODULE_INSTALL:
+                    self.module_install_event.send(params)
+                elif action == self.ACTION_MODULE_UNINSTALL:
+                    self.module_uninstall_event.send(params)
+                elif action == self.ACTION_MODULE_UPDATE:
+                    self.module_update_event.send(params)
+
                 return True
 
         finally:
@@ -925,9 +964,9 @@ class Update(CleepModule):
             Exception if unknown module or error
         """
         # get infos from inventory
-        resp = self.send_command('get_module_infos', 'inventory', {'module': module_name})
+        resp = self.send_command('get_module_infos', 'inventory', {'module_name': module_name})
         if resp['error']:
-            self.logger.error('Unable to get module "%s" infos: %s' % (module_name, resp['msg']))
+            self.logger.error('Unable to get module "%s" infos: %s' % (module_name, resp['message']))
             raise Exception('Unable to get module "%s" infos' % module_name)
         if resp['data'] is None:
             self.logger.error('Module "%s" not found in modules list' % module_name)
@@ -1036,7 +1075,7 @@ class Update(CleepModule):
 
         elif status['status'] == Install.STATUS_ERROR:
             # set main action failed
-            self._store_process_status(status, success=Failed)
+            self._store_process_status(status, success=False)
             self._set_module_process(failed=True)
 
         # handle end of install to finalize install
@@ -1242,7 +1281,7 @@ class Update(CleepModule):
         for module_to_uninstall in modules_to_uninstall:
             if module_to_uninstall not in modules_infos:
                 self.logger.warning('Module infos dict should contains "%s" module infos. '
-                    'Module won\'t be removed and can become an orphan.' % module_to_uninstall)
+                                    'Module won\'t be removed and can become an orphan.' % module_to_uninstall)
                 module_infos = {
                     'loadedby': ['orphan']
                 }
