@@ -11,9 +11,9 @@
         </md-toolbar>
 
         <md-dialog-content>
-            <div class="md-dialog-content">
-                <span class="md-caption" ng-if="logsCtl.cleepLogs.length>0" style="white-space: pre-wrap;">{{logsCtl.cleepLogs}}</span>
-                <span class="md-caption" ng-if="logsCtl.cleepLogs.length===0">
+            <div class="md-dialog-content" block-ui="logs-blockui">
+                <span class="md-caption" ng-if="logsCtl.logs.length>0" style="white-space: pre-wrap;">{{logsCtl.logs}}</span>
+                <span class="md-caption" ng-if="logsCtl.logs.length===0">
                     There is no log.
                 </span>
             </div>

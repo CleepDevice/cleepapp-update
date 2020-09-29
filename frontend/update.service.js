@@ -2,21 +2,13 @@
  * Update service
  * Handle update application requests
  */
-var updateService = function($q, $rootScope, rpcService) {
+angular
+.module('Cleep')
+.service('updateService', ['$q', '$rootScope', 'rpcService',
+function($q, $rootScope, rpcService) {
+
     var self = this;
     self.cleepUpdateStatus = 0;
-    self.moduleInstallStatus = {
-        status: 0,
-        module: null,
-    };
-    self.moduleUninstallStatus = {
-        status: 0,
-        module: null,
-    };
-    self.moduleUpdateStatus = {
-        status: 0,
-        module: null,
-    };
 
     self.getModulesUpdates = function() {
         return rpcService.sendCommand('get_modules_updates', 'update');
@@ -68,32 +60,22 @@ var updateService = function($q, $rootScope, rpcService) {
         });
     };
 
-    self.getCleepLogs = function(moduleName) {
+    self.getLogs = function(moduleName) {
+        if (!moduleName) {
+            moduleName = 'cleep';
+        }
         return rpcService.sendCommand('get_logs', 'update', {
-            'module_name': 'cleep',
+            'module_name': moduleName,
         });
     };
 
-    /**
-     * Catch events
-     */
-    $rootScope.$on('update.module.install', function(event, uuid, params) {
-        Object.assign(self.moduleInstallStatus, params);
-    });
-
-    $rootScope.$on('update.module.uninstall', function(event, uuid, params) {
-        Object.assign(self.moduleUninstallStatus, params);
-    });
-
-    $rootScope.$on('update.module.update', function(event, uuid, params) {
-        Object.assign(self.moduleUpdateStatus, params);
-    });
+    self.getModulesLogs = function() {
+        return rpcService.sendCommand('get_modules_logs', 'update');
+    };
 
     $rootScope.$on('update.cleep.update', function(event, uuid, params) {
-        self.moduleInstallStatus = params.status;
+        self.cleepUpdateStatus = params.status;
     });
-}
-    
-var Cleep = angular.module('Cleep');
-Cleep.service('updateService', ['$q', '$rootScope', 'rpcService', updateService]);
-    
+
+}]); 
+

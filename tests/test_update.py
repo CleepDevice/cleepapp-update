@@ -516,35 +516,6 @@ class TestUpdate(unittest.TestCase):
                         call('No more main action to execute, stop here'),
                     ], any_order=True)
 
-    def test_execute_main_action_task_mutex(self):
-        self.init_context()
-        with patch.object(self.module, '_Update__main_actions_mutex') as mock_mainactionsmutex:
-            self.module._execute_main_action_task()
-            self.assertTrue(mock_mainactionsmutex.acquire.called)
-            self.assertTrue(mock_mainactionsmutex.release.called)
-
-    def test_execute_main_action_task_mutex_with_exception(self):
-        action_install1 = {
-            'action': Update.ACTION_MODULE_INSTALL,
-            'processing': False,
-            'module': 'mod1',
-            'extra': None,
-        }
-        action_install2 = {
-            'action': Update.ACTION_MODULE_INSTALL,
-            'processing': False,
-            'module': 'mod2',
-            'extra': None,
-        }
-        self.init_context()
-        self.module._set_module_process = Mock(side_effect=Exception('Test exception'))
-        self.module._install_main_module = Mock()
-        with patch.object(self.module, '_Update__main_actions', [action_install1, action_install2]):
-            with patch.object(self.module, '_Update__main_actions_mutex') as mock_mainactionsmutex:
-                self.module._execute_main_action_task()
-                self.assertTrue(mock_mainactionsmutex.acquire.called)
-                self.assertTrue(mock_mainactionsmutex.release.called)
-
     def test_execute_main_action_task_set_processstep_single_sub_action(self):
         self.init_context()
         action_install = {
@@ -1144,19 +1115,25 @@ class TestUpdate(unittest.TestCase):
         crash_report = MagicMock()
         self.module.cleep_filesystem = cleep_filesystem
         self.module.crash_report = crash_report
-        config = {
+        self.module._cleep_updates = {
+            'updatable': True,
+            'processing': False,
+            'pending': False,
+            'failed': False,
             'version': '1.0.0',
             'changelog': 'changelog',
             'packageurl': 'https://www.cleep.com/packageurl',
             'checksumurl': 'https://www.cleep.com/checksumurl'
         }
-        self.module._get_config_field = Mock(return_value=config)
-        self.module.start = Mock()
 
         self.module.update_cleep()
 
         self.assertTrue(self.module.cleep_filesystem.enable_write.called)
-        mock_installcleep.return_value.install.assert_called_once_with(config['packageurl'], config['checksumurl'], self.module._update_cleep_callback)
+        mock_installcleep.return_value.install.assert_called_once_with(
+            self.module._cleep_updates['packageurl'],
+            self.module._cleep_updates['checksumurl'],
+            self.module._update_cleep_callback
+        )
 
     def test_update_cleep_callback_success(self):
         self.init_context()
@@ -1175,8 +1152,7 @@ class TestUpdate(unittest.TestCase):
         
         self.assertEqual(self.session.get_event_calls('update.cleep.update'), 1)
         self.assertEqual(self.session.get_event_last_params('update.cleep.update'), {'status': status['status']})
-        self.assertTrue(self.module._store_process_status.called)
-        self.module._update_config.assert_called_with({'cleepupdate': {'version': None, 'changelog': None, 'packageurl': None, 'checksumurl': None}})
+        self.module._store_process_status.assert_called_with(status, success=True)
         self.assertTrue(self.module.cleep_filesystem.disable_write.called)
         self.assertTrue(self.module._restart_cleep.called)
 
@@ -1187,7 +1163,7 @@ class TestUpdate(unittest.TestCase):
         self.module._update_config = Mock()
         self.module._restart_cleep = Mock()
         status = {
-            'status': InstallCleep.STATUS_ERROR_DOWNLOAD_ARCHIVE,
+            'status': InstallCleep.STATUS_ERROR_DOWNLOAD_PACKAGE,
             'returncode': 1,
             'stdout': ['stdout'],
             'stderr': ['stderr'],
@@ -1197,8 +1173,7 @@ class TestUpdate(unittest.TestCase):
         
         self.assertEqual(self.session.get_event_calls('update.cleep.update'), 1)
         self.assertEqual(self.session.get_event_last_params('update.cleep.update'), {'status': status['status']})
-        self.assertTrue(self.module._store_process_status.called)
-        self.module._update_config.assert_called_with({'cleepupdate': {'version': None, 'changelog': None, 'packageurl': None, 'checksumurl': None}})
+        self.module._store_process_status.assert_called_with(status, success=False)
         self.assertTrue(self.module.cleep_filesystem.disable_write.called)
         self.assertFalse(self.module._restart_cleep.called)
 

@@ -8,6 +8,66 @@
     </md-nav-bar>
 
     <div layout="column" layout-padding ng-if="updateCtl.tabIndex==='modules'">
+        <md-list ng-cloak>
+            <md-list-item>
+                <p>Check available applications updates (last check {{updateCtl.config.moduleslastcheck | hrDatetime}})</p>
+                <md-button
+                    class="md-secondary md-raised md-primary"
+                    ng-click="updateCtl.checkModulesUpdates()"
+                >
+                    <md-icon md-svg-icon="find-replace"></md-icon>
+                    Check updates
+                </md-button>
+            </md-list-item>
+            <md-subheader class="md-no-sticky">Installed applications</md-subheader>
+            <md-list-item
+                class="md-2-line"
+                ng-repeat="(moduleName, update) in updateCtl.cleepService.modulesUpdates | orderObjByKey:'name'"
+                ng-click="null"
+            >
+                <md-icon md-svg-icon="chevron-right"></md-icon>
+                <div class="md-list-item-text" layout="column">
+                    <h3>{{moduleName}}</h3>
+                </div>
+                <md-button
+                    class="md-secondary md-raised md-accent"
+                    ng-disabled="updateCtl.cleepService.modulesUpdates[moduleName] && !updateCtl.cleepService.modulesUpdates[moduleName].updatable"
+                    ng-click="updateCtl.gotoModulesPage(moduleName)"
+                >
+                    <md-icon md-svg-icon="update"></md-icon>
+                    <span ng-if="!updateCtl.cleepService.modulesUpdates[moduleName].updatable">No Update available</span>
+                    <span ng-if="updateCtl.cleepService.modulesUpdates[moduleName].updatable">Update available</span>
+                </md-button>
+                <md-button
+                    class="md-secondary md-raised"
+                    ng-if="updateCtl.modulesLogs[moduleName]"
+                    ng-click="updateCtl.showLogsDialog(moduleName, $event)"
+                >
+                    <md-icon md-svg-icon="file-document-outline"></md-icon>
+                    <span>Logs</span>
+                </md-button>
+            </md-list-item>
+
+            <md-subheader class="md-no-sticky">Uninstalled applications</md-subheader>
+            <md-list-item
+                class="md-2-line"
+                ng-repeat="(moduleName, logs) in updateCtl.modulesLogs | orderObjByKey:'name'"
+                ng-click="null"
+            >
+                <md-icon md-svg-icon="chevron-right"></md-icon>
+                <div class="md-list-item-text" layout="column">
+                    <h3>{{moduleName}}</h3>
+                    <p>Uninstalled at {{logs.timestamp | hrDatetime}}</p>
+                </div>
+                <md-button
+                    class="md-secondary md-raised"
+                    ng-click="updateCtl.showLogsDialog(moduleName, $event)"
+                >
+                    <md-icon md-svg-icon="file-document-outline"></md-icon>
+                    <span>Logs</span>
+                </md-button>
+            </md-list-item>
+        </md-list>
 	</div>
 
     <div layout="column" layout-padding ng-if="updateCtl.tabIndex==='cleep'">
@@ -21,12 +81,13 @@
                     ng-click="updateCtl.checkCleepUpdates()"
                     ng-disabled="updateCtl.cleepInstalling || updateCtl.cleepPending"
                 >
+                    <md-icon md-svg-icon="find-replace"></md-icon>
                     Check updates
                 </md-button>
             </md-list-item>
             <md-list-item ng-if="!updateCtl.cleepUpdates.updatable">
                 <md-icon md-svg-icon="chevron-right"></md-icon>
-                <p>No update available (last check {{updateCtl.cleepLastCheck | hrDatetime}})</p>
+                <p>No update available (last check {{updateCtl.cleepService.modules['update'].config.cleeplastcheck | hrDatetime}})</p>
             </md-list-item>
             <md-list-item ng-if="updateCtl.cleepUpdates.updatable">
                 <md-icon md-svg-icon="chevron-right"></md-icon>
@@ -34,7 +95,7 @@
                 <md-button
                     class="md-secondary md-raised md-accent"
                     ng-disabled="updateCtl.cleepUpdates.processing || updateCtl.cleepUpdates.pending"
-                    ng-click="updateCtl.showCleepUpdateDialog()"
+                    ng-click="updateCtl.showCleepUpdateDialog($event)"
                 >
                     Update Cleep
                 </md-button>
@@ -56,15 +117,17 @@
             <md-list-item ng-if="updateCtl.config.cleepupdatelogs.timestamp && !updateCtl.config.cleepupdatelogs.failed">
                 <md-icon md-svg-icon="chevron-right"></md-icon>
                 <p>Last update installed successfully at {{updateCtl.config.cleepupdatelogs.timestamp | hrDatetime}}</p>
-                <md-button class="md-secondary md-raised" ng-click="updateCtl.showCleepLogsDialog()">
-                    See logs
+                <md-button class="md-secondary md-raised" ng-click="updateCtl.showLogsDialog('cleep')">
+                    <md-icon md-svg-icon="file-document-outline"></md-icon>
+                    Logs
                 </md-button>
             </md-list-item>
             <md-list-item ng-if="updateCtl.config.cleepupdatelogs.timestamp && updateCtl.config.cleepupdatelogs.failed">
                 <md-icon md-svg-icon="alert-circle"></md-icon>
                 <p>Last update installation failed at {{updateCtl.config.cleepupdatelogs.timestamp | hrDatetime}}</p>
-                <md-button class="md-secondary md-raised" ng-click="updateCtl.showCleepLogsDialog()">
-                    See logs
+                <md-button class="md-secondary md-raised" ng-click="updateCtl.showLogsDialog('cleep', $event)">
+                    <md-icon md-svg-icon="file-document-outline"></md-icon>
+                    Logs
                 </md-button>
             </md-list-item>
         </md-list>
