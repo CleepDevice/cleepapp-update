@@ -1309,7 +1309,7 @@ class TestUpdate(unittest.TestCase):
         self.module._update_cleep_callback(status)
         
         self.assertEqual(self.session.get_event_calls('update.cleep.update'), 1)
-        self.assertEqual(self.session.get_event_last_params('update.cleep.update'), {'status': status['status']})
+        self.assertEqual(self.session.get_last_event_params('update.cleep.update'), {'status': status['status']})
         self.module._store_process_status.assert_called_with(status, success=True)
         self.assertTrue(self.module.cleep_filesystem.disable_write.called)
         self.assertTrue(self.module._restart_cleep.called)
@@ -1330,7 +1330,7 @@ class TestUpdate(unittest.TestCase):
         self.module._update_cleep_callback(status)
         
         self.assertEqual(self.session.get_event_calls('update.cleep.update'), 1)
-        self.assertEqual(self.session.get_event_last_params('update.cleep.update'), {'status': status['status']})
+        self.assertEqual(self.session.get_last_event_params('update.cleep.update'), {'status': status['status']})
         self.module._store_process_status.assert_called_with(status, success=False)
         self.assertTrue(self.module.cleep_filesystem.disable_write.called)
         self.assertFalse(self.module._restart_cleep.called)
