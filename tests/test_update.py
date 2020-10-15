@@ -34,16 +34,12 @@ MODULES_JSON = {
 }
 
 INVENTORY_GETMODULES = {
-    "data": {
-        "system": {"tags": ["troubleshoot", "locale", "events", "monitoring", "update", "log"], "version": "1.1.0", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-system/releases/download/v1.1.0/cleepmod_system_1.1.0.zip", "longdescription": "Application that helps you to configure your system", "sha256": "15e7eb805f55200a7d4627d4ddc77d138f9a04700713bc60b064e8420d22635e", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-system/issues", "info": "https://github.com/tangb/cleepmod-system", "help": None, "site": None}, "pending": False, "screenshots": [], "installed": True, "category": "APPLICATION", "certified": False, "name": "system", "note": -1, "description": "Helps updating, controlling and monitoring the device", "core": False, "started": True, "loadedby": [], "library": False, "icon": "heart-pulse", "events": ["system.device.delete", "system.system.halt", "system.system.reboot", "system.system.restart", "system.system.needrestart", "system.monitoring.cpu", "system.monitoring.memory", "system.alert.memory", "system.alert.disk", "system.module.install", "system.module.uninstall", "system.module.update", "system.cleep.update", "system.driver.install", "system.driver.uninstall"], "changelog": "", "processing": None, "local": False, "updatable": ""},
-        "parameters": {"tags": ["configuration", "date", "time", "locale", "lang"], "version": "1.1.0", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-parameters/releases/download/v1.1.0/cleepmod_parameters_1.1.0.zip", "longdescription": "Application that helps you to configure generic parameters of your device", "sha256": "efac9fa4d4bb8c5ef1a97f2d42ba916afdc4721a6f892eb21d18612164af2465", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-parameters/issues", "info": "https://github.com/tangb/cleepmod-parameters", "help": None, "site": None}, "pending": False, "screenshots": [], "installed": True, "category": "APPLICATION", "certified": False, "name": "parameters", "note": -1, "description": "Configure generic parameters of your device", "core": False, "started": True, "loadedby": [], "library": False, "icon": "settings", "events": ["system.device.delete", "parameters.time.now", "parameters.time.sunrise", "parameters.time.sunset", "parameters.hostname.update", "parameters.country.update"], "changelog": "new version", "processing": None, "local": False, "updatable": ""},
-        "cleepbus": {"tags": ["bus", "communication"], "version": "1.1.1", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-cleepbus/releases/download/v1.1.1/cleepmod_cleepbus_1.1.1.zip", "longdescription": "Application that enables communication between devices", "sha256": "55b435169af8bac7cc06446d4f0ffcadb49ef2118d5eeaa04eaffa77f68f4b9c", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-cleepbus/issues", "info": "https://github.com/tangb/cleepmod-cleepbus/wiki/CleepBus-module", "help": None, "site": None}, "pending": False, "screenshots": [], "installed": False, "category": "APPLICATION", "certified": False, "name": "cleepbus", "note": -1, "description": "Enables communications between all your Cleep devices through your home network", "core": False, "started": True, "loadedby": [], "library": False, "icon": "bus", "events": ["system.device.delete"], "changelog": "", "processing": None, "local": False, "updatable": ""},
-        "network": {"tags": ["wireless", "wifi", "ethernet"], "version": "1.1.0", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-network/releases/download/v1.1.0/cleepmod_network_1.1.0.zip", "longdescription": "Application that helps you to configure device network connection", "sha256": "862f6cc74340667baf688336ed2b6b07a4ac0fc2da9a9f6802648d3d5edb8ff1", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-network/issues", "info": "https://github.com/tangb/cleepmod-network/wiki", "help": "https://github.com/tangb/cleepmod-network/wiki/Help", "site": None}, "pending": False, "screenshots": [], "installed": True, "category": "APPLICATION", "certified": False, "name": "network", "note": -1, "description": "Configure how your device connect to your network", "core": False, "started": True, "loadedby": [], "library": False, "icon": "ethernet", "events": ["system.device.delete", "network.status.up", "network.status.down", "network.status.update"], "changelog": "", "processing": None, "local": False, "updatable": ""},
-        "audio": {"tags": ["audio", "sound"], "version": "1.1.0", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-audio/releases/download/v1.1.0/cleepmod_audio_1.1.0.zip", "longdescription": "Application that helps you to configure audio on your device", "sha256": "cdeda05a87cc78fc2b14a6dbd63f9a2e2063062d010f84bdbff9497ac9f93fab", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-audio/issues", "info": "https://github.com/tangb/cleepmod-audio", "help": "https://github.com/tangb/cleepmod-audio/wiki", "site": None}, "pending": False, "screenshots": [], "installed": True, "category": "APPLICATION", "certified": False, "name": "audio", "note": -1, "description": "Configure audio on your device", "core": False, "started": True, "loadedby": [], "library": False, "icon": "speaker", "events": ["system.device.delete"], "changelog": "", "processing": None, "local": False, "updatable": ""},
-        "sensors": {"tags": ["audio", "sound"], "version": "1.1.0", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-audio/releases/download/v1.1.0/cleepmod_audio_1.1.0.zip", "longdescription": "Application that helps you to configure audio on your device", "sha256": "cdeda05a87cc78fc2b14a6dbd63f9a2e2063062d010f84bdbff9497ac9f93fab", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-audio/issues", "info": "https://github.com/tangb/cleepmod-audio", "help": "https://github.com/tangb/cleepmod-audio/wiki", "site": None}, "pending": False, "screenshots": [], "installed": True, "category": "APPLICATION", "certified": False, "name": "audio", "note": -1, "description": "Configure audio on your device", "core": False, "started": True, "loadedby": [], "library": False, "icon": "speaker", "events": ["system.device.delete"], "changelog": "", "processing": None, "local": False, "updatable": ""},
-    },
-    "message": "",
-    "error": False
+    "system": {"tags": ["troubleshoot", "locale", "events", "monitoring", "update", "log"], "version": "1.1.0", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-system/releases/download/v1.1.0/cleepmod_system_1.1.0.zip", "longdescription": "Application that helps you to configure your system", "sha256": "15e7eb805f55200a7d4627d4ddc77d138f9a04700713bc60b064e8420d22635e", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-system/issues", "info": "https://github.com/tangb/cleepmod-system", "help": None, "site": None}, "pending": False, "screenshots": [], "installed": True, "category": "APPLICATION", "certified": False, "name": "system", "note": -1, "description": "Helps updating, controlling and monitoring the device", "core": False, "started": True, "loadedby": [], "library": False, "icon": "heart-pulse", "events": ["system.device.delete", "system.system.halt", "system.system.reboot", "system.system.restart", "system.system.needrestart", "system.monitoring.cpu", "system.monitoring.memory", "system.alert.memory", "system.alert.disk", "system.module.install", "system.module.uninstall", "system.module.update", "system.cleep.update", "system.driver.install", "system.driver.uninstall"], "changelog": "", "processing": None, "local": False, "updatable": ""},
+    "parameters": {"tags": ["configuration", "date", "time", "locale", "lang"], "version": "1.1.0", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-parameters/releases/download/v1.1.0/cleepmod_parameters_1.1.0.zip", "longdescription": "Application that helps you to configure generic parameters of your device", "sha256": "efac9fa4d4bb8c5ef1a97f2d42ba916afdc4721a6f892eb21d18612164af2465", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-parameters/issues", "info": "https://github.com/tangb/cleepmod-parameters", "help": None, "site": None}, "pending": False, "screenshots": [], "installed": True, "category": "APPLICATION", "certified": False, "name": "parameters", "note": -1, "description": "Configure generic parameters of your device", "core": False, "started": True, "loadedby": [], "library": False, "icon": "settings", "events": ["system.device.delete", "parameters.time.now", "parameters.time.sunrise", "parameters.time.sunset", "parameters.hostname.update", "parameters.country.update"], "changelog": "new version", "processing": None, "local": False, "updatable": ""},
+    "cleepbus": {"tags": ["bus", "communication"], "version": "1.1.1", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-cleepbus/releases/download/v1.1.1/cleepmod_cleepbus_1.1.1.zip", "longdescription": "Application that enables communication between devices", "sha256": "55b435169af8bac7cc06446d4f0ffcadb49ef2118d5eeaa04eaffa77f68f4b9c", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-cleepbus/issues", "info": "https://github.com/tangb/cleepmod-cleepbus/wiki/CleepBus-module", "help": None, "site": None}, "pending": False, "screenshots": [], "installed": False, "category": "APPLICATION", "certified": False, "name": "cleepbus", "note": -1, "description": "Enables communications between all your Cleep devices through your home network", "core": False, "started": True, "loadedby": [], "library": False, "icon": "bus", "events": ["system.device.delete"], "changelog": "", "processing": None, "local": False, "updatable": ""},
+    "network": {"tags": ["wireless", "wifi", "ethernet"], "version": "1.1.0", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-network/releases/download/v1.1.0/cleepmod_network_1.1.0.zip", "longdescription": "Application that helps you to configure device network connection", "sha256": "862f6cc74340667baf688336ed2b6b07a4ac0fc2da9a9f6802648d3d5edb8ff1", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-network/issues", "info": "https://github.com/tangb/cleepmod-network/wiki", "help": "https://github.com/tangb/cleepmod-network/wiki/Help", "site": None}, "pending": False, "screenshots": [], "installed": True, "category": "APPLICATION", "certified": False, "name": "network", "note": -1, "description": "Configure how your device connect to your network", "core": False, "started": True, "loadedby": [], "library": False, "icon": "ethernet", "events": ["system.device.delete", "network.status.up", "network.status.down", "network.status.update"], "changelog": "", "processing": None, "local": False, "updatable": ""},
+    "audio": {"tags": ["audio", "sound"], "version": "1.1.0", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-audio/releases/download/v1.1.0/cleepmod_audio_1.1.0.zip", "longdescription": "Application that helps you to configure audio on your device", "sha256": "cdeda05a87cc78fc2b14a6dbd63f9a2e2063062d010f84bdbff9497ac9f93fab", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-audio/issues", "info": "https://github.com/tangb/cleepmod-audio", "help": "https://github.com/tangb/cleepmod-audio/wiki", "site": None}, "pending": False, "screenshots": [], "installed": True, "category": "APPLICATION", "certified": False, "name": "audio", "note": -1, "description": "Configure audio on your device", "core": False, "started": True, "loadedby": [], "library": False, "icon": "speaker", "events": ["system.device.delete"], "changelog": "", "processing": None, "local": False, "updatable": ""},
+    "sensors": {"tags": ["audio", "sound"], "version": "1.1.0", "author": "Cleep", "deps": [], "country": "", "download": "https://github.com/tangb/cleepmod-audio/releases/download/v1.1.0/cleepmod_audio_1.1.0.zip", "longdescription": "Application that helps you to configure audio on your device", "sha256": "cdeda05a87cc78fc2b14a6dbd63f9a2e2063062d010f84bdbff9497ac9f93fab", "price": 0, "urls": {"bugs": "https://github.com/tangb/cleepmod-audio/issues", "info": "https://github.com/tangb/cleepmod-audio", "help": "https://github.com/tangb/cleepmod-audio/wiki", "site": None}, "pending": False, "screenshots": [], "installed": True, "category": "APPLICATION", "certified": False, "name": "audio", "note": -1, "description": "Configure audio on your device", "core": False, "started": True, "loadedby": [], "library": False, "icon": "speaker", "events": ["system.device.delete"], "changelog": "", "processing": None, "local": False, "updatable": ""},
 }
 
 GITHUB_SAMPLE = [{
@@ -108,7 +104,6 @@ GITHUB_SAMPLE = [{
   'zipball_url': 'https://api.github.com/repos/tangb/cleep/zipball/v0.0.20'
 }]
 
-# @patch('backend.update.ModulesJson', new=Mock(return_value=MODULES_JSON))
 class TestUpdate(unittest.TestCase):
 
     def setUp(self):
@@ -127,7 +122,7 @@ class TestUpdate(unittest.TestCase):
         for command in mock_commands:
             self.session.add_mock_command(command)
         if 'get_modules' not in self.session.get_handled_commands():
-            self.session.add_mock_command(self.session.make_mock_command('get_modules', Mock(return_value=INVENTORY_GETMODULES)))
+            self.session.add_mock_command(self.session.make_mock_command('get_modules', data=INVENTORY_GETMODULES))
         if mock_setconfigfield:
             self.module._set_config_field = mock_setconfigfield
 
@@ -312,14 +307,14 @@ class TestUpdate(unittest.TestCase):
         self.init_session(mock_commands=[mock_restart])
 
         self.module._restart_cleep()
-        self.assertEqual(self.session.get_mock_command_calls('restart'), 1)
+        self.assertEqual(self.session.command_call_count('restart'), 1)
 
     def test_restart_cleep_failed(self):
         mock_restart = self.session.make_mock_command('restart', Mock(return_value={'error': True, 'message': '', 'data':None}))
         self.init_session(mock_commands=[mock_restart])
 
         self.module._restart_cleep()
-        self.assertEqual(self.session.get_mock_command_calls('restart'), 1)
+        self.assertEqual(self.session.command_call_count('restart'), 1)
 
     def test_get_cleep_updates(self):
         self.init_session()
@@ -441,7 +436,7 @@ class TestUpdate(unittest.TestCase):
         modules_updates = self.module.get_modules_updates()
         logging.debug('Modules updates: %s' % modules_updates)
 
-        inventory_keys = list(INVENTORY_GETMODULES['data'].keys())
+        inventory_keys = list(INVENTORY_GETMODULES.keys())
         inventory_keys.remove('cleepbus')
         self.assertEqual(sorted(inventory_keys), sorted(list(modules_updates.keys())))
         module_name = list(modules_updates.keys())[0]
@@ -685,9 +680,9 @@ class TestUpdate(unittest.TestCase):
             with patch.object(self.module, '_Update__main_actions', [action_install]) as mock_main_actions:
                 self.module._execute_main_action_task()
                 self.module._set_module_process.assert_called_with(failed=True)
-                self.assertEqual(self.session.get_event_calls('update.module.install'), 1)
-                self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 0)
-                self.assertEqual(self.session.get_event_calls('update.module.update'), 0)
+                self.assertEqual(self.session.event_call_count('update.module.install'), 1)
+                self.assertEqual(self.session.event_call_count('update.module.uninstall'), 0)
+                self.assertEqual(self.session.event_call_count('update.module.update'), 0)
 
     def test_execute_main_action_exception_w_action_update(self):
         self.init_session()
@@ -711,9 +706,9 @@ class TestUpdate(unittest.TestCase):
             with patch.object(self.module, '_Update__main_actions', [action_update]) as mock_main_actions:
                 self.module._execute_main_action_task()
                 self.module._set_module_process.assert_called_with(failed=True)
-                self.assertEqual(self.session.get_event_calls('update.module.install'), 0)
-                self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 0)
-                self.assertEqual(self.session.get_event_calls('update.module.update'), 1)
+                self.assertEqual(self.session.event_call_count('update.module.install'), 0)
+                self.assertEqual(self.session.event_call_count('update.module.uninstall'), 0)
+                self.assertEqual(self.session.event_call_count('update.module.update'), 1)
 
     def test_execute_main_action_exception_w_action_uninstall(self):
         self.init_session()
@@ -737,9 +732,9 @@ class TestUpdate(unittest.TestCase):
             with patch.object(self.module, '_Update__main_actions', [action_uninstall]) as mock_main_actions:
                 self.module._execute_main_action_task()
                 self.module._set_module_process.assert_called_with(failed=True)
-                self.assertEqual(self.session.get_event_calls('update.module.install'), 0)
-                self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 1)
-                self.assertEqual(self.session.get_event_calls('update.module.update'), 0)
+                self.assertEqual(self.session.event_call_count('update.module.install'), 0)
+                self.assertEqual(self.session.event_call_count('update.module.uninstall'), 1)
+                self.assertEqual(self.session.event_call_count('update.module.update'), 0)
 
     def test_execute_sub_action_task_install(self):
         self.init_session()
@@ -1085,7 +1080,7 @@ class TestUpdate(unittest.TestCase):
         self.assertEqual(self.module._modules_updates['mod1']['update']['version'], MODULES_JSON['list']['system']['version'])
 
     def test_is_module_process_failed_return_false(self):
-        mock_getmodules = self.session.make_mock_command('get_modules', Mock(return_value=INVENTORY_GETMODULES))
+        mock_getmodules = self.session.make_mock_command('get_modules', data=INVENTORY_GETMODULES)
         self.init_session(mock_commands=[mock_getmodules])
         self.module._get_processing_module_name = Mock(return_value='system')
         self.module._modules_updates['system']['update']['failed'] = False
@@ -1196,7 +1191,6 @@ class TestUpdate(unittest.TestCase):
         mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
         mock_modulesjson.return_value.update.return_value = True
         self.init_session()
-        # self.module._get_inventory_modules = Mock(return_value=INVENTORY_GETMODULES['data'])
 
         updates = self.module.check_modules_updates()
         
@@ -1308,7 +1302,7 @@ class TestUpdate(unittest.TestCase):
 
         self.module._update_cleep_callback(status)
         
-        self.assertEqual(self.session.get_event_calls('update.cleep.update'), 1)
+        self.assertEqual(self.session.event_call_count('update.cleep.update'), 1)
         self.assertEqual(self.session.get_last_event_params('update.cleep.update'), {'status': status['status']})
         self.module._store_process_status.assert_called_with(status, success=True)
         self.assertTrue(self.module.cleep_filesystem.disable_write.called)
@@ -1329,7 +1323,7 @@ class TestUpdate(unittest.TestCase):
 
         self.module._update_cleep_callback(status)
         
-        self.assertEqual(self.session.get_event_calls('update.cleep.update'), 1)
+        self.assertEqual(self.session.event_call_count('update.cleep.update'), 1)
         self.assertEqual(self.session.get_last_event_params('update.cleep.update'), {'status': status['status']})
         self.module._store_process_status.assert_called_with(status, success=False)
         self.assertTrue(self.module.cleep_filesystem.disable_write.called)
@@ -1420,9 +1414,9 @@ class TestUpdate(unittest.TestCase):
         with patch.object(self.module, '_Update__main_actions') as mock_main_actions:
             self.assertTrue(self.module._postpone_main_action(Update.ACTION_MODULE_INSTALL, 'mod1'))
             self.assertTrue(mock_main_actions.insert.called)
-            self.assertEqual(self.session.get_event_calls('update.module.install'), 1)
-            self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 0)
-            self.assertEqual(self.session.get_event_calls('update.module.update'), 0)
+            self.assertEqual(self.session.event_call_count('update.module.install'), 1)
+            self.assertEqual(self.session.event_call_count('update.module.uninstall'), 0)
+            self.assertEqual(self.session.event_call_count('update.module.update'), 0)
 
     def test_postpone_main_action_uninstall(self):
         self.init_session()
@@ -1431,9 +1425,9 @@ class TestUpdate(unittest.TestCase):
         with patch.object(self.module, '_Update__main_actions') as mock_main_actions:
             self.assertTrue(self.module._postpone_main_action(Update.ACTION_MODULE_UNINSTALL, 'mod1'))
             self.assertTrue(mock_main_actions.insert.called)
-            self.assertEqual(self.session.get_event_calls('update.module.install'), 0)
-            self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 1)
-            self.assertEqual(self.session.get_event_calls('update.module.update'), 0)
+            self.assertEqual(self.session.event_call_count('update.module.install'), 0)
+            self.assertEqual(self.session.event_call_count('update.module.uninstall'), 1)
+            self.assertEqual(self.session.event_call_count('update.module.update'), 0)
 
     def test_postpone_main_action_update(self):
         self.init_session()
@@ -1442,9 +1436,9 @@ class TestUpdate(unittest.TestCase):
         with patch.object(self.module, '_Update__main_actions') as mock_main_actions:
             self.assertTrue(self.module._postpone_main_action(Update.ACTION_MODULE_UPDATE, 'mod1'))
             self.assertTrue(mock_main_actions.insert.called)
-            self.assertEqual(self.session.get_event_calls('update.module.install'), 0)
-            self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 0)
-            self.assertEqual(self.session.get_event_calls('update.module.update'), 1)
+            self.assertEqual(self.session.event_call_count('update.module.install'), 0)
+            self.assertEqual(self.session.event_call_count('update.module.uninstall'), 0)
+            self.assertEqual(self.session.event_call_count('update.module.update'), 1)
 
     def test_postpone_main_action_install_same_module_same_action(self):
         self.init_session()
@@ -1452,9 +1446,9 @@ class TestUpdate(unittest.TestCase):
 
         self.assertTrue(self.module._postpone_main_action(Update.ACTION_MODULE_INSTALL, 'mod1'))
         self.assertFalse(self.module._postpone_main_action(Update.ACTION_MODULE_INSTALL, 'mod1'))
-        self.assertEqual(self.session.get_event_calls('update.module.install'), 1)
-        self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 0)
-        self.assertEqual(self.session.get_event_calls('update.module.update'), 0)
+        self.assertEqual(self.session.event_call_count('update.module.install'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.uninstall'), 0)
+        self.assertEqual(self.session.event_call_count('update.module.update'), 0)
 
     def test_postpone_main_action_install_same_module_other_action(self):
         self.init_session()
@@ -1462,26 +1456,26 @@ class TestUpdate(unittest.TestCase):
 
         self.assertTrue(self.module._postpone_main_action(Update.ACTION_MODULE_INSTALL, 'mod1'))
         self.assertTrue(self.module._postpone_main_action(Update.ACTION_MODULE_UNINSTALL, 'mod1'))
-        self.assertEqual(self.session.get_event_calls('update.module.install'), 1)
-        self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 1)
-        self.assertEqual(self.session.get_event_calls('update.module.update'), 0)
+        self.assertEqual(self.session.event_call_count('update.module.install'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.uninstall'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.update'), 0)
 
     def test_get_module_infos_from_inventory(self):
         mock_getmodulesinfos = self.session.make_mock_command(
             'get_module_infos',
-            Mock(return_value={'data':INVENTORY_GETMODULES['data']['audio'], 'error': False}),
+            data=INVENTORY_GETMODULES['audio'],
         )
         self.init_session(mock_commands=[mock_getmodulesinfos])
 
         infos = self.module._get_module_infos_from_inventory('audio')
         logging.debug('Infos: %s' % infos)
 
-        self.assertEqual(infos, INVENTORY_GETMODULES['data']['audio'])
+        self.assertEqual(infos, INVENTORY_GETMODULES['audio'])
 
     def test_get_module_infos_from_inventory_failed(self):
         mock_getmodulesinfos = self.session.make_mock_command(
             'get_module_infos',
-            Mock(return_value={'data':INVENTORY_GETMODULES['data']['audio'], 'error': False}),
+            data=INVENTORY_GETMODULES['audio'],
             fail=True,
         )
         self.init_session(mock_commands=[mock_getmodulesinfos])
@@ -1493,11 +1487,11 @@ class TestUpdate(unittest.TestCase):
     def test_get_module_infos_from_inventory_unknown_module(self):
         mock_getmodules = self.session.make_mock_command(
             'get_modules',
-            Mock(return_value={'data':{}, 'error': False}),
+            data={},
         )
         mock_getmodulesinfos = self.session.make_mock_command(
             'get_module_infos',
-            Mock(return_value={'data':{}, 'error': False}),
+            data={},
         )
         self.init_session(mock_commands=[mock_getmodulesinfos, mock_getmodules])
 
@@ -1760,7 +1754,7 @@ class TestUpdate(unittest.TestCase):
         self.module._Update__install_module_callback(status)
 
         self.assertFalse(self.module._store_process_status.called)
-        self.assertEqual(self.session.get_event_calls('update.module.install'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.install'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.install_module.called)
 
@@ -1778,7 +1772,7 @@ class TestUpdate(unittest.TestCase):
         self.module._Update__install_module_callback(status)
 
         self.module._store_process_status.assert_called_with(status, success=True)
-        self.assertEqual(self.session.get_event_calls('update.module.install'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.install'), 1)
         self.assertTrue(self.module._need_restart)
         mock_cleepconf.return_value.install_module.assert_called_with('dummy')
 
@@ -1797,7 +1791,7 @@ class TestUpdate(unittest.TestCase):
         self.module._Update__install_module_callback(status)
 
         self.module._store_process_status.assert_called_with(status, success=False)
-        self.assertEqual(self.session.get_event_calls('update.module.install'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.install'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.install_module.called)
         self.module._set_module_process.assert_called_once_with(failed=True)
@@ -2115,7 +2109,7 @@ class TestUpdate(unittest.TestCase):
         self.module._Update__uninstall_module_callback(status)
 
         self.assertFalse(self.module._store_process_status.called)
-        self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.uninstall'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.uninstall_module.called)
 
@@ -2133,7 +2127,7 @@ class TestUpdate(unittest.TestCase):
         self.module._Update__uninstall_module_callback(status)
 
         self.module._store_process_status.assert_called_with(status, success=True)
-        self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.uninstall'), 1)
         self.assertTrue(self.module._need_restart)
         mock_cleepconf.return_value.uninstall_module.assert_called_with('dummy')
 
@@ -2152,7 +2146,7 @@ class TestUpdate(unittest.TestCase):
         self.module._Update__uninstall_module_callback(status)
 
         self.module._store_process_status.assert_called_with(status, success=False)
-        self.assertEqual(self.session.get_event_calls('update.module.uninstall'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.uninstall'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.uninstall_module.called)
         self.module._set_module_process.assert_called_once_with(failed=True)
@@ -2366,7 +2360,7 @@ class TestUpdate(unittest.TestCase):
         self.module._Update__update_module_callback(status)
 
         self.assertFalse(self.module._store_process_status.called)
-        self.assertEqual(self.session.get_event_calls('update.module.update'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.update'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.update_module.called)
 
@@ -2384,7 +2378,7 @@ class TestUpdate(unittest.TestCase):
         self.module._Update__update_module_callback(status)
 
         self.module._store_process_status.assert_called_with(status, success=True)
-        self.assertEqual(self.session.get_event_calls('update.module.update'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.update'), 1)
         self.assertTrue(self.module._need_restart)
         mock_cleepconf.return_value.update_module.assert_called_with('dummy')
 
@@ -2403,7 +2397,7 @@ class TestUpdate(unittest.TestCase):
         self.module._Update__update_module_callback(status)
 
         self.module._store_process_status.assert_called_with(status, success=False)
-        self.assertEqual(self.session.get_event_calls('update.module.update'), 1)
+        self.assertEqual(self.session.event_call_count('update.module.update'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.update_module.called)
         self.module._set_module_process.assert_called_once_with(failed=True)
