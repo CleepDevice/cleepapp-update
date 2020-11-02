@@ -107,7 +107,7 @@ GITHUB_SAMPLE = [{
 class TestUpdate(unittest.TestCase):
 
     def setUp(self):
-        self.session = session.TestSession()
+        self.session = session.TestSession(self)
         logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
 
     def tearDown(self):

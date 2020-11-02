@@ -17,8 +17,8 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
         self.cleepUpdates = null;
         self.modulesLogs = null;
 
-		/**
-		 * Set automatic update
+        /**
+         * Set automatic update
          */
         self.setAutomaticUpdate = function(row) {   
             // toggle value if row clicked
@@ -57,7 +57,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 .finally(function() {
                     toast.info(message);
                 });
-		};
+        };
 
         /**
          * Check for modules updates
@@ -78,7 +78,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
 
                     return self.cleepService.reloadModuleConfig('update');
                 });
-		};
+        };
 
         /**
          * Go to modules pages scrolling on specified module
@@ -152,12 +152,12 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
             updateService.updateCleep();
         };
 
-		/**
-		 * Component init
-		 */
+        /**
+         * Component init
+         */
         self.$onInit = function() {
             // open required tab
-			if( $location.search().tab ) {
+            if( $location.search().tab ) {
                 self.tabIndex = $location.search().tab;
             }
 
