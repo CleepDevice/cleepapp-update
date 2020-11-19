@@ -9,9 +9,9 @@ class UpdateCleepUpdateEvent(Event):
     Update.cleep.update event
     """
 
-    EVENT_NAME = u'update.cleep.update'
-    EVENT_SYSTEM = True
-    EVENT_PARAMS = [u'status']
+    EVENT_NAME = 'update.cleep.update'
+    EVENT_PROPAGATE = False
+    EVENT_PARAMS = ['status']
 
     def __init__(self, bus, formatters_broker):
         """ 

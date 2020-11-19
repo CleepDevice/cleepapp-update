@@ -537,9 +537,9 @@ class Update(CleepModule):
         """
         # retrieve modules from inventory
         resp = self.send_command('get_modules', 'inventory', timeout=20)
-        if not resp or resp['error']:
+        if resp.error:
             raise Exception('Unable to get modules list from inventory')
-        inventory_modules = resp['data']
+        inventory_modules = resp.data
 
         # save modules
         modules = {}
@@ -599,7 +599,7 @@ class Update(CleepModule):
             delay (float): delay before restarting (default 10.0 seconds)
         """
         resp = self.send_command('restart', 'system', {'delay': delay})
-        if not resp or resp['error']:
+        if resp.error:
             self.logger.error('Unable to restart Cleep')
 
     def check_cleep_updates(self):
@@ -987,14 +987,14 @@ class Update(CleepModule):
         """
         # get infos from inventory
         resp = self.send_command('get_module_infos', 'inventory', {'module_name': module_name})
-        if resp['error']:
-            self.logger.error('Unable to get module "%s" infos: %s' % (module_name, resp['message']))
+        if resp.error:
+            self.logger.error('Unable to get module "%s" infos: %s' % (module_name, resp.message))
             raise Exception('Unable to get module "%s" infos' % module_name)
-        if not resp['data']:
+        if not resp.data:
             self.logger.error('Module "%s" not found in modules list' % module_name)
             raise Exception('Module "%s" not found in installable modules list' % module_name)
 
-        return resp['data']
+        return resp.data
 
     def _get_module_dependencies(self, module_name, modules_infos, get_module_infos_callback, context=None):
         """

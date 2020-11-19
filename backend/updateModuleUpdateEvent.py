@@ -8,9 +8,9 @@ class UpdateModuleUpdateEvent(Event):
     Update.module.update event
     """
 
-    EVENT_NAME = u'update.module.update'
-    EVENT_SYSTEM = True
-    EVENT_PARAMS = [u'module', u'status', u'stdout', u'stderr', u'process']
+    EVENT_NAME = 'update.module.update'
+    EVENT_PROPAGATE = False
+    EVENT_PARAMS = ['module', 'status']
 
     def __init__(self, bus, formatters_broker):
         """ 
