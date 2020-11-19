@@ -598,7 +598,7 @@ class Update(CleepModule):
         Args:
             delay (float): delay before restarting (default 10.0 seconds)
         """
-        resp = self.send_command('restart', 'system', {'delay': delay})
+        resp = self.send_command('restart_cleep', 'system', {'delay': delay})
         if resp.error:
             self.logger.error('Unable to restart Cleep')
 

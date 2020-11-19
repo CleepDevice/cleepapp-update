@@ -8,6 +8,7 @@ sys.path.append('../')
 from backend.update import Update
 from cleep.exception import InvalidParameter, MissingParameter, CommandError, Unauthorized, CommandInfo
 from cleep.libs.tests import session
+from cleep.common import MessageResponse
 from cleep.libs.internals.installcleep import InstallCleep
 from cleep.libs.internals.install import Install
 from mock import Mock, patch, MagicMock, call, PropertyMock
@@ -303,18 +304,18 @@ class TestUpdate(unittest.TestCase):
             self.assertEqual(str(cm.exception), 'Error reading app "module" logs file')
 
     def test_restart_cleep(self):
-        mock_restart = self.session.make_mock_command('restart', Mock(return_value={'error': True, 'message': '', 'data':None}))
+        mock_restart = self.session.make_mock_command('restart_cleep')
         self.init_session(mock_commands=[mock_restart])
 
         self.module._restart_cleep()
-        self.assertEqual(self.session.command_call_count('restart'), 1)
+        self.assertEqual(self.session.command_call_count('restart_cleep'), 1)
 
     def test_restart_cleep_failed(self):
-        mock_restart = self.session.make_mock_command('restart', Mock(return_value={'error': True, 'message': '', 'data':None}))
+        mock_restart = self.session.make_mock_command('restart_cleep', fail=True)
         self.init_session(mock_commands=[mock_restart])
 
         self.module._restart_cleep()
-        self.assertEqual(self.session.command_call_count('restart'), 1)
+        self.assertEqual(self.session.command_call_count('restart_cleep'), 1)
 
     def test_get_cleep_updates(self):
         self.init_session()
@@ -685,7 +686,9 @@ class TestUpdate(unittest.TestCase):
                 self.assertEqual(self.session.event_call_count('update.module.update'), 0)
 
     def test_execute_main_action_exception_w_action_update(self):
-        self.init_session()
+        self.init_session(mock_commands=[
+            self.session.make_mock_command('get_module_infos', fail=True)
+        ])
         self.module._set_module_process = Mock()
         self.module._install_main_module = Mock(side_effect=Exception('Test exception'))
         action_update = {
@@ -711,7 +714,9 @@ class TestUpdate(unittest.TestCase):
                 self.assertEqual(self.session.event_call_count('update.module.update'), 1)
 
     def test_execute_main_action_exception_w_action_uninstall(self):
-        self.init_session()
+        self.init_session(mock_commands=[
+            self.session.make_mock_command('get_module_infos', fail=True)
+        ])
         self.module._set_module_process = Mock()
         self.module._install_main_module = Mock(side_effect=Exception('Test exception'))
         action_uninstall = {
@@ -725,7 +730,6 @@ class TestUpdate(unittest.TestCase):
             'deps': [],
             'version': '1.0.0',
         }
-        self.module._get_module_infos_from_modules_json = Mock(return_value=[infos_mod1])
 
         # uninstall
         with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
