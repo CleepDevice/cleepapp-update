@@ -105,7 +105,7 @@ GITHUB_SAMPLE = [{
   'zipball_url': 'https://api.github.com/repos/tangb/cleep/zipball/v0.0.20'
 }]
 
-class TestUpdate(unittest.TestCase):
+class TestsUpdate(unittest.TestCase):
 
     def setUp(self):
         self.session = session.TestSession(self)
