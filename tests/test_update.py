@@ -147,7 +147,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertTrue('cleepupdatelogs' in config)
         self.assertFalse('cleepupdatelogs' in after)
 
-    def test_event_received_updates_allowed(self):
+    def test_on_event_updates_allowed(self):
         self.init_session()
         self.module._set_config_field('cleepupdateenabled', True)
         self.module._set_config_field('modulesupdateenabled', True)
@@ -163,14 +163,14 @@ class TestsUpdate(unittest.TestCase):
             },
         }
 
-        self.module._event_received(event)
+        self.module.on_event(event)
 
         self.assertTrue(self.module.check_cleep_updates.called)
         self.assertTrue(self.module.check_modules_updates.called)
         self.assertTrue(self.module.update_cleep.called)
         self.assertFalse(self.module.update_modules.called)
 
-    def test_event_received_updates_not_allowed(self):
+    def test_on_event_updates_not_allowed(self):
         self.init_session()
         self.module._set_config_field('cleepupdateenabled', False)
         self.module._set_config_field('modulesupdateenabled', False)
@@ -186,14 +186,14 @@ class TestsUpdate(unittest.TestCase):
             },
         }
 
-        self.module._event_received(event)
+        self.module.on_event(event)
 
         self.assertTrue(self.module.check_cleep_updates.called)
         self.assertTrue(self.module.check_modules_updates.called)
         self.assertFalse(self.module.update_cleep.called)
         self.assertFalse(self.module.update_modules.called)
 
-    def test_event_received_update_modules(self):
+    def test_on_event_update_modules(self):
         self.init_session()
         self.module._set_config_field('cleepupdateenabled', False)
         self.module._set_config_field('modulesupdateenabled', True)
@@ -209,7 +209,7 @@ class TestsUpdate(unittest.TestCase):
             },
         }
 
-        self.module._event_received(event)
+        self.module.on_event(event)
 
         self.assertTrue(self.module.check_cleep_updates.called)
         self.assertTrue(self.module.check_modules_updates.called)

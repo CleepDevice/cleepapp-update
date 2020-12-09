@@ -132,7 +132,7 @@ class Update(CleepModule):
 
         return config
 
-    def event_received(self, event):
+    def on_event(self, event):
         """
         Event received
 
