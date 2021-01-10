@@ -5,6 +5,7 @@ import os
 import time
 import random
 import copy
+import logging
 from cleep.exception import MissingParameter, InvalidParameter, CommandError, CommandInfo
 from cleep.core import CleepModule
 from cleep.libs.internals.installmodule import PATH_INSTALL
@@ -64,6 +65,7 @@ class Update(CleepModule):
             debug_enabled: debug status
         """
         CleepModule.__init__(self, bootstrap, debug_enabled)
+        self.logger.setLevel(logging.TRACE)
 
         # members
         self.modules_json = ModulesJson(self.cleep_filesystem)
@@ -190,6 +192,9 @@ class Update(CleepModule):
                 continue
 
             infos = self._get_last_update_logs(module_name)
+            if not infos:
+                continue
+
             infos.update({
                 'name': module_name,
                 'installed': module_name in installed_modules,
@@ -207,7 +212,7 @@ class Update(CleepModule):
                                   log, specify "cleep" as module name.
 
         Returns:
-            dict: last cleep update logs::
+            dict: last cleep update logs or None if no logs::
 
             {
                 timestamp (int): logs file timestamp
@@ -216,31 +221,31 @@ class Update(CleepModule):
             }
 
         """
-        out = {
-            'timestamp': None,
-            'path': None,
-            'failed': False,
-        }
+        path_success = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_SUCCESS_FILENAME)
+        timestamp_success = 0
+        if os.path.exists(path_success):
+            timestamp_success = int(os.path.getmtime(path_success))
+        path_failure = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FAILURE_FILENAME)
+        timestamp_failure = 0
+        if os.path.exists(path_failure):
+            timestamp_failure = int(os.path.getmtime(path_failure))
 
-        path = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_SUCCESS_FILENAME)
-        if os.path.exists(path):
-            out.update({
-                'timestamp': int(os.path.getmtime(path)),
-                'path': path,
+        if timestamp_success == 0 and timestamp_failure == 0:
+            return None
+
+        # keep most recent one
+        if timestamp_success > timestamp_failure:
+            return {
+                'timestamp': timestamp_success,
+                'path': path_success,
                 'failed': False,
-            })
-            return out
+            }
 
-        path = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FAILURE_FILENAME)
-        if os.path.exists(path):
-            out.update({
-                'timestamp': int(os.path.getmtime(path)),
-                'path': path,
-                'failed': True,
-            })
-            return out
-
-        return out
+        return {
+            'timestamp': timestamp_failure,
+            'path': path_failure,
+            'failed': True,
+        }
 
     def get_logs(self, module_name):
         """
@@ -250,14 +255,20 @@ class Update(CleepModule):
             module_name (string): module name. Specify "cleep" to retrieve logs for cleep
         """
         path_success = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_SUCCESS_FILENAME)
-        path_failure = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FAILURE_FILENAME)
-        path = None
+        timestamp_success = 0
         if os.path.exists(path_success):
-            path = path_success
-        elif os.path.exists(path_failure):
-            path = path_failure
-        if not path:
+            timestamp_success = int(os.path.getmtime(path_success))
+        path_failure = os.path.join(PATH_INSTALL, module_name, self.PROCESS_STATUS_FAILURE_FILENAME)
+        timestamp_failure = 0
+        if os.path.exists(path_failure):
+            timestamp_failure = int(os.path.getmtime(path_failure))
+
+        if timestamp_success == 0 and timestamp_failure == 0:
             raise CommandError('There is no logs for app "%s"' % module_name)
+
+        path = path_failure
+        if timestamp_success > timestamp_failure:
+            path = path_success
 
         lines = self.cleep_filesystem.read_data(path, encoding='utf8')
         if lines is None:
@@ -360,7 +371,7 @@ class Update(CleepModule):
         """
         action = {}
         try:
-            self.logger.debug('Main actions in progress: %s' % len(self.__main_actions))
+            self.logger.debug('Main actions in progress: %s (sub actions: %s)' % (len(self.__main_actions), len(self.__sub_actions)))
 
             # check if action is already processing
             if len(self.__sub_actions) != 0:
@@ -421,7 +432,7 @@ class Update(CleepModule):
         """
         Function triggered regularly to perform sub actions
         """
-        self.logger.debug('Sub actions in progress: %s' % len(self.__main_actions))
+        self.logger.debug('Executing sub action')
         # check if sub action is being processed
         if self.__processor:
             self.logger.trace('Sub action is processing, stop sub action task here')
@@ -429,7 +440,7 @@ class Update(CleepModule):
 
         # return if no sub action in pipe
         if len(self.__sub_actions) == 0:
-            self.logger.trace('No more sub actions to process, stop sub action task here')
+            self.logger.debug('No more sub actions to process, stop sub action task here')
             return
 
         # no running sub action, run next one
@@ -437,7 +448,7 @@ class Update(CleepModule):
 
         # is last sub actions execution failed ?
         if self._is_module_process_failed():
-            self.logger.trace(
+            self.logger.debug(
                 'One of previous sub action failed during "%s" module process, stop here'
                 % sub_action['main']
             )
@@ -467,7 +478,7 @@ class Update(CleepModule):
         action = self.__main_actions[len(self.__main_actions)-1]
         return action['module'] if action['processing'] else None
 
-    def _set_module_process(self, progress=None, inc_progress=None, failed=None, pending=False, forced_module_name=None):
+    def _set_module_process(self, progress=None, inc_progress=None, failed=None, pending=None, forced_module_name=None):
         """
         Set module process infos. Nothing is updated if no module is processing.
 
@@ -498,9 +509,11 @@ class Update(CleepModule):
             module['update']['progress'] += inc_progress
         if module['update']['progress'] > 100:
             module['update']['progress'] = 100
+            module['processing'] = False
         if failed is not None:
             module['update']['failed'] = failed
             module['update']['progress'] = 100
+            module['processing'] = False
         if pending is not None:
             module['pending'] = pending
             module['processing'] = not pending
@@ -598,6 +611,7 @@ class Update(CleepModule):
         Args:
             delay (float): delay before restarting (default 10.0 seconds)
         """
+        self.logger.info('Restart Cleep in %s seconds)' % delay)
         resp = self.send_command('restart_cleep', 'system', {'delay': delay})
         if resp.error:
             self.logger.error('Unable to restart Cleep')
@@ -735,14 +749,22 @@ class Update(CleepModule):
                         # new version available for current module
                         update_available = True
                         module['updatable'] = True
-                        module['update']['version'] = new_version
-                        module['update']['changelog'] = new_modules_json['list'][module_name]['changelog']
+                        module['update'] = {
+                            'version': new_version,
+                            'changelog': new_modules_json['list'][module_name]['changelog'],
+                        }
                         self.logger.info('New version available for app "%s" (v%s => v%s)' % (
                             module_name,
                             module['version'],
                             new_version
                         ))
                     else:
+                        # force module infos update in case of version revert in modules.json
+                        module['updatable'] = False
+                        module['update'] = {
+                            'version': module['version'],
+                            'changelog': '',
+                        }
                         self.logger.debug('No new version available for app "%s" (v%s => v%s)' % (
                             module_name,
                             module['version'],
@@ -1027,12 +1049,14 @@ class Update(CleepModule):
             infos = get_module_infos_callback(module_name)
             modules_infos[module_name] = infos
 
-        # get dependencies (recursive call)
-        for dependency_name in infos['deps']:
-            if dependency_name == module_name:
-                # avoid infinite loop
-                continue
-            self._get_module_dependencies(dependency_name, modules_infos, get_module_infos_callback, context)
+        # handle app without infos (locally installed app)
+        if infos:
+            # get dependencies (recursive call)
+            for dependency_name in infos.get('deps', []):
+                if dependency_name == module_name:
+                    # avoid infinite loop
+                    continue
+                self._get_module_dependencies(dependency_name, modules_infos, get_module_infos_callback, context)
 
         context['dependencies'].append(module_name)
         return context['dependencies']
@@ -1112,9 +1136,30 @@ class Update(CleepModule):
             module_name (string): module name
             module_infos (dict): module infos
         """
+        if module_infos is None:
+            # surely locally installed module, no need to perform complete install, just run final callback
+            self.__install_module_callback({
+                'process': ['Locally installed application'],
+                'stdout': [],
+                'stderr': [],
+                'status': Install.STATUS_DONE,
+                'module': module_name,
+            })
+            return
+
         # non blocking, end of process handled in specified callback
-        self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__install_module_callback)
-        self.__processor.install_module(module_name, module_infos)
+        try:
+            self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__install_module_callback)
+            self.__processor.install_module(module_name, module_infos)
+        except Exception as e:
+            self.crash_report.manual_report('Error installing module "%s"' % module_name, extra={'module_infos': module_infos})
+            self.__install_module_callback({
+                'process': ['Internal error during installation: %s' % str(e)],
+                'stdout': [],
+                'stderr': [],
+                'status': Install.STATUS_ERROR,
+                'module': module_name,
+            })
 
     def _install_main_module(self, module_name):
         """
@@ -1124,6 +1169,7 @@ class Update(CleepModule):
         Args:
             module_name (string): module name to install
         """
+        self.logger.trace('_install_main_module "%s"' % module_name)
         installed_modules = self._get_installed_modules_names()
 
         # compute dependencies to install
@@ -1233,8 +1279,19 @@ class Update(CleepModule):
             module_infos (dict): module infos
             extra (any): extra data (not used here)
         """
-        self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__uninstall_module_callback)
-        self.__processor.uninstall_module(module_name, module_infos, extra['force'])
+        try:
+            self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__uninstall_module_callback)
+            self.__processor.uninstall_module(module_name, module_infos, extra['force'])
+        except Exception as e:
+            self.crash_report.manual_report('Error uninstalling module "%s"' % module_name, extra={'module_infos': module_infos})
+            self.__uninstall_module_callback({
+                'process': ['Internal error during uninstallation: %s' % str(e)],
+                'stdout': [],
+                'stderr': [],
+                'status': Install.STATUS_ERROR,
+                'module': module_name,
+            })
+
 
     def _uninstall_main_module(self, module_name, extra):
         """
@@ -1244,6 +1301,7 @@ class Update(CleepModule):
             module_name (string): module name
             extra (any): extra data
         """
+        self.logger.trace('_uninstall_main_module "%s"' % module_name)
         # compute dependencies to uninstall
         modules_infos = {}
         dependencies = self._get_module_dependencies(module_name, modules_infos, self._get_module_infos_from_inventory)
@@ -1390,6 +1448,7 @@ class Update(CleepModule):
         Args:
             module_name (string): module name
         """
+        self.logger.trace('_update_main_module "%s"' % module_name)
         # compute module dependencies
         modules_infos_inventory = {}
         modules_infos_json = {}
