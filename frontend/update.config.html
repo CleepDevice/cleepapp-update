@@ -4,6 +4,7 @@
     <md-nav-bar md-selected-nav-item="updateCtl.tabIndex" nav-bar-aria-label="Updates tabs">
         <md-nav-item md-nav-click="goto('modules')" name="modules">Applications updates</md-nav-item>
         <md-nav-item md-nav-click="goto('cleep')" name="cleep">Cleep updates</md-nav-item>
+        <md-nav-item md-nav-click="goto('logs')" name="logs">Logs</md-nav-item>
         <md-nav-item md-nav-click="goto('options')" name="options">Options</md-nav-item>
     </md-nav-bar>
 
@@ -27,7 +28,7 @@
             >
                 <md-icon md-svg-icon="chevron-right"></md-icon>
                 <div class="md-list-item-text" layout="column">
-                    <h3>{{moduleName}}</h3>
+                    <h3>{{moduleName}} v{{updateCtl.cleepService.modulesUpdates[moduleName].version}}</h3>
                 </div>
                 <md-button
                     class="md-secondary md-raised md-accent"
@@ -38,17 +39,13 @@
                     <span ng-if="!updateCtl.cleepService.modulesUpdates[moduleName].updatable">No Update available</span>
                     <span ng-if="updateCtl.cleepService.modulesUpdates[moduleName].updatable">Update available</span>
                 </md-button>
-                <md-button
-                    class="md-secondary md-raised"
-                    ng-if="updateCtl.modulesLogs[moduleName]"
-                    ng-click="updateCtl.showLogsDialog(moduleName, $event)"
-                >
-                    <md-icon md-svg-icon="file-document-outline"></md-icon>
-                    <span>Logs</span>
-                </md-button>
             </md-list-item>
+        </md-list>
+	</div>
 
-            <md-subheader class="md-no-sticky">Uninstalled applications</md-subheader>
+    <div layout="column" layout-padding ng-if="updateCtl.tabIndex==='logs'">
+        <md-list ng-cloak>
+            <md-subheader class="md-no-sticky">Applications logs</md-subheader>
             <md-list-item
                 class="md-2-line"
                 ng-repeat="(moduleName, logs) in updateCtl.modulesLogs | orderObjByKey:'name'"
@@ -56,19 +53,26 @@
             >
                 <md-icon md-svg-icon="chevron-right"></md-icon>
                 <div class="md-list-item-text" layout="column">
-                    <h3>{{moduleName}}</h3>
-                    <p>Uninstalled at {{logs.timestamp | hrDatetime}}</p>
+                    <h3>
+                        {{moduleName}}
+                        <span ng-if="!logs.installed" class="md-caption">(app NOT installed)</span>
+                        <span ng-if="logs.installed" class="md-caption">(app installed)</span>
+                    </h3>
+                    <p ng-if="logs.failed">Last action failed at {{logs.timestamp | hrDatetime}}</p>
+                    <p ng-if="!logs.failed">Last action succeed at {{logs.timestamp | hrDatetime}}</p>
                 </div>
                 <md-button
+                    ng-if="logs.failed"
                     class="md-secondary md-raised"
+                    ng-class="{'md-accent': logs.failed}"
                     ng-click="updateCtl.showLogsDialog(moduleName, $event)"
                 >
                     <md-icon md-svg-icon="file-document-outline"></md-icon>
-                    <span>Logs</span>
+                    View log
                 </md-button>
             </md-list-item>
         </md-list>
-	</div>
+    </div>
 
     <div layout="column" layout-padding ng-if="updateCtl.tabIndex==='cleep'">
         <md-list ng-cloak>
