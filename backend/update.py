@@ -23,7 +23,7 @@ class Update(CleepModule):
     Update application
     """
     MODULE_AUTHOR = 'Cleep'
-    MODULE_VERSION = '1.0.0'
+    MODULE_VERSION = '1.0.1'
     MODULE_DEPS = []
     MODULE_DESCRIPTION = 'Applications and Cleep updater'
     MODULE_LONGDESCRIPTION = 'Manage all Cleep applications and Cleep core updates.'
@@ -65,7 +65,7 @@ class Update(CleepModule):
             debug_enabled: debug status
         """
         CleepModule.__init__(self, bootstrap, debug_enabled)
-        self.logger.setLevel(logging.TRACE)
+        # self.logger.setLevel(logging.TRACE)
 
         # members
         self.modules_json = ModulesJson(self.cleep_filesystem)

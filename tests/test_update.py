@@ -246,7 +246,7 @@ class TestsUpdate(unittest.TestCase):
 
         # success
         with patch('os.path.exists', Mock(return_value=True)):
-            with patch('os.path.getmtime', Mock(return_value=666)):
+            with patch('os.path.getmtime', Mock(side_effect=[666, 665])):
                 logs = self.module._get_last_update_logs('module')
                 logging.debug('Logs: %s' % logs)
                 self.assertEqual(logs['timestamp'], 666)
@@ -267,25 +267,25 @@ class TestsUpdate(unittest.TestCase):
             with patch('os.path.getmtime', Mock(return_value=666)):
                 logs = self.module._get_last_update_logs('module')
                 logging.debug('Logs: %s' % logs)
-                self.assertEqual(logs['timestamp'], None)
-                self.assertFalse(logs['failed'])
-                self.assertEqual(logs['path'], None)
+                self.assertEqual(logs, None)
 
     def test_get_logs(self):
         self.init_session()
         self.module.cleep_filesystem.read_data = Mock(return_value='hello world')
 
         # success
-        with patch('os.path.exists', side_effect=[True]):
-            logs = self.module.get_logs('module')
-            logging.debug('Logs: %s' % logs)
-            self.assertEqual(logs, 'hello world')
+        with patch('os.path.exists', side_effect=[True, False]):
+            with patch('os.path.getmtime', Mock(return_value=666)):
+                logs = self.module.get_logs('module')
+                logging.debug('Logs: %s' % logs)
+                self.assertEqual(logs, 'hello world')
 
         # failure
         with patch('os.path.exists', side_effect=[False, True]):
-            logs = self.module.get_logs('module')
-            logging.debug('Logs: %s' % logs)
-            self.assertEqual(logs, 'hello world')
+            with patch('os.path.getmtime', Mock(return_value=666)):
+                logs = self.module.get_logs('module')
+                logging.debug('Logs: %s' % logs)
+                self.assertEqual(logs, 'hello world')
 
         # neither success nor failure
         with patch('os.path.exists', side_effect=[False, False]):
@@ -298,10 +298,11 @@ class TestsUpdate(unittest.TestCase):
         self.module.cleep_filesystem.read_data = Mock(return_value=None)
 
         # success
-        with patch('os.path.exists', side_effect=[True]):
-            with self.assertRaises(CommandError) as cm:
-                logs = self.module.get_logs('module')
-            self.assertEqual(str(cm.exception), 'Error reading app "module" logs file')
+        with patch('os.path.exists', side_effect=[True, False]):
+            with patch('os.path.getmtime', Mock(return_value=666)):
+                with self.assertRaises(CommandError) as cm:
+                    logs = self.module.get_logs('module')
+                self.assertEqual(str(cm.exception), 'Error reading app "module" logs file')
 
     def test_restart_cleep(self):
         mock_restart = self.session.make_mock_command('restart_cleep')
@@ -948,7 +949,9 @@ class TestsUpdate(unittest.TestCase):
                 }
             },
         }
+
         self.module._set_module_process(progress=15)
+
         self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
         self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 15)
 
@@ -969,8 +972,10 @@ class TestsUpdate(unittest.TestCase):
                 }
             },
         }
+
         self.module._set_module_process(progress=150)
-        self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
+
+        self.assertEqual(self.module._modules_updates['mod1']['processing'], False)
         self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 100)
 
     def test_set_module_process_update_inc_progress(self):
@@ -1012,8 +1017,10 @@ class TestsUpdate(unittest.TestCase):
                 }
             },
         }
+
         self.module._set_module_process(inc_progress=30)
-        self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
+
+        self.assertEqual(self.module._modules_updates['mod1']['processing'], False)
         self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 100)
 
     def test_set_module_process_update_failed(self):
@@ -1034,8 +1041,11 @@ class TestsUpdate(unittest.TestCase):
                 }
             },
         }
+
         self.module._set_module_process(failed=True)
-        self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
+        logging.debug('_modules_updates[mod1]=%s' % self.module._modules_updates['mod1'])
+
+        self.assertEqual(self.module._modules_updates['mod1']['processing'], False)
         self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 100)
         self.assertEqual(self.module._modules_updates['mod1']['update']['failed'], True)
 
@@ -1056,7 +1066,9 @@ class TestsUpdate(unittest.TestCase):
                 }
             },
         }
+
         self.module._set_module_process(failed=True)
+
         self.assertEqual(self.module._modules_updates['mod1']['processing'], False)
 
     def test_set_module_process_update_new_module_install(self):
