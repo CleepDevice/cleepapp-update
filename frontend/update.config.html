@@ -4,7 +4,7 @@
     <md-nav-bar md-selected-nav-item="updateCtl.tabIndex" nav-bar-aria-label="Updates tabs">
         <md-nav-item md-nav-click="goto('modules')" name="modules">Applications updates</md-nav-item>
         <md-nav-item md-nav-click="goto('cleep')" name="cleep">Cleep updates</md-nav-item>
-        <md-nav-item md-nav-click="goto('logs')" name="logs">Logs</md-nav-item>
+        <md-nav-item md-nav-click="goto('logs')" name="logs">Update logs</md-nav-item>
         <md-nav-item md-nav-click="goto('options')" name="options">Options</md-nav-item>
     </md-nav-bar>
 
@@ -45,7 +45,7 @@
 
     <div layout="column" layout-padding ng-if="updateCtl.tabIndex==='logs'">
         <md-list ng-cloak>
-            <md-subheader class="md-no-sticky">Applications logs</md-subheader>
+            <md-subheader class="md-no-sticky">Applications update logs</md-subheader>
             <md-list-item
                 class="md-2-line"
                 ng-repeat="(moduleName, logs) in updateCtl.modulesLogs | orderObjByKey:'name'"
