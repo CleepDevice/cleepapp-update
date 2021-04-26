@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.2 - 2021-04-26
+
+* Fix typo
+
 ## v1.0.1 - 2021-04-11
 
 * Fix tests
