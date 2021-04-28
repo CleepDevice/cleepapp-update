@@ -2,7 +2,8 @@
 
 ## v1.0.2 - 2021-04-26
 
-* Fix typo
+* Frontend: fix typo
+* Frontend: fix small layout issue
 
 ## v1.0.1 - 2021-04-11
 
