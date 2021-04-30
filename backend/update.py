@@ -45,7 +45,7 @@ class Update(CleepModule):
     }
 
     CLEEP_GITHUB_OWNER = 'tangb'
-    CLEEP_GITHUB_REPO = 'raspiot'
+    CLEEP_GITHUB_REPO = 'cleep'
     PROCESS_STATUS_SUCCESS_FILENAME = 'process_success.log'
     PROCESS_STATUS_FAILURE_FILENAME = 'process_failure.log'
     CLEEP_STATUS_FILEPATH = ''
