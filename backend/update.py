@@ -494,6 +494,14 @@ class Update(CleepModule):
         if not module_name:
             self.logger.debug('Can\'t update module infos when no module is processing')
             return
+        self.logger.trace('set_module_process [%s]: progress=%s inc_progress=%s failed=%s pending=%s forced_module_name=%s' % (
+            module_name,
+            progress,
+            inc_progress,
+            failed,
+            pending,
+            forced_module_name
+        ))
 
         # make sure entry exists in modules updates (case when installing new module)
         if module_name not in self._modules_updates:
@@ -725,22 +733,23 @@ class Update(CleepModule):
                 }
 
         """
-        # store local modules list (from modules.json)
-        current_modules_json = self.modules_json.get_json()
-
         # update modules.json content
         try:
             modules_json_updated = self.modules_json.update()
-            new_modules_json = current_modules_json
             if modules_json_updated:
                 new_modules_json = self.modules_json.get_json()
         except:
             self.logger.warning('Unable to refresh modules list from repository')
             raise CommandError('Unable to refresh modules list from internet')
 
-        # check for modules updates available
         update_available = False
         if modules_json_updated:
+            # request inventory to update its modules list
+            resp = self.send_command('reload_modules', 'inventory')
+            if resp.error:
+                self.logger.error('Error occured during inventory modules reloading: %s' % (resp.message))
+
+            # check for modules updates available
             for module_name, module in self._modules_updates.items():
                 try:
                     new_version = (new_modules_json['list'][module_name]['version'] if module_name in new_modules_json['list']
@@ -1102,17 +1111,11 @@ class Update(CleepModule):
         """
         self.logger.debug('Module install callback status: %s' % status)
 
-        # send process status
-        self.module_install_event.send(params={
-            'status': status['status'],
-            'module': status['module'],
-        })
-
         # handle install success
         if status['status'] == Install.STATUS_DONE:
             # need to restart
             self._need_restart = True
-            self._set_module_process(pending=True)
+            self._set_module_process(pending=True, forced_module_name=status['module'])
             self._store_process_status(status, success=True)
 
             # update cleep.conf
@@ -1127,6 +1130,13 @@ class Update(CleepModule):
         if status['status'] >= Install.STATUS_DONE:
             # reset processor
             self.__processor = None
+
+        # send process status
+        self.module_install_event.send(params={
+            'status': status['status'],
+            'module': status['module'],
+        })
+
 
     def _install_module(self, module_name, module_infos):
         """
@@ -1248,7 +1258,7 @@ class Update(CleepModule):
         # handle process success
         if status['status'] == Install.STATUS_DONE:
             self._need_restart = True
-            self._set_module_process(pending=True)
+            self._set_module_process(pending=True, forced_module_name=status['module'])
             self._store_process_status(status, success=True)
 
             # update cleep.conf
@@ -1402,16 +1412,10 @@ class Update(CleepModule):
         """
         self.logger.debug('Module update callback status: %s' % status)
 
-        # send process status to ui
-        self.module_update_event.send(params={
-            'status': status['status'],
-            'module': status['module'],
-        })
-
         # handle process success
         if status['status'] == Install.STATUS_DONE:
             self._need_restart = True
-            self._set_module_process(pending=True)
+            self._set_module_process(pending=True, forced_module_name=status['module'])
             self._store_process_status(status, success=True)
 
             # update cleep.conf adding module to updated ones
@@ -1426,6 +1430,12 @@ class Update(CleepModule):
         if status['status'] >= Install.STATUS_DONE:
             # reset processor
             self.__processor = None
+
+        # send process status to ui
+        self.module_update_event.send(params={
+            'status': status['status'],
+            'module': status['module'],
+        })
 
     def _update_module(self, module_name, module_infos):
         """
