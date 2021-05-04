@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.3 - 2021-05-04
+
+* Frontend: fix typo
+
 ## v1.0.2 - 2021-04-26
 
 * Frontend: fix typo
