@@ -4,6 +4,7 @@
 
 * Frontend: fix typo
 * Frontend: fix small layout issue
+* Backend: fix final process status that was not properly sent
 
 ## v1.0.1 - 2021-04-11
 
