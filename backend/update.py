@@ -5,7 +5,6 @@ import os
 import time
 import random
 import copy
-import logging
 from cleep.exception import MissingParameter, InvalidParameter, CommandError, CommandInfo
 from cleep.core import CleepModule
 from cleep.libs.internals.installmodule import PATH_INSTALL
@@ -371,7 +370,10 @@ class Update(CleepModule):
         """
         action = {}
         try:
-            self.logger.debug('Main actions in progress: %s (sub actions: %s)' % (len(self.__main_actions), len(self.__sub_actions)))
+            self.logger.debug('Main actions in progress: %s (sub actions: %s)' % (
+                len(self.__main_actions),
+                len(self.__sub_actions)
+            ))
 
             # check if action is already processing
             if len(self.__sub_actions) != 0:
@@ -708,7 +710,7 @@ class Update(CleepModule):
                 # no release found
                 self.logger.warning('No Cleep release found during check')
 
-        except:
+        except Exception:
             self.logger.exception('Error occured during updates checking:')
             self.crash_report.report_exception()
             raise CommandError('Error occured during cleep update check')
@@ -738,8 +740,8 @@ class Update(CleepModule):
             modules_json_updated = self.modules_json.update()
             if modules_json_updated:
                 new_modules_json = self.modules_json.get_json()
-        except:
-            self.logger.warning('Unable to refresh modules list from repository')
+        except Exception:
+            self.logger.exception('Unable to refresh modules list from repository')
             raise CommandError('Unable to refresh modules list from internet')
 
         update_available = False
@@ -882,7 +884,11 @@ class Update(CleepModule):
             raise CommandInfo('Cleep update is in progress. Please wait end of it')
 
         # fill main actions with upgradable modules
-        for module in [module for module in self._modules_updates.values() if module['updatable'] and not module['processing'] and not module['pending']]:
+        for module in [
+            module
+            for module in self._modules_updates.values()
+            if module["updatable"] and not module["processing"] and not module["pending"]
+        ]:
             self._postpone_main_action(Update.ACTION_MODULE_UPDATE, module['name'])
 
         # start main actions task
@@ -901,7 +907,11 @@ class Update(CleepModule):
             bool: True if new action postponed, False if action was already postponed
         """
         # search if similar action for same module already exists
-        existing_actions = [action_obj for action_obj in self.__main_actions if action_obj['module'] == module_name and action_obj['action'] == action]
+        existing_actions = [
+            action_obj
+            for action_obj in self.__main_actions
+            if action_obj["module"] == module_name and action_obj["action"] == action
+        ]
         self.logger.trace('Existing_actions: %s' % existing_actions)
         if len(existing_actions) > 0:
             self.logger.debug('Same action "%s" for "%s" module already exists, drop it' % (action, module_name))
@@ -1161,10 +1171,10 @@ class Update(CleepModule):
         try:
             self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__install_module_callback)
             self.__processor.install_module(module_name, module_infos)
-        except Exception as e:
+        except Exception as error:
             self.crash_report.manual_report('Error installing module "%s"' % module_name, extra={'module_infos': module_infos})
             self.__install_module_callback({
-                'process': ['Internal error during installation: %s' % str(e)],
+                'process': ['Internal error during installation: %s' % str(error)],
                 'stdout': [],
                 'stderr': [],
                 'status': Install.STATUS_ERROR,
@@ -1292,10 +1302,10 @@ class Update(CleepModule):
         try:
             self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__uninstall_module_callback)
             self.__processor.uninstall_module(module_name, module_infos, extra['force'])
-        except Exception as e:
+        except Exception as error:
             self.crash_report.manual_report('Error uninstalling module "%s"' % module_name, extra={'module_infos': module_infos})
             self.__uninstall_module_callback({
-                'process': ['Internal error during uninstallation: %s' % str(e)],
+                'process': ['Internal error during uninstallation: %s' % str(error)],
                 'stdout': [],
                 'stderr': [],
                 'status': Install.STATUS_ERROR,

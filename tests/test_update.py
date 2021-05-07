@@ -1784,6 +1784,8 @@ class TestsUpdate(unittest.TestCase):
         }
         self.init_session()
         self.module._store_process_status = Mock()
+        mod_infos = self.__generate_module_infos([], [], '0.0.1')
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[mod_infos])
 
         self.module._Update__install_module_callback(status)
 
@@ -1820,11 +1822,44 @@ class TestsUpdate(unittest.TestCase):
         self.init_session()
         infos = {'version': '0.0.0'}
         module_name = 'dummy'
+        self.module._Update__install_module_callback = Mock()
+
         self.module._install_module(module_name, infos)
 
         mock_install.return_value.install_module.assert_called_with(module_name, infos)
         self.assertFalse(mock_install.return_value.uninstall_module.called)
         self.assertFalse(mock_install.return_value.update_module.called)
+        self.assertFalse(self.module._Update__install_module_callback.called)
+
+    @patch('backend.update.Install')
+    def test_final_install_module_local_module(self, mock_install):
+        mock_install.return_value.install_module = Mock()
+        mock_install.return_value.uninstall_module = Mock()
+        mock_install.return_value.update_module = Mock()
+        self.init_session()
+        infos = {'version': '0.0.0'}
+        module_name = 'dummy'
+        self.module._Update__install_module_callback = Mock()
+
+        self.module._install_module(module_name, None)
+
+        self.assertFalse(mock_install.return_value.install_module.called)
+        self.assertFalse(mock_install.return_value.uninstall_module.called)
+        self.assertFalse(mock_install.return_value.update_module.called)
+        self.assertTrue(self.module._Update__install_module_callback.called)
+
+    @patch('backend.update.Install')
+    def test_final_install_module_exception(self, mock_install):
+        mock_install.return_value.install_module = Mock(side_effect=Exception('Test exception'))
+        self.init_session()
+        infos = {'version': '0.0.0'}
+        module_name = 'dummy'
+        self.module._Update__install_module_callback = Mock()
+
+        self.module._install_module(module_name, infos)
+
+        self.assertTrue(self.module.crash_report.manual_report.called)
+        self.assertTrue(self.module._Update__install_module_callback.called)
 
     def test_get_modules_to_uninstall(self):
         self.init_session()
@@ -2139,6 +2174,8 @@ class TestsUpdate(unittest.TestCase):
         }
         self.init_session()
         self.module._store_process_status = Mock()
+        mod_infos = self.__generate_module_infos([], [], '0.0.1')
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[mod_infos])
 
         self.module._Update__uninstall_module_callback(status)
 
@@ -2176,11 +2213,28 @@ class TestsUpdate(unittest.TestCase):
         infos = {'version': '0.0.0'}
         module_name = 'dummy'
         extra = {'force': True}
+        self.module._Update__uninstall_module_callback = Mock()
+
         self.module._uninstall_module(module_name, infos, extra)
 
         self.assertFalse(mock_install.return_value.install_module.called)
         mock_install.return_value.uninstall_module.assert_called_with(module_name, infos, extra['force'])
         self.assertFalse(mock_install.return_value.update_module.called)
+        self.assertFalse(self.module._Update__uninstall_module_callback.called)
+
+    @patch('backend.update.Install')
+    def test_final_uninstall_module_exception(self, mock_install):
+        mock_install.return_value.uninstall_module = Mock(side_effect=Exception('Test exception'))
+        self.init_session()
+        infos = {'version': '0.0.0'}
+        module_name = 'dummy'
+        extra = {'force': True}
+        self.module._Update__uninstall_module_callback = Mock()
+
+        self.module._uninstall_module(module_name, infos, extra)
+
+        self.assertTrue(self.module.crash_report.manual_report.called)
+        self.assertTrue(self.module._Update__uninstall_module_callback.called)
 
     @patch('backend.update.Task')
     def test_update_module(self, mock_task):
@@ -2390,6 +2444,8 @@ class TestsUpdate(unittest.TestCase):
         }
         self.init_session()
         self.module._store_process_status = Mock()
+        mod_infos = self.__generate_module_infos([], [], '0.0.1')
+        self.module._get_module_infos_from_modules_json = Mock(side_effect=[mod_infos])
 
         self.module._Update__update_module_callback(status)
 
