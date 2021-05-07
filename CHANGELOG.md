@@ -5,6 +5,7 @@
 * Frontend: fix typo
 * Frontend: fix small layout issue
 * Backend: fix final process status that was not properly sent
+* Improve code quality and confidence
 
 ## v1.0.1 - 2021-04-11
 
