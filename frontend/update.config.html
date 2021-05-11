@@ -4,7 +4,7 @@
     <md-nav-bar md-selected-nav-item="updateCtl.tabIndex" nav-bar-aria-label="Updates tabs">
         <md-nav-item md-nav-click="goto('modules')" name="modules">Applications updates</md-nav-item>
         <md-nav-item md-nav-click="goto('cleep')" name="cleep">Cleep updates</md-nav-item>
-        <md-nav-item md-nav-click="goto('logs')" name="logs">Update logs</md-nav-item>
+        <md-nav-item md-nav-click="goto('logs')" name="logs">Apps update logs</md-nav-item>
         <md-nav-item md-nav-click="goto('options')" name="options">Options</md-nav-item>
     </md-nav-bar>
 
@@ -55,20 +55,19 @@
                 <div class="md-list-item-text" layout="column">
                     <h3>
                         {{moduleName}}
-                        <span ng-if="!logs.installed" class="md-caption">(app NOT installed)</span>
-                        <span ng-if="logs.installed" class="md-caption">(app installed)</span>
+                        <span ng-if="!logs.installed" class="md-caption">(app is NOT installed)</span>
+                        <span ng-if="logs.installed" class="md-caption">(app is installed)</span>
                     </h3>
                     <p ng-if="logs.failed">Last action failed at {{logs.timestamp | hrDatetime}}</p>
                     <p ng-if="!logs.failed">Last action succeed at {{logs.timestamp | hrDatetime}}</p>
                 </div>
                 <md-button
-                    ng-if="logs.failed"
                     class="md-secondary md-raised"
                     ng-class="{'md-accent': logs.failed}"
                     ng-click="updateCtl.showLogsDialog(moduleName, $event)"
                 >
                     <md-icon md-svg-icon="file-document-outline"></md-icon>
-                    View log
+                    View logs
                 </md-button>
             </md-list-item>
         </md-list>
@@ -121,9 +120,9 @@
             <md-list-item ng-if="updateCtl.config.cleepupdatelogs.timestamp && !updateCtl.config.cleepupdatelogs.failed">
                 <md-icon md-svg-icon="chevron-right"></md-icon>
                 <p>Last update installed successfully at {{updateCtl.config.cleepupdatelogs.timestamp | hrDatetime}}</p>
-                <md-button class="md-secondary md-raised" ng-click="updateCtl.showLogsDialog('cleep')">
+                <md-button class="md-secondary md-raised" ng-click="updateCtl.showLogsDialog('cleep', $event)">
                     <md-icon md-svg-icon="file-document-outline"></md-icon>
-                    Logs
+                    View logs
                 </md-button>
             </md-list-item>
             <md-list-item ng-if="updateCtl.config.cleepupdatelogs.timestamp && updateCtl.config.cleepupdatelogs.failed">
@@ -131,7 +130,7 @@
                 <p>Last update installation failed at {{updateCtl.config.cleepupdatelogs.timestamp | hrDatetime}}</p>
                 <md-button class="md-secondary md-raised" ng-click="updateCtl.showLogsDialog('cleep', $event)">
                     <md-icon md-svg-icon="file-document-outline"></md-icon>
-                    Logs
+                    View logs
                 </md-button>
             </md-list-item>
         </md-list>
