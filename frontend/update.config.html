@@ -107,7 +107,7 @@
             <md-list-item ng-if="updateCtl.cleepUpdates.processing">
                 <md-icon md-svg-icon="chevron-right"></md-icon>
                 <p>
-                    <span ng-if="updateCtl.updateService.cleepUpdateStatus===1">Installing update...</span>
+                    <span ng-if="updateCtl.updateService.cleepUpdateStatus===1">Installing update, it might takes some time...</span>
                     <span ng-if="updateCtl.updateService.cleepUpdateStatus===2">Installation completed successfully</span>
                     <span ng-if="updateCtl.updateService.cleepUpdateStatus===3">Installation failed (internal error)</span>
                     <span ng-if="updateCtl.updateService.cleepUpdateStatus===4">Download failed</span>

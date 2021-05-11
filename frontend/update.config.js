@@ -168,6 +168,10 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 })
                 .then(function(resp) {
                     self.cleepUpdates = resp.data;
+                    // force installing status if cleep update is processing
+                    if (self.cleepUpdates.processing) {
+                        updateService.cleepUpdateStatus = 1;
+                    }
                 });
 
             // refresh modules updates
