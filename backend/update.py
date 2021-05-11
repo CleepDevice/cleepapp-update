@@ -99,7 +99,7 @@ class Update(CleepModule):
         self.module_uninstall_event = self._get_event('update.module.uninstall')
         self.module_update_event = self._get_event('update.module.update')
         self.cleep_update_event = self._get_event('update.cleep.update')
-        self.cleep_need_restart_event = self._get_event('core.cleep.needrestart')
+        self.cleep_need_restart_event = self._get_event('system.cleep.needrestart')
 
     def _configure(self):
         """
@@ -377,8 +377,8 @@ class Update(CleepModule):
             ))
 
             # check if action is already processing
-            if len(self.__sub_actions) != 0:
-                self.logger.debug('Main action is already processing, stop main action task here.')
+            if len(self.__sub_actions) != 0 or self.__processor:
+                self.logger.debug('Main action is processing, stop main action task here.')
                 return
 
             # remove previous action if necessary
@@ -386,7 +386,7 @@ class Update(CleepModule):
                 self.__main_actions.pop()
 
             # is there main action to run ?
-            if len(self.__main_actions) == 0:
+            if len(self.__main_actions) == 0 and len(self.__sub_actions) == 0 and not self.__processor:
                 self.logger.debug('No more main action to execute, stop all tasks.')
 
                 # send need restart event

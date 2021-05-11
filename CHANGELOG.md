@@ -3,6 +3,7 @@
 ## v1.0.3 - 2021-05-11
 
 * Backend: send need restart event after install/unsinstall/update
+* Backend: add improvement to send end of process when really terminated
 
 ## v1.0.2 - 2021-05-04
 
