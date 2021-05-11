@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.3 - 2021-05-11
+
+* Backend: send need restart event after install/unsinstall/update
+
 ## v1.0.2 - 2021-05-04
 
 * Frontend: fix typo

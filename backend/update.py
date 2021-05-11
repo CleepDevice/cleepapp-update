@@ -99,6 +99,7 @@ class Update(CleepModule):
         self.module_uninstall_event = self._get_event('update.module.uninstall')
         self.module_update_event = self._get_event('update.module.update')
         self.cleep_update_event = self._get_event('update.cleep.update')
+        self.cleep_need_restart_event = self._get_event('core.cleep.needrestart')
 
     def _configure(self):
         """
@@ -387,6 +388,10 @@ class Update(CleepModule):
             # is there main action to run ?
             if len(self.__main_actions) == 0:
                 self.logger.debug('No more main action to execute, stop all tasks.')
+
+                # send need restart event
+                self.cleep_need_restart_event.send()
+
                 self.__stop_actions_tasks()
                 return
 
