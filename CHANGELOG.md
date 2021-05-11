@@ -4,6 +4,8 @@
 
 * Backend: send need restart event after install/unsinstall/update
 * Backend: add improvement to send end of process when really terminated
+* Frontend: improve UI layout
+* Frontend: fix cleep update displayed info after refresh
 
 ## v1.0.2 - 2021-05-04
 
