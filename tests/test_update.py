@@ -574,9 +574,20 @@ class TestsUpdate(unittest.TestCase):
         self.module.logger.debug = Mock()
         with patch.object(self.module, '_Update__sub_actions', ['dummy']) as mock_subactions:
             self.assertIsNone(self.module._execute_main_action_task())
-            # logging.debug('logs: %s' % self.module.logger.debug.call_args_list)
+            logging.debug('logs: %s' % self.module.logger.debug.call_args_list)
             self.module.logger.debug.assert_any_call(
-                'Main action is already processing, stop main action task here.'
+                'Main action is processing, stop main action task here.'
+            )
+
+    def test_execute_main_action_task_running_subaction(self):
+        self.init_session()
+        self.module.logger.debug = Mock()
+        self.module._Update__processor = 'something'
+        with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
+            self.assertIsNone(self.module._execute_main_action_task())
+            logging.debug('logs: %s' % self.module.logger.debug.call_args_list)
+            self.module.logger.debug.assert_any_call(
+                'Main action is processing, stop main action task here.'
             )
 
     def test_execute_main_action_task_last_action_terminated_no_more_after(self):
@@ -1195,24 +1206,28 @@ class TestsUpdate(unittest.TestCase):
         mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
         mock_modulesjson.return_value.update.return_value = False
         self.init_session()
+        self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
 
         updates = self.module.check_modules_updates()
         
         self.assertFalse(updates['modulesupdates'])
         self.assertFalse(updates['modulesjsonupdated'])
         self.assertTrue('moduleslastcheck' in updates)
+        self.assertFalse(self.session.command_called('reload_modules'))
 
     @patch('backend.update.ModulesJson')
     def test_check_modules_updates_modules_json_updated_with_no_module_update(self, mock_modulesjson):
         mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
         mock_modulesjson.return_value.update.return_value = True
         self.init_session()
+        self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
 
         updates = self.module.check_modules_updates()
         
         self.assertFalse(updates['modulesupdates'])
         self.assertTrue(updates['modulesjsonupdated'])
         self.assertTrue('moduleslastcheck' in updates)
+        self.assertTrue(self.session.command_called('reload_modules'))
 
     @patch('backend.update.ModulesJson')
     def test_check_modules_updates_modules_json_updated_with_module_update(self, mock_modulesjson):
@@ -1224,6 +1239,7 @@ class TestsUpdate(unittest.TestCase):
         mock_modulesjson.return_value.get_json.return_value = modules_json
         mock_modulesjson.return_value.update.return_value = True
         self.init_session()
+        self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
 
         updates = self.module.check_modules_updates()
         logging.debug('updates: %s' % updates)
@@ -1239,24 +1255,28 @@ class TestsUpdate(unittest.TestCase):
         self.assertFalse(modules_updates['parameters']['updatable'])
         self.assertEqual(modules_updates['system']['update']['changelog'], changelog)
         self.assertEqual(modules_updates['system']['update']['version'], version)
+        self.assertTrue(self.session.command_called('reload_modules'))
         
     @patch('backend.update.ModulesJson')
     def test_check_modules_updates_modules_json_exception(self, mock_modulesjson):
         mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
         mock_modulesjson.return_value.update.side_effect = Exception('Test exception')
         self.init_session()
+        self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
 
         with self.assertRaises(CommandError) as cm:
            self.module.check_modules_updates()
         self.assertEqual(str(cm.exception), 'Unable to refresh modules list from internet')
+        self.assertFalse(self.session.command_called('reload_modules'))
 
     @patch('backend.update.ModulesJson')
     @patch('backend.update.Tools')
-    def test_check_modules_updates_check_failed(self, mock_tools, mock_modulesjson):
+    def test_check_modules_updates_check_module_version_failed(self, mock_tools, mock_modulesjson):
         mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
         mock_modulesjson.return_value.update.return_value = True
         mock_tools.compare_versions.side_effect = Exception('Test exception')
         self.init_session()
+        self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
 
         # should continue event if exception occured during single module check
         updates = self.module.check_modules_updates()
@@ -1264,6 +1284,7 @@ class TestsUpdate(unittest.TestCase):
 
         self.assertEqual(updates['modulesjsonupdated'], True)
         self.assertEqual(updates['modulesupdates'], False)
+        self.assertTrue(self.session.command_called('reload_modules'))
 
     def test_update_cleep_no_update_available(self):
         self.init_session()
@@ -1274,6 +1295,24 @@ class TestsUpdate(unittest.TestCase):
             self.module.update_cleep()
         self.assertEqual(str(cm.exception), 'No Cleep update available, please launch update check first')
         self.assertFalse(self.module.cleep_filesystem.enable_write.called)
+
+    @patch('backend.update.ModulesJson')
+    def test_check_modules_updates_reload_modules_fails(self, mock_modulesjson):
+        modules_json = copy.deepcopy(MODULES_JSON)
+        version = '6.6.6'
+        changelog = 'new version changelog'
+        modules_json['list']['system']['version'] = version
+        modules_json['list']['system']['changelog'] = changelog
+        mock_modulesjson.return_value.get_json.return_value = modules_json
+        mock_modulesjson.return_value.update.return_value = True
+        self.init_session()
+        self.module.logger.error = Mock()
+        self.session.add_mock_command(self.session.make_mock_command('reload_modules', fail=True))
+
+        updates = self.module.check_modules_updates()
+
+        self.assertTrue(self.session.command_called('reload_modules'))
+        self.module.logger.error.assert_called_with('Error occured during inventory modules reloading: TEST: command "reload_modules" fails for tests')
     
     @patch('backend.update.InstallCleep')
     def test_update_cleep_update_available(self, mock_installcleep):
