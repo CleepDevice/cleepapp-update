@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.4 - 2021-05-19 UNRELEASED
+
+* Do not send need restart event if no actions performed
+* Properly handle dependency uninstall (app status stayed in uninstalling)
+* Fix Dependencies installation of locally installed apps (for dev)
+* Introduce compat flag to handle core releases
+
 ## v1.0.3 - 2021-05-11
 
 * Backend: send need restart event after install/unsinstall/update
