@@ -5,6 +5,8 @@ import os
 import time
 import random
 import copy
+import importlib
+import re
 from cleep.exception import MissingParameter, InvalidParameter, CommandError, CommandInfo
 from cleep.core import CleepModule
 from cleep.libs.internals.installmodule import PATH_INSTALL
@@ -12,10 +14,11 @@ from cleep.libs.configs.modulesjson import ModulesJson
 from cleep.libs.configs.cleepconf import CleepConf
 from cleep.libs.internals.cleepgithub import CleepGithub
 import cleep.libs.internals.tools as Tools
-from cleep import __version__ as VERSION
+from cleep import __version__ as CLEEP_VERSION
 from cleep.libs.internals.installcleep import InstallCleep
 from cleep.libs.internals.install import Install
 from cleep.libs.internals.task import Task
+from cleep.libs.internals.tools import compare_versions
 
 class Update(CleepModule):
     """
@@ -55,6 +58,8 @@ class Update(CleepModule):
     MAIN_ACTIONS_TASK_INTERVAL = 1.0
     SUB_ACTIONS_TASK_INTERVAL = 1.0
 
+    PYTHON_CLEEP_IMPORT_PATH = 'cleep.modules.'
+
     def __init__(self, bootstrap, debug_enabled):
         """
         Constructor
@@ -93,6 +98,7 @@ class Update(CleepModule):
         # contains sub actions of mains actions (to perform action on dependencies)
         self.__sub_actions = []
         self.__sub_actions_task = None
+        self.compat_pattern = r"(.*?)([><=]{1,2})(\d+\.\d+\.\d+)"
 
         # events
         self.module_install_event = self._get_event('update.module.install')
@@ -105,7 +111,7 @@ class Update(CleepModule):
         """
         Configure module
         """
-        self._set_config_field('cleepversion', VERSION)
+        self._set_config_field('cleepversion', CLEEP_VERSION)
 
     def _on_start(self):
         """
@@ -390,7 +396,8 @@ class Update(CleepModule):
                 self.logger.debug('No more main action to execute, stop all tasks.')
 
                 # send need restart event
-                self.cleep_need_restart_event.send()
+                if self._need_restart:
+                    self.cleep_need_restart_event.send()
 
                 self.__stop_actions_tasks()
                 return
@@ -420,9 +427,13 @@ class Update(CleepModule):
             for sub_action in self.__sub_actions:
                 sub_action['progressstep'] = progress_step
 
-        except Exception:
+        except Exception as error:
             self.logger.exception('Error occured executing action: %s' % action)
             self._set_module_process(failed=True)
+            self._store_process_status(status={
+                'module': action['module'],
+                'error': str(error)
+            }, success=False)
             if action:
                 params = {
                     'module': action['module'],
@@ -572,7 +583,7 @@ class Update(CleepModule):
         # save modules
         modules = {}
         for (module_name, module) in {k:v for (k, v) in inventory_modules.items() if v['installed']}.items():
-            modules[module_name] = self.__get_module_update_data(module_name, module['version'])
+            modules[module_name] = self.__get_module_update_data(module_name, module.get('version', '0.0.0'))
         self._modules_updates = modules
 
     def __get_module_update_data(self, module_name, installed_module_version, new_module_version=None):
@@ -1042,9 +1053,103 @@ class Update(CleepModule):
 
         return resp.data
 
+    def __extract_compat(self, compat_str):
+        """
+        Extract parts from compat string
+
+        Args:
+            compat_str (string): compat string
+
+        Returns:
+            dict: compat string parts::
+
+                {
+                    module_name (string)
+                    operator (string)
+                    version (string)
+                }
+
+        """
+        try:
+            match = re.search(self.compat_pattern, compat_str)
+            module_name = match.group(1)
+            operator = match.group(2)
+            version = match.group(3)
+            return {
+                'module_name': module_name,
+                'operator': operator,
+                'version': version,
+            }
+        except Exception as error:
+            self.logger.debug('Exception occured during compat parsing: %s' % str(error))
+            return {
+                'module_name': None,
+                'operator': None,
+                'version': None,
+            }
+
+    def __check_dependencies_compatibility(self, module_name, dependencies, modules_infos_json):
+        """
+        Check dependencies compatibility
+
+        Args:
+            module_name (string): main module name
+            dependencies (list): list of dependencies
+            modules_infos_json (dict): modules informations
+        """
+        for dependency in dependencies:
+            module_infos = modules_infos_json.get(dependency) or {}
+            compat_str = module_infos.get('compat', 'cleep<=%s' % CLEEP_VERSION)
+            compat = self.__extract_compat(compat_str)
+            self.logger.debug('Compat for "%s" dependency: %s' % (dependency, compat))
+            if any([val is None for val in compat]):
+                raise Exception('Invalid compat string for "%s" app' % dependency)
+            if compat['module_name'].lower() != 'cleep':
+                raise Exception('Invalid compat string (invalid module name) for "%s" app' % dependency)
+            if compat['operator'] not in ('<', '=', '<='):
+                raise Exception('Invalid compat string (invalid operator) for "%s" app' % dependency)
+
+            compare_strict = False if compat['operator'] == '<=' else True
+            if (compat["operator"] == "=" and CLEEP_VERSION != compat["version"]) or (
+                compat["operator"] != "="
+                and not compare_versions(CLEEP_VERSION, compat["version"], compare_strict)
+            ):
+                raise Exception(
+                    'Application "%s" is not installable due to version incompatibility of app "%s" that requires %s to be installed' % (
+                        module_name,
+                        dependency,
+                        compat_str
+                    )
+                )
+
+    def __get_local_module_dependencies(self, module_name):
+        """
+        Install local module.
+        This functions loads dynamically module and search for dependencies to install
+
+        Args:
+            module_name (string): module name
+        """
+        module_deps = []
+        try:
+            module_path = '%s%s' % (self.PYTHON_CLEEP_IMPORT_PATH, module_name)
+            module_ = importlib.import_module(module_path)
+            app_filename = getattr(module_, 'APP_FILENAME', module_name)
+            del module_
+            class_path = '%s%s.%s' % (self.PYTHON_CLEEP_IMPORT_PATH, module_name, app_filename)
+            self.logger.trace('Importing module "%s"' % class_path)
+            module_ = importlib.import_module(class_path)
+            module_class_ = getattr(module_, app_filename.capitalize())
+            module_deps = getattr(module_class_, 'MODULE_DEPS', [])
+            has_deps = len(module_deps) > 0
+        except Exception:
+            self.logger.exception('Error loading locally installed application "%s". Dependencies may not be installed.' % module_name)
+
+        return module_deps
+
     def _get_module_dependencies(self, module_name, modules_infos, get_module_infos_callback, context=None):
         """
-        Get module dependencies. Specified module will be returned in result.
+        Get module dependencies. Specified module will be also returned in result.
         Returned items are ordered by descent with first item as deepest leaf.
 
         Args:
@@ -1073,14 +1178,20 @@ class Update(CleepModule):
             infos = get_module_infos_callback(module_name)
             modules_infos[module_name] = infos
 
-        # handle app without infos (locally installed app)
-        if infos:
-            # get dependencies (recursive call)
-            for dependency_name in infos.get('deps', []):
-                if dependency_name == module_name:
-                    # avoid infinite loop
-                    continue
-                self._get_module_dependencies(dependency_name, modules_infos, get_module_infos_callback, context)
+        # get list of dependencies
+        if not infos:
+            # no infos available, surely a locally installed module
+            module_dependencies = self.__get_local_module_dependencies(module_name)
+        else:
+            # info available get dependencies from meta
+            module_dependencies = infos.get('deps', [])
+
+        # get dependencies (recursive call)
+        for dependency_name in module_dependencies:
+            if dependency_name == module_name:
+                # avoid infinite loop
+                continue
+            self._get_module_dependencies(dependency_name, modules_infos, get_module_infos_callback, context)
 
         context['dependencies'].append(module_name)
         return context['dependencies']
@@ -1105,6 +1216,7 @@ class Update(CleepModule):
             self.cleep_filesystem.mkdir(path, True)
 
         # store status
+        self.logger.debug('Storing process status in "%s"' % fullpath)
         if not self.cleep_filesystem.write_json(fullpath, status):
             self.logger.error('Error storing module "%s" process status into "%s"' % (module_name, fullpath))
 
@@ -1151,7 +1263,6 @@ class Update(CleepModule):
             'status': status['status'],
             'module': status['module'],
         })
-
 
     def _install_module(self, module_name, module_infos):
         """
@@ -1202,6 +1313,9 @@ class Update(CleepModule):
         dependencies = self._get_module_dependencies(module_name, modules_infos_json, self._get_module_infos_from_modules_json)
         self.logger.debug('Module "%s" dependencies: %s' % (module_name, dependencies))
 
+        # check dependencies compatibility
+        self.__check_dependencies_compatibility(module_name, dependencies, modules_infos_json)
+
         # schedule module + dependencies installs
         for dependency_name in dependencies:
             if dependency_name not in installed_modules:
@@ -1214,7 +1328,7 @@ class Update(CleepModule):
                 )
 
             else:
-                # check if already installed module need to be updated
+                # check if already installed module needs to be updated
                 module_infos_inventory = self._get_module_infos_from_inventory(dependency_name)
                 if Tools.compare_versions(module_infos_inventory['version'], modules_infos_json[dependency_name]['version']):
                     self._postpone_sub_action(
@@ -1281,7 +1395,7 @@ class Update(CleepModule):
 
         elif status['status'] == Install.STATUS_ERROR:
             # set main action failed
-            self._set_module_process(failed=True)
+            self._set_module_process(failed=True, pending=True)
             self._store_process_status(status, success=False)
 
         # handle end of process
@@ -1333,6 +1447,10 @@ class Update(CleepModule):
         self.logger.debug('Module "%s" dependencies: %s' % (module_name, dependencies))
         modules_to_uninstall = self._get_modules_to_uninstall(dependencies, modules_infos)
         self.logger.info('Module "%s" uninstallation will remove "%s"' % (module_name, modules_to_uninstall))
+
+        if len(modules_to_uninstall) == 0:
+            # nothing to uninstall, stop process
+            self._set_module_process(failed=False, pending=False, processing=False)
 
         # schedule module + dependencies uninstalls
         for module_to_uninstall in modules_to_uninstall:
