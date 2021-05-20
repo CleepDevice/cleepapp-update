@@ -463,6 +463,7 @@ class Update(CleepModule):
 
         # no running sub action, run next one
         sub_action = self.__sub_actions.pop()
+        self.logger.debug('Poped sub action: %s' % sub_action)
 
         # is last sub actions execution failed ?
         if self._is_module_process_failed():
@@ -477,7 +478,7 @@ class Update(CleepModule):
 
         # launch sub action
         if sub_action['action'] == Update.ACTION_MODULE_INSTALL:
-            self._install_module(sub_action['module'], sub_action['infos'])
+            self._install_module(sub_action['module'], sub_action['infos'], sub_action['module'] != sub_action['main'])
         elif sub_action['action'] == Update.ACTION_MODULE_UNINSTALL:
             self._uninstall_module(sub_action['module'], sub_action['infos'], sub_action['extra'])
         elif sub_action['action'] == Update.ACTION_MODULE_UPDATE:
@@ -512,7 +513,7 @@ class Update(CleepModule):
         if not module_name:
             self.logger.debug('Can\'t update module infos when no module is processing')
             return
-        self.logger.trace('set_module_process [%s]: progress=%s inc_progress=%s failed=%s pending=%s forced_module_name=%s' % (
+        self.logger.debug('set_module_process [%s]: progress=%s inc_progress=%s failed=%s pending=%s forced_module_name=%s' % (
             module_name,
             progress,
             inc_progress,
@@ -527,7 +528,10 @@ class Update(CleepModule):
             new_module_version = module_infos['version'] if module_infos else '0.0.0'
             self._modules_updates[module_name] = self.__get_module_update_data(module_name, None, new_module_version)
 
+        # get module
         module = self._modules_updates[module_name]
+
+        # handle process flags
         module['processing'] = True
         if progress is not None:
             module['update']['progress'] = progress
@@ -1245,8 +1249,10 @@ class Update(CleepModule):
             self._set_module_process(pending=True, forced_module_name=status['module'])
             self._store_process_status(status, success=True)
 
-            # update cleep.conf
-            self.cleep_conf.install_module(status['module'])
+            # update cleep.conf only for main module not dependencies
+            is_dependency = True if 'extra' in status and status['extra'].get('isdependency', False) else False
+            if not is_dependency:
+                self.cleep_conf.install_module(status['module'])
 
         elif status['status'] == Install.STATUS_ERROR:
             # set main action failed
@@ -1264,13 +1270,14 @@ class Update(CleepModule):
             'module': status['module'],
         })
 
-    def _install_module(self, module_name, module_infos):
+    def _install_module(self, module_name, module_infos, is_dependency):
         """
         Execute specified module installation
 
         Args:
             module_name (string): module name
             module_infos (dict): module infos
+            is_dependency (bool): True if module to install is a dependency
         """
         if module_infos is None:
             # surely locally installed module, no need to perform complete install, just run final callback
@@ -1286,7 +1293,7 @@ class Update(CleepModule):
         # non blocking, end of process handled in specified callback
         try:
             self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__install_module_callback)
-            self.__processor.install_module(module_name, module_infos)
+            self.__processor.install_module(module_name, module_infos, extra={'isdependency': is_dependency})
         except Exception as error:
             self.crash_report.manual_report('Error installing module "%s"' % module_name, extra={'module_infos': module_infos})
             self.__install_module_callback({
@@ -1326,7 +1333,6 @@ class Update(CleepModule):
                     modules_infos_json[dependency_name],
                     module_name,
                 )
-
             else:
                 # check if already installed module needs to be updated
                 module_infos_inventory = self._get_module_infos_from_inventory(dependency_name)
@@ -1450,7 +1456,7 @@ class Update(CleepModule):
 
         if len(modules_to_uninstall) == 0:
             # nothing to uninstall, stop process
-            self._set_module_process(failed=False, pending=False, processing=False)
+            self._set_module_process(failed=False, pending=False)
 
         # schedule module + dependencies uninstalls
         for module_to_uninstall in modules_to_uninstall:
