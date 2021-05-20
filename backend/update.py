@@ -1356,9 +1356,21 @@ class Update(CleepModule):
             raise CommandInfo('Cleep update is in progress. Please wait end of it')
         if module_name is None or len(module_name) == 0:
             raise MissingParameter('Parameter "module_name" is missing')
+        if self.cleep_conf.is_module_installed(module_name):
+            raise InvalidParameter('Module "%s" is already installed' % module_name)
+
+        # check if module not already installed as library
         installed_modules = self._get_installed_modules_names()
         if module_name in installed_modules:
-            raise InvalidParameter('Module "%s" is already installed' % module_name)
+            self.logger.debug('Module "%s" is already installed as library, just enable it in cleep.conf')
+            self.cleep_conf.install_module(module_name)
+            self._set_module_process(progress=100, failed=False, pending=True, forced_module_name=module_name)
+            self.module_install_event.send(params={
+                'status': Install.STATUS_DONE,
+                'module': module_name,
+            })
+            self.cleep_need_restart_event.send()
+            return
 
         # postpone module installation
         postponed = self._postpone_main_action(
