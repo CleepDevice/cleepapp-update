@@ -412,7 +412,12 @@ class Update(CleepModule):
                 self._uninstall_main_module(action['module'], action['extra'])
             elif action['action'] == Update.ACTION_MODULE_UPDATE:
                 self._update_main_module(action['module'])
+
+            # if no action postponed it means process can be terminated here
             self.logger.debug('%d sub actions postponed' % len(self.__sub_actions))
+            if len(self.__sub_actions) == 0:
+                self.logger.debug('Stop current action here because no subaction to execute')
+                return
 
             # update main action and module infos
             action['processing'] = True
@@ -1362,7 +1367,7 @@ class Update(CleepModule):
         # check if module not already installed as library
         installed_modules = self._get_installed_modules_names()
         if module_name in installed_modules:
-            self.logger.debug('Module "%s" is already installed as library, just enable it in cleep.conf')
+            self.logger.debug('Module "%s" is already installed as library, just enable it in cleep.conf' % module_name)
             self.cleep_conf.install_module(module_name)
             self._set_module_process(progress=100, failed=False, pending=True, forced_module_name=module_name)
             self.module_install_event.send(params={
@@ -1468,7 +1473,15 @@ class Update(CleepModule):
 
         if len(modules_to_uninstall) == 0:
             # nothing to uninstall, stop process
-            self._set_module_process(failed=False, pending=False)
+            self.logger.debug('Module "%s" is surely still needed as library, just disable it in cleep.conf' % module_name)
+            self.cleep_conf.uninstall_module(module_name)
+            self._set_module_process(progress=100, failed=False, pending=True, forced_module_name=module_name)
+            self.module_uninstall_event.send(params={
+                'status': Install.STATUS_DONE,
+                'module': module_name,
+            })
+            self.cleep_need_restart_event.send()
+            return
 
         # schedule module + dependencies uninstalls
         for module_to_uninstall in modules_to_uninstall:
