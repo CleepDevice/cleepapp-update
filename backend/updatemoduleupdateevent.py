@@ -13,7 +13,7 @@ class UpdateModuleUpdateEvent(Event):
     EVENT_PARAMS = ['module', 'status']
 
     def __init__(self, params):
-        """ 
+        """
         Constructor
 
         Args:

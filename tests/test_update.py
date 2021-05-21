@@ -6,6 +6,10 @@ import sys
 import copy
 sys.path.append('../')
 from backend.update import Update
+from backend.updatecleepupdateevent import UpdateCleepUpdateEvent
+from backend.updatemoduleinstallevent import UpdateModuleInstallEvent
+from backend.updatemoduleuninstallevent import UpdateModuleUninstallEvent
+from backend.updatemoduleupdateevent import UpdateModuleUpdateEvent
 from cleep.exception import InvalidParameter, MissingParameter, CommandError, Unauthorized, CommandInfo
 from cleep.libs.tests import session
 from cleep.common import MessageResponse
@@ -2839,6 +2843,76 @@ class TestsUpdate(unittest.TestCase):
         self.assertFalse(mock_install.return_value.install_module.called)
         self.assertFalse(mock_install.return_value.uninstall_module.called)
         mock_install.return_value.update_module.assert_called_with(module_name, infos)
+
+
+
+
+class TestUpdateCleepUpdateEvent(unittest.TestCase):
+
+    def setUp(self):
+        logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        params = { 
+            'internal_bus': Mock(),
+            'formatters_broker': Mock(),
+            'get_external_bus_name': None,
+        }   
+        self.event = UpdateCleepUpdateEvent(params)
+
+    def test_event_params(self):
+        self.assertEqual(self.event.EVENT_PARAMS, ['status'])
+
+
+
+
+class TestUpdateModuleInstallEvent(unittest.TestCase):
+
+    def setUp(self):
+        logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        params = { 
+            'internal_bus': Mock(),
+            'formatters_broker': Mock(),
+            'get_external_bus_name': None,
+        }   
+        self.event = UpdateModuleInstallEvent(params)
+
+    def test_event_params(self):
+        self.assertCountEqual(self.event.EVENT_PARAMS, ['status', 'module'])
+
+
+
+
+class TestUpdateModuleUninstallEvent(unittest.TestCase):
+
+    def setUp(self):
+        logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        params = { 
+            'internal_bus': Mock(),
+            'formatters_broker': Mock(),
+            'get_external_bus_name': None,
+        }   
+        self.event = UpdateModuleUninstallEvent(params)
+
+    def test_event_params(self):
+        self.assertCountEqual(self.event.EVENT_PARAMS, ['status', 'module'])
+
+
+
+
+class TestUpdateModuleUpdateEvent(unittest.TestCase):
+
+    def setUp(self):
+        logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        params = { 
+            'internal_bus': Mock(),
+            'formatters_broker': Mock(),
+            'get_external_bus_name': None,
+        }   
+        self.event = UpdateModuleUpdateEvent(params)
+
+    def test_event_params(self):
+        self.assertCountEqual(self.event.EVENT_PARAMS, ['status', 'module'])
+
+
 
 
 if __name__ == '__main__':

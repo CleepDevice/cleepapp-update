@@ -735,10 +735,10 @@ class Update(CleepModule):
                 # no release found
                 self.logger.warning('No Cleep release found during check')
 
-        except Exception:
+        except Exception as error:
             self.logger.exception('Error occured during updates checking:')
             self.crash_report.report_exception()
-            raise CommandError('Error occured during cleep update check')
+            raise CommandError('Error occured during cleep update check') from error
 
         # update config
         self._set_config_field('cleeplastcheck', int(time.time()))
@@ -765,9 +765,9 @@ class Update(CleepModule):
             modules_json_updated = self.modules_json.update()
             if modules_json_updated:
                 new_modules_json = self.modules_json.get_json()
-        except Exception:
+        except Exception as error:
             self.logger.exception('Unable to refresh modules list from repository')
-            raise CommandError('Unable to refresh modules list from internet')
+            raise CommandError('Unable to refresh modules list from internet') from error
 
         update_available = False
         if modules_json_updated:
@@ -1121,7 +1121,7 @@ class Update(CleepModule):
             if compat['operator'] not in ('<', '=', '<='):
                 raise Exception('Invalid compat string (invalid operator) for "%s" application' % dependency)
 
-            compare_strict = False if compat['operator'] == '<=' else True
+            compare_strict = compat['operator'] == '<'
             if (compat["operator"] == "=" and CLEEP_VERSION != compat["version"]) or (
                 compat["operator"] != "="
                 and not compare_versions(CLEEP_VERSION, compat["version"], compare_strict)
@@ -1160,7 +1160,9 @@ class Update(CleepModule):
             module_class_ = getattr(module_, app_filename.capitalize())
             module_deps = getattr(module_class_, 'MODULE_DEPS', [])
         except Exception:
-            self.logger.exception('Error loading locally installed application "%s". Dependencies may not be installed.' % module_name)
+            self.logger.exception(
+                'Error loading locally installed application "%s". Dependencies may not be installed.' % module_name
+            )
 
         return module_deps
 
@@ -1263,7 +1265,7 @@ class Update(CleepModule):
             self._store_process_status(status, success=True)
 
             # update cleep.conf only for main module not dependencies
-            is_dependency = True if 'extra' in status and status['extra'].get('isdependency', False) else False
+            is_dependency = 'extra' in status and status['extra'].get('isdependency', False)
             if not is_dependency:
                 self.cleep_conf.install_module(status['module'])
 
@@ -1363,6 +1365,9 @@ class Update(CleepModule):
 
         Args:
             module_name (string): module name to install
+
+        Returns:
+            bool: True if installation will starts
         """
         # check params
         if self._cleep_updates['processing'] or self._cleep_updates['pending']:
@@ -1383,7 +1388,7 @@ class Update(CleepModule):
                 'module': module_name,
             })
             self.cleep_need_restart_event.send()
-            return
+            return True
 
         # postpone module installation
         postponed = self._postpone_main_action(

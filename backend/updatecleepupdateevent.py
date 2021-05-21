@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from cleep.libs.internals.event import Event
-import logging
 
 class UpdateCleepUpdateEvent(Event):
     """
@@ -14,7 +13,7 @@ class UpdateCleepUpdateEvent(Event):
     EVENT_PARAMS = ['status']
 
     def __init__(self, params):
-        """ 
+        """
         Constructor
 
         Args:
