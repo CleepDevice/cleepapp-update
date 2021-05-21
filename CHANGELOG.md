@@ -1,9 +1,8 @@
 # Changelog
 
-## v1.0.4 - 2021-05-19 UNRELEASED
+## v1.1.0 - 2021-05-19 UNRELEASED
 
 * Do not send need restart event if no actions performed
-* Properly handle dependency uninstall (app status stayed in uninstalling)
 * Fix Dependencies installation of locally installed apps (for dev)
 * Introduce compat flag to handle core releases
 * Properly install/uninstall library modules
