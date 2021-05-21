@@ -13,12 +13,11 @@ from cleep.libs.internals.installmodule import PATH_INSTALL
 from cleep.libs.configs.modulesjson import ModulesJson
 from cleep.libs.configs.cleepconf import CleepConf
 from cleep.libs.internals.cleepgithub import CleepGithub
-import cleep.libs.internals.tools as Tools
+from .tools import compare_versions
 from cleep import __version__ as CLEEP_VERSION
 from cleep.libs.internals.installcleep import InstallCleep
 from cleep.libs.internals.install import Install
 from cleep.libs.internals.task import Task
-from cleep.libs.internals.tools import compare_versions
 
 class Update(CleepModule):
     """
@@ -693,7 +692,7 @@ class Update(CleepModule):
                 self.logger.debug('Found latest update: %s - %s' % (latest_version, latest_changelog))
 
                 self.logger.info('Cleep version status: latest %s - installed %s' % (latest_version, CLEEP_VERSION))
-                if Tools.compare_versions(CLEEP_VERSION, latest_version):
+                if compare_versions(CLEEP_VERSION, latest_version):
                     # new version available, trigger update
                     assets = github.get_release_assets_infos(releases[0])
                     self.logger.trace('assets: %s' % assets)
@@ -781,7 +780,7 @@ class Update(CleepModule):
                 try:
                     new_version = (new_modules_json['list'][module_name]['version'] if module_name in new_modules_json['list']
                                    else '0.0.0')
-                    if Tools.compare_versions(module['version'], new_version):
+                    if compare_versions(module['version'], new_version):
                         # new version available for current module
                         update_available = True
                         module['updatable'] = True
@@ -1351,7 +1350,7 @@ class Update(CleepModule):
             else:
                 # check if already installed module needs to be updated
                 module_infos_inventory = self._get_module_infos_from_inventory(dependency_name)
-                if Tools.compare_versions(module_infos_inventory['version'], modules_infos_json[dependency_name]['version']):
+                if compare_versions(module_infos_inventory['version'], modules_infos_json[dependency_name]['version']):
                     self._postpone_sub_action(
                         Update.ACTION_MODULE_UPDATE,
                         dependency_name,
@@ -1663,7 +1662,7 @@ class Update(CleepModule):
         dependencies_to_update = [
             mod_name for mod_name in new_dependencies
             if mod_name in old_dependencies
-            and Tools.compare_versions(modules_infos_inventory[mod_name]['version'], modules_infos_json[mod_name]['version'])
+            and compare_versions(modules_infos_inventory[mod_name]['version'], modules_infos_json[mod_name]['version'])
         ]
         self.logger.debug('Module "%s" requires to update modules: %s' % (module_name, dependencies_to_update))
 
