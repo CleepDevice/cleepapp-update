@@ -1310,11 +1310,11 @@ class TestsUpdate(unittest.TestCase):
         self.assertFalse(self.session.command_called('reload_modules'))
 
     @patch('backend.update.ModulesJson')
-    @patch('backend.update.compare_versions')
-    def test_check_modules_updates_check_module_version_failed(self, mock_compare_versions, mock_modulesjson):
+    @patch('backend.update.Tools')
+    def test_check_modules_updates_check_module_version_failed(self, mock_tools, mock_modulesjson):
         mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
         mock_modulesjson.return_value.update.return_value = True
-        mock_compare_versions.side_effect = Exception('Test exception')
+        mock_tools.compare_versions.side_effect = Exception('Test exception')
         self.init_session()
         self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
 
