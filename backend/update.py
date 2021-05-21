@@ -425,21 +425,21 @@ class Update(CleepModule):
 
             # update progress step for all sub actions
             # this is done after all sub actions are stored to compute valid progress step
-            try:
-                progress_step = int(100 / len(self.__sub_actions))
-            except ZeroDivisionError:
-                progress_step = 0
+            progress_step = int(100 / len(self.__sub_actions))
             for sub_action in self.__sub_actions:
                 sub_action['progressstep'] = progress_step
 
         except Exception as error:
             self.logger.exception('Error occured executing action: %s' % action)
             self._set_module_process(failed=True)
-            self._store_process_status(status={
-                'module': action['module'],
-                'error': str(error)
-            }, success=False)
             if action:
+                # store action error
+                self._store_process_status(status={
+                    'module': action['module'],
+                    'error': str(error)
+                }, success=False)
+
+                # and send error event
                 params = {
                     'module': action['module'],
                     'status': Install.STATUS_ERROR
@@ -692,8 +692,8 @@ class Update(CleepModule):
                 latest_changelog = github.get_release_changelog(releases[0])
                 self.logger.debug('Found latest update: %s - %s' % (latest_version, latest_changelog))
 
-                self.logger.info('Cleep version status: latest %s - installed %s' % (latest_version, VERSION))
-                if Tools.compare_versions(VERSION, latest_version):
+                self.logger.info('Cleep version status: latest %s - installed %s' % (latest_version, CLEEP_VERSION))
+                if Tools.compare_versions(CLEEP_VERSION, latest_version):
                     # new version available, trigger update
                     assets = github.get_release_assets_infos(releases[0])
                     self.logger.trace('assets: %s' % assets)
@@ -1027,7 +1027,7 @@ class Update(CleepModule):
             module_name (string): module name
 
         Returns:
-            dict: module infos
+            dict: module infos or None if module not found
 
         Raises:
             Exception if modules.json is invalid
@@ -1105,18 +1105,21 @@ class Update(CleepModule):
             module_name (string): main module name
             dependencies (list): list of dependencies
             modules_infos_json (dict): modules informations
+
+        Raises:
+            Exception if one of dependencies if not compatible. It should breaks installation
         """
         for dependency in dependencies:
             module_infos = modules_infos_json.get(dependency) or {}
             compat_str = module_infos.get('compat', 'cleep<=%s' % CLEEP_VERSION)
             compat = self.__extract_compat(compat_str)
             self.logger.debug('Compat for "%s" dependency: %s' % (dependency, compat))
-            if any([val is None for val in compat]):
-                raise Exception('Invalid compat string for "%s" app' % dependency)
+            if any([val is None for val in compat.values()]):
+                raise Exception('Invalid compat string for "%s" application' % dependency)
             if compat['module_name'].lower() != 'cleep':
-                raise Exception('Invalid compat string (invalid module name) for "%s" app' % dependency)
+                raise Exception('Invalid compat string (invalid module name) for "%s" application' % dependency)
             if compat['operator'] not in ('<', '=', '<='):
-                raise Exception('Invalid compat string (invalid operator) for "%s" app' % dependency)
+                raise Exception('Invalid compat string (invalid operator) for "%s" application' % dependency)
 
             compare_strict = False if compat['operator'] == '<=' else True
             if (compat["operator"] == "=" and CLEEP_VERSION != compat["version"]) or (
@@ -1134,10 +1137,16 @@ class Update(CleepModule):
     def __get_local_module_dependencies(self, module_name):
         """
         Install local module.
-        This functions loads dynamically module and search for dependencies to install
+        This functions loads dynamically module and get MODULE_DEPS member content
 
         Args:
             module_name (string): module name
+
+        Returns:
+            list: list of local module dependencies::
+
+                ['dep1', 'dep2', ...]
+
         """
         module_deps = []
         try:
@@ -1150,7 +1159,6 @@ class Update(CleepModule):
             module_ = importlib.import_module(class_path)
             module_class_ = getattr(module_, app_filename.capitalize())
             module_deps = getattr(module_class_, 'MODULE_DEPS', [])
-            has_deps = len(module_deps) > 0
         except Exception:
             self.logger.exception('Error loading locally installed application "%s". Dependencies may not be installed.' % module_name)
 
@@ -1182,18 +1190,18 @@ class Update(CleepModule):
             # avoid circular deps
             return None
 
-        # get module infos
+        # get module infos if needed
         if module_name not in modules_infos:
             infos = get_module_infos_callback(module_name)
             modules_infos[module_name] = infos
 
         # get list of dependencies
-        if not infos:
+        if not modules_infos[module_name]:
             # no infos available, surely a locally installed module
             module_dependencies = self.__get_local_module_dependencies(module_name)
         else:
             # info available get dependencies from meta
-            module_dependencies = infos.get('deps', [])
+            module_dependencies = modules_infos[module_name].get('deps', [])
 
         # get dependencies (recursive call)
         for dependency_name in module_dependencies:
@@ -1454,7 +1462,6 @@ class Update(CleepModule):
                 'module': module_name,
             })
 
-
     def _uninstall_main_module(self, module_name, extra):
         """
         Uninstall module. This function will uninstall useless dependencies.
@@ -1538,6 +1545,7 @@ class Update(CleepModule):
         out = modules_to_uninstall[:]
 
         for module_to_uninstall in modules_to_uninstall:
+            # fix potential missing module_infos
             if module_to_uninstall not in modules_infos:
                 self.logger.warning('Module infos dict should contains "%s" module infos. '
                                     'Module won\'t be removed and can become an orphan.' % module_to_uninstall)
@@ -1546,6 +1554,7 @@ class Update(CleepModule):
                 }
             else:
                 module_infos = modules_infos[module_to_uninstall]
+
             for loaded_by in module_infos['loadedby']:
                 if loaded_by not in modules_to_uninstall:
                     # do not uninstall this module because it is a dependency of another module
@@ -1555,6 +1564,10 @@ class Update(CleepModule):
                     ))
                     out.remove(module_to_uninstall)
                     break
+
+            if self.cleep_conf.is_module_installed(module_to_uninstall):
+                # do not uninstall module that has been installed by user
+                out.remove(module_to_uninstall)
 
         return out
 

@@ -15,19 +15,19 @@ from mock import Mock, patch, MagicMock, call, PropertyMock
 
 MODULES_JSON = {
     "list": {
-        "actions":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","country": None,"deps":[],"description":"Interact with other modules to trigger custom actions","download":"https://github.com/tangb/cleepmod-actions/releases/download/v1.0.1/cleepmod_actions_1.0.1.zip","icon":"play-box-outline","longdescription":"","note":-1,"price":0,"sha256":"d2d38835c193fa9bd37311d5ec08f780d053ff4879e8a7b05c7d773ca1f25a81","tags":["action","skill","script","trigger","python","cron"],"urls":{"bugs":"https://github.com/tangb/cleepmod-actions/issues","help":"https://github.com/tangb/cleepmod-actions/wiki","info":"https://github.com/tangb/cleepmod-actions","site": None},"version":"1.0.1"},
-        "audio":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","country": None,"deps":[],"description":"Configure audio on your device","download":"https://github.com/tangb/cleepmod-audio/releases/download/v1.1.0/cleepmod_audio_1.1.0.zip","icon":"speaker","longdescription":"","note":-1,"price":0,"sha256":"cdeda05a87cc78fc2b14a6dbd63f9a2e2063062d010f84bdbff9497ac9f93fab","tags":["audio","sound"],"urls":{"bugs":"https://github.com/tangb/cleepmod-audio/issues","help":"https://github.com/tangb/cleepmod-audio/wiki","info":"https://github.com/tangb/cleepmod-audio","site": None},"version":"1.1.0"},
-        "charts":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"First release","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-charts/releases/download/v1.0.0/cleepmod_charts_1.0.0.zip","icon":"chart-areaspline","longdescription":"","note":-1,"price":0,"sha256":"00625651423636e7087a3cfa422929440858781585138d273120e87c61bea46c","tags":["sensors","graphs","charts","database"],"urls":{"bugs":"https://github.com/tangb/cleepmod-charts/issues","help":"https://github.com/tangb/cleepmod-charts/wiki","info":"https://github.com/tangb/cleepmod-charts","site": None},"version":"1.0.0"},
-        "cleepbus":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-cleepbus/releases/download/v1.1.1/cleepmod_cleepbus_1.1.1.zip","icon":"bus","longdescription":"","note":-1,"price":0,"sha256":"55b435169af8bac7cc06446d4f0ffcadb49ef2118d5eeaa04eaffa77f68f4b9c","tags":["bus","communication"],"urls":{"bugs":"https://github.com/tangb/cleepmod-cleepbus/issues","help": None,"info":"https://github.com/tangb/cleepmod-cleepbus/wiki/CleepBus-module","site": None},"version":"1.1.1"},
-        "developer":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-developer/releases/download/v2.2.0/cleepmod_developer_2.2.0.zip","icon":"worker","longdescription":"","note":-1,"price":0,"sha256":"8550046516ece9d61446590fa9d96dc2ac88334adadcc15a7605ac3654b6d1f4","tags":["developer","python","cleepos","module","angularjs","cleep","cli","test","documentation"],"urls":{"bugs":"https://github.com/tangb/cleepmod-developer/issues","help":"https://github.com/tangb/cleepmod-developer/wiki","info":"https://github.com/tangb/cleepmod-developer","site": None},"version":"2.2.0"},
-        "gpios":{"author":"Cleep","category":"DRIVER","certified": False,"changelog":"","country": None,"deps":[],"description":"Configure your raspberry pins","download":"https://github.com/tangb/cleepmod-gpios/releases/download/v1.1.0/cleepmod_gpios_1.1.0.zip","icon":"drag-horizontal","longdescription":"","note":-1,"price":0,"sha256":"6479489e78d4f67c98e649989cf7d1d71c82dd17162155b56e646c4dac4b6bbe","tags":["gpios","inputs","outputs"],"urls":{"bugs":"https://github.com/tangb/cleepmod-gpios/issues","help":"https://github.com/tangb/cleepmod-gpios/wiki","info":"https://github.com/tangb/cleepmod-gpios","site": None},"version":"1.1.0"},
-        "network":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-network/releases/download/v1.1.0/cleepmod_network_1.1.0.zip","icon":"ethernet","longdescription":"","note":-1,"price":0,"sha256":"862f6cc74340667baf688336ed2b6b07a4ac0fc2da9a9f6802648d3d5edb8ff1","tags":["wireless","wifi","ethernet"],"urls":{"bugs":"https://github.com/tangb/cleepmod-network/issues","help":"https://github.com/tangb/cleepmod-network/wiki/Help","info":"https://github.com/tangb/cleepmod-network/wiki","site": None},"version":"1.1.0"},
-        "openweathermap":{"author":"Cleep","category":"SERVICE","certified": False,"changelog":"","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-openweathermap/releases/download/v1.1.0/cleepmod_openweathermap_1.1.0.zip","icon":"cloud","longdescription":"","note":-1,"price":0,"sha256":"a2a8726363b290978322bcabb3c85bbd6fe8a370e3cab4db2a3a4661ea1fa47a","tags":["weather","forecast"],"urls":{"bugs":"https://github.com/tangb/cleepmod-openweathermap/issues","help":"https://github.com/tangb/cleepmod-openweathermap/wiki","info":"https://github.com/tangb/cleepmod-openweathermap","site":"https://openweathermap.org/"},"version":"1.1.0"},
-        "parameters":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-parameters/releases/download/v1.1.0/cleepmod_parameters_1.1.0.zip","icon":"settings","longdescription":"","note":-1,"price":0,"sha256":"efac9fa4d4bb8c5ef1a97f2d42ba916afdc4721a6f892eb21d18612164af2465","tags":["configuration","date","time","locale","lang"],"urls":{"bugs":"https://github.com/tangb/cleepmod-parameters/issues","help": None,"info":"https://github.com/tangb/cleepmod-parameters","site": None},"version":"1.1.0"},
-        "respeaker2mic":{"author":"Cleep","category":"DRIVER","certified": False,"changelog":"First release","country": None,"deps":["gpios"],"description":"","download":"https://github.com/tangb/cleepmod-respeaker2mic/releases/download/v1.0.0/cleepmod_respeaker2mic_1.0.0.zip","icon":"microphone-settings","longdescription":"","note":-1,"price":0,"sha256":"236c981b6bf128168fa357b89ca94564b10817ac6ed7e1491daad0ef33793375","tags":["audio","mic","led","button","soundcard","grove"],"urls":{"bugs":"https://github.com/tangb/cleepmod-respeaker2mic/issues","help":"https://github.com/tangb/cleepmod-respeaker2mic/wiki","info":"https://github.com/tangb/cleepmod-respeaker2mic","site":"https://respeaker.io/2_mic_array/"},"version":"1.0.0"},
+        "actions":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","compat":"cleep<=1.2.3", "country": None,"deps":[],"description":"Interact with other modules to trigger custom actions","download":"https://github.com/tangb/cleepmod-actions/releases/download/v1.0.1/cleepmod_actions_1.0.1.zip","icon":"play-box-outline","longdescription":"","note":-1,"price":0,"sha256":"d2d38835c193fa9bd37311d5ec08f780d053ff4879e8a7b05c7d773ca1f25a81","tags":["action","skill","script","trigger","python","cron"],"urls":{"bugs":"https://github.com/tangb/cleepmod-actions/issues","help":"https://github.com/tangb/cleepmod-actions/wiki","info":"https://github.com/tangb/cleepmod-actions","site": None},"version":"1.0.1"},
+        "audio":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","compat": "cleep<=1.2.3","country": None,"deps":[],"description":"Configure audio on your device","download":"https://github.com/tangb/cleepmod-audio/releases/download/v1.1.0/cleepmod_audio_1.1.0.zip","icon":"speaker","longdescription":"","note":-1,"price":0,"sha256":"cdeda05a87cc78fc2b14a6dbd63f9a2e2063062d010f84bdbff9497ac9f93fab","tags":["audio","sound"],"urls":{"bugs":"https://github.com/tangb/cleepmod-audio/issues","help":"https://github.com/tangb/cleepmod-audio/wiki","info":"https://github.com/tangb/cleepmod-audio","site": None},"version":"1.1.0"},
+        "charts":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"First release","compat": "cleep<=1.2.3","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-charts/releases/download/v1.0.0/cleepmod_charts_1.0.0.zip","icon":"chart-areaspline","longdescription":"","note":-1,"price":0,"sha256":"00625651423636e7087a3cfa422929440858781585138d273120e87c61bea46c","tags":["sensors","graphs","charts","database"],"urls":{"bugs":"https://github.com/tangb/cleepmod-charts/issues","help":"https://github.com/tangb/cleepmod-charts/wiki","info":"https://github.com/tangb/cleepmod-charts","site": None},"version":"1.0.0"},
+        "cleepbus":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","compat": "cleep<=1.2.3","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-cleepbus/releases/download/v1.1.1/cleepmod_cleepbus_1.1.1.zip","icon":"bus","longdescription":"","note":-1,"price":0,"sha256":"55b435169af8bac7cc06446d4f0ffcadb49ef2118d5eeaa04eaffa77f68f4b9c","tags":["bus","communication"],"urls":{"bugs":"https://github.com/tangb/cleepmod-cleepbus/issues","help": None,"info":"https://github.com/tangb/cleepmod-cleepbus/wiki/CleepBus-module","site": None},"version":"1.1.1"},
+        "developer":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","compat": "cleep<=1.2.3","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-developer/releases/download/v2.2.0/cleepmod_developer_2.2.0.zip","icon":"worker","longdescription":"","note":-1,"price":0,"sha256":"8550046516ece9d61446590fa9d96dc2ac88334adadcc15a7605ac3654b6d1f4","tags":["developer","python","cleepos","module","angularjs","cleep","cli","test","documentation"],"urls":{"bugs":"https://github.com/tangb/cleepmod-developer/issues","help":"https://github.com/tangb/cleepmod-developer/wiki","info":"https://github.com/tangb/cleepmod-developer","site": None},"version":"2.2.0"},
+        "gpios":{"author":"Cleep","category":"DRIVER","certified": False,"changelog":"","compat": "cleep<=1.2.3","country": None,"deps":[],"description":"Configure your raspberry pins","download":"https://github.com/tangb/cleepmod-gpios/releases/download/v1.1.0/cleepmod_gpios_1.1.0.zip","icon":"drag-horizontal","longdescription":"","note":-1,"price":0,"sha256":"6479489e78d4f67c98e649989cf7d1d71c82dd17162155b56e646c4dac4b6bbe","tags":["gpios","inputs","outputs"],"urls":{"bugs":"https://github.com/tangb/cleepmod-gpios/issues","help":"https://github.com/tangb/cleepmod-gpios/wiki","info":"https://github.com/tangb/cleepmod-gpios","site": None},"version":"1.1.0"},
+        "network":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","compat": "cleep<=1.2.3","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-network/releases/download/v1.1.0/cleepmod_network_1.1.0.zip","icon":"ethernet","longdescription":"","note":-1,"price":0,"sha256":"862f6cc74340667baf688336ed2b6b07a4ac0fc2da9a9f6802648d3d5edb8ff1","tags":["wireless","wifi","ethernet"],"urls":{"bugs":"https://github.com/tangb/cleepmod-network/issues","help":"https://github.com/tangb/cleepmod-network/wiki/Help","info":"https://github.com/tangb/cleepmod-network/wiki","site": None},"version":"1.1.0"},
+        "openweathermap":{"author":"Cleep","category":"SERVICE","certified": False,"changelog":"","compat": "cleep<=1.2.3","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-openweathermap/releases/download/v1.1.0/cleepmod_openweathermap_1.1.0.zip","icon":"cloud","longdescription":"","note":-1,"price":0,"sha256":"a2a8726363b290978322bcabb3c85bbd6fe8a370e3cab4db2a3a4661ea1fa47a","tags":["weather","forecast"],"urls":{"bugs":"https://github.com/tangb/cleepmod-openweathermap/issues","help":"https://github.com/tangb/cleepmod-openweathermap/wiki","info":"https://github.com/tangb/cleepmod-openweathermap","site":"https://openweathermap.org/"},"version":"1.1.0"},
+        "parameters":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","compat": "cleep<1.2.3","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-parameters/releases/download/v1.1.0/cleepmod_parameters_1.1.0.zip","icon":"settings","longdescription":"","note":-1,"price":0,"sha256":"efac9fa4d4bb8c5ef1a97f2d42ba916afdc4721a6f892eb21d18612164af2465","tags":["configuration","date","time","locale","lang"],"urls":{"bugs":"https://github.com/tangb/cleepmod-parameters/issues","help": None,"info":"https://github.com/tangb/cleepmod-parameters","site": None},"version":"1.1.0"},
+        "respeaker2mic":{"author":"Cleep","category":"DRIVER","certified": False,"changelog":"First release","compat": "cleep=1.2.3","country": None,"deps":["gpios"],"description":"","download":"https://github.com/tangb/cleepmod-respeaker2mic/releases/download/v1.0.0/cleepmod_respeaker2mic_1.0.0.zip","icon":"microphone-settings","longdescription":"","note":-1,"price":0,"sha256":"236c981b6bf128168fa357b89ca94564b10817ac6ed7e1491daad0ef33793375","tags":["audio","mic","led","button","soundcard","grove"],"urls":{"bugs":"https://github.com/tangb/cleepmod-respeaker2mic/issues","help":"https://github.com/tangb/cleepmod-respeaker2mic/wiki","info":"https://github.com/tangb/cleepmod-respeaker2mic","site":"https://respeaker.io/2_mic_array/"},"version":"1.0.0"},
         "sensors":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"First release","country": None,"deps":["gpios"],"description":"","download":"https://github.com/tangb/cleepmod-sensors/releases/download/v1.0.0/cleepmod_sensors_1.0.0.zip","icon":"chip","longdescription":"","note":-1,"price":0,"sha256":"1af2b840a514fae3936e5b2715e7c5416bbfaa865a2baa432cf40cd97a4cfb2f","tags":["sensors","temperature","motiononewire","1wire"],"urls":{"bugs":"https://github.com/tangb/cleepmod-sensors/issues","help": None,"info":"https://github.com/tangb/cleepmod-sensors","site": None},"version":"1.0.0"},
-        "smtp":{"author":"Cleep","category":"SERVICE","certified": False,"changelog":"Update after core changes","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-smtp/releases/download/v1.1.0/cleepmod_smtp_1.1.0.zip","icon":"email","longdescription":"","note":-1,"price":0,"sha256":"ee5b88d028c7fb345abaa6711b3e2f36ec7b2285d81bf6219bcd9079e6dad359","tags":["email","smtp","alert"],"urls":{"bugs":"https://github.com/tangb/cleepmod-smtp/issues","help":"https://github.com/tangb/cleepmod-smtp/wiki","info":"https://github.com/tangb/cleepmod-smtp","site": None},"version":"1.1.0"},
-        "system":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","country":"","deps":[],"description":"","download":"https://github.com/tangb/cleepmod-system/releases/download/v1.1.0/cleepmod_system_1.1.0.zip","icon":"heart-pulse","longdescription":"","note":-1,"price":0,"sha256":"15e7eb805f55200a7d4627d4ddc77d138f9a04700713bc60b064e8420d22635e","tags":["troubleshoot","locale","events","monitoring","update","log"],"urls":{"bugs":"https://github.com/tangb/cleepmod-system/issues","help": None,"info":"https://github.com/tangb/cleepmod-system","site": None},"version":"1.1.0"},
+        "smtp":{"author":"Cleep","category":"SERVICE","certified": False,"changelog":"Update after core changes","compat":"","country": None,"deps":[],"description":"","download":"https://github.com/tangb/cleepmod-smtp/releases/download/v1.1.0/cleepmod_smtp_1.1.0.zip","icon":"email","longdescription":"","note":-1,"price":0,"sha256":"ee5b88d028c7fb345abaa6711b3e2f36ec7b2285d81bf6219bcd9079e6dad359","tags":["email","smtp","alert"],"urls":{"bugs":"https://github.com/tangb/cleepmod-smtp/issues","help":"https://github.com/tangb/cleepmod-smtp/wiki","info":"https://github.com/tangb/cleepmod-smtp","site": None},"version":"1.1.0"},
+        "system":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"","compat": "cleep<=0.0.1","country":"","deps":[],"description":"","download":"https://github.com/tangb/cleepmod-system/releases/download/v1.1.0/cleepmod_system_1.1.0.zip","icon":"heart-pulse","longdescription":"","note":-1,"price":0,"sha256":"15e7eb805f55200a7d4627d4ddc77d138f9a04700713bc60b064e8420d22635e","tags":["troubleshoot","locale","events","monitoring","update","log"],"urls":{"bugs":"https://github.com/tangb/cleepmod-system/issues","help": None,"info":"https://github.com/tangb/cleepmod-system","site": None},"version":"1.1.0"},
         "circular1":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"First release","country": None,"deps":["circular2"],"description":"","download":"https://github.com/tangb/cleepmod-sensors/releases/download/v1.0.0/cleepmod_sensors_1.0.0.zip","icon":"chip","longdescription":"","note":-1,"price":0,"sha256":"1af2b840a514fae3936e5b2715e7c5416bbfaa865a2baa432cf40cd97a4cfb2f","tags":["sensors","temperature","motiononewire","1wire"],"urls":{"bugs":"https://github.com/tangb/cleepmod-sensors/issues","help": None,"info":"https://github.com/tangb/cleepmod-sensors","site": None},"version":"1.0.0"},
         "circular2":{"author":"Cleep","category":"APPLICATION","certified": False,"changelog":"First release","country": None,"deps":["circular1"],"description":"","download":"https://github.com/tangb/cleepmod-sensors/releases/download/v1.0.0/cleepmod_sensors_1.0.0.zip","icon":"chip","longdescription":"","note":-1,"price":0,"sha256":"1af2b840a514fae3936e5b2715e7c5416bbfaa865a2baa432cf40cd97a4cfb2f","tags":["sensors","temperature","motiononewire","1wire"],"urls":{"bugs":"https://github.com/tangb/cleepmod-sensors/issues","help": None,"info":"https://github.com/tangb/cleepmod-sensors","site": None},"version":"1.0.0"},
     },
@@ -130,7 +130,7 @@ class TestsUpdate(unittest.TestCase):
         # start module
         self.session.start_module(self.module)
 
-    @patch('backend.update.VERSION', '6.6.6')
+    @patch('backend.update.CLEEP_VERSION', '6.6.6')
     def test_configure(self):
         mock_setconfigfield = Mock()
         self.init_session(mock_setconfigfield=mock_setconfigfield)
@@ -225,12 +225,28 @@ class TestsUpdate(unittest.TestCase):
             with patch('os.path.exists', Mock(return_value=True)):
                 logs = self.module.get_modules_logs()
                 logging.debug('Logs: %s' % logs)
-                self.assertEqual(sorted(['audio', 'system']), sorted(list(logs.keys())))
+                self.assertCountEqual(['audio', 'system'], list(logs.keys()))
                 self.assertTrue('dummy' in logs['system'])
                 self.assertTrue('name' in logs['system'])
                 self.assertTrue('installed' in logs['system'])
                 self.assertTrue(logs['system']['installed'])
                 self.assertFalse(logs['audio']['installed'])
+
+    def test_get_modules_logs_no_file_for_module(self):
+        self.init_session()
+        self.module._get_last_update_logs = Mock(side_effect=[{'dummy': 'dummy'}, None])
+        self.module._get_installed_modules_names = Mock(return_value=['system'])
+        
+        with patch('os.listdir', Mock(return_value=['cleep', 'system', 'audio'])):
+            with patch('os.path.exists', Mock(return_value=True)):
+                logs = self.module.get_modules_logs()
+                logging.debug('Logs: %s' % logs)
+                self.assertCountEqual(['system'], list(logs.keys()))
+                self.assertTrue('dummy' in logs['system'])
+                self.assertTrue('name' in logs['system'])
+                self.assertTrue('installed' in logs['system'])
+                self.assertTrue(logs['system']['installed'])
+                self.assertFalse('audio' in logs)
 
     @patch('os.path.exists', Mock(side_effect=[True, True, True, True, False]))
     def test_get_modules_logs_no_install_path(self):
@@ -326,7 +342,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertTrue(all([k in updates for k in ['updatable', 'processing', 'pending', 'failed', 'version', 'changelog', 'packageurl', 'checksumurl']]))
 
     @patch('backend.update.CleepGithub')
-    @patch('backend.update.VERSION', '0.0.19')
+    @patch('backend.update.CLEEP_VERSION', '0.0.19')
     def test_check_cleep_updates_update_available(self, mock_cleepgithub):
         mock_cleepgithub.return_value.get_releases.return_value = GITHUB_SAMPLE
         mock_cleepgithub.return_value.get_release_version.return_value = '0.0.20'
@@ -342,7 +358,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(update['checksumurl'], 'https://api.github.com/repos/tangb/cleep/releases/assets/15425531')
 
     @patch('backend.update.CleepGithub')
-    @patch('backend.update.VERSION', '0.0.20')
+    @patch('backend.update.CLEEP_VERSION', '0.0.20')
     def test_check_cleep_updates_no_update_available(self, mock_cleepgithub):
         mock_cleepgithub.return_value.get_releases.return_value = GITHUB_SAMPLE
         mock_cleepgithub.return_value.get_release_version.return_value = '0.0.20'
@@ -358,7 +374,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(update['checksumurl'], None)
 
     @patch('backend.update.CleepGithub')
-    @patch('backend.update.VERSION', '0.0.19')
+    @patch('backend.update.CLEEP_VERSION', '0.0.19')
     def test_check_cleep_updates_no_release_found(self, mock_cleepgithub):
         mock_cleepgithub.return_value.get_releases.return_value = []
         mock_cleepgithub.return_value.get_release_version.return_value = '0.0.20'
@@ -374,7 +390,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(update['checksumurl'], None)
 
     @patch('backend.update.CleepGithub')
-    @patch('backend.update.VERSION', '0.0.19')
+    @patch('backend.update.CLEEP_VERSION', '0.0.19')
     def test_check_cleep_updates_invalid_package_asset(self, mock_cleepgithub):
         mock_cleepgithub.return_value.get_releases.return_value = GITHUB_SAMPLE
         mock_cleepgithub.return_value.get_release_version.return_value = '0.0.20'
@@ -390,7 +406,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(update['checksumurl'], None)
 
     @patch('backend.update.CleepGithub')
-    @patch('backend.update.VERSION', '0.0.19')
+    @patch('backend.update.CLEEP_VERSION', '0.0.19')
     def test_check_cleep_updates_invalid_checksum_asset(self, mock_cleepgithub):
         mock_cleepgithub.return_value.get_releases.return_value = GITHUB_SAMPLE
         mock_cleepgithub.return_value.get_release_version.return_value = '0.0.20'
@@ -406,7 +422,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(update['checksumurl'], None)
 
     @patch('backend.update.CleepGithub')
-    @patch('backend.update.VERSION', '0.0.19')
+    @patch('backend.update.CLEEP_VERSION', '0.0.19')
     def test_check_cleep_updates_exception(self, mock_cleepgithub):
         mock_cleepgithub.return_value.get_releases.side_effect = Exception('Test exception')
         mock_cleepgithub.return_value.get_release_version.return_value = '0.0.20'
@@ -420,7 +436,7 @@ class TestsUpdate(unittest.TestCase):
 
     @patch('os.environ', {'GITHUB_TOKEN': 'mysupertoken'})
     @patch('backend.update.CleepGithub')
-    @patch('backend.update.VERSION', '0.0.19')
+    @patch('backend.update.CLEEP_VERSION', '0.0.19')
     def test_check_cleep_updates_with_github_token(self, mock_cleepgithub):
         mock_cleepgithub.return_value.get_releases.return_value = GITHUB_SAMPLE
         mock_cleepgithub.return_value.get_release_version.return_value = '0.0.20'
@@ -593,6 +609,7 @@ class TestsUpdate(unittest.TestCase):
     def test_execute_main_action_task_last_action_terminated_no_more_after(self):
         self.init_session()
         self.module.logger.debug = Mock()
+        self.module._need_restart = True
         main_action = {
             'processing': True
         }
@@ -605,6 +622,25 @@ class TestsUpdate(unittest.TestCase):
                     self.module.logger.debug.assert_any_call(
                         'No more main action to execute, stop all tasks.'
                     )
+                    self.session.assert_event_called('system.cleep.needrestart')
+
+    def test_execute_main_action_task_last_action_terminated_no_more_after_no_needrestart_event(self):
+        self.init_session()
+        self.module.logger.debug = Mock()
+        self.module._need_restart = False
+        main_action = {
+            'processing': True
+        }
+        with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
+            with patch.object(self.module, '_Update__main_actions', [main_action]) as mock_main_actions:
+                with patch.object(self.module, '_Update__sub_actions_task') as mock_subactionstask:
+                    self.assertIsNone(self.module._execute_main_action_task())
+                    # logging.debug('logs: %s' % self.module.logger.debug.call_args_list)
+                    self.assertTrue(mock_subactionstask.stop.called)
+                    self.module.logger.debug.assert_any_call(
+                        'No more main action to execute, stop all tasks.'
+                    )
+                    self.assertFalse(self.session.event_called('system.cleep.needrestart'))
 
     def test_execute_main_action_task_set_process_step_single_sub_action(self):
         self.init_session()
@@ -1554,6 +1590,151 @@ class TestsUpdate(unittest.TestCase):
             self.module._get_module_infos_from_inventory('audio')
         self.assertEqual(str(cm.exception), 'Module "audio" not found in installable modules list')
 
+    def test_extract_compat(self):
+        self.init_session()
+
+        compat = self.module._Update__extract_compat('cleep<0.1.2')
+
+        self.assertDictEqual(compat, {
+            'module_name': 'cleep',
+            'operator': '<',
+            'version': '0.1.2',
+        })
+
+    def test_extract_compat_invalid_string(self):
+        self.init_session()
+
+        compat = self.module._Update__extract_compat('cleep')
+
+        self.assertDictEqual(compat, {
+            'module_name': None,
+            'operator': None,
+            'version': None,
+        })
+
+    def test_extract_compat_invalid_string2(self):
+        self.init_session()
+
+        compat = self.module._Update__extract_compat('cleep>test')
+
+        self.assertDictEqual(compat, {
+            'module_name': None,
+            'operator': None,
+            'version': None,
+        })
+
+    @patch('backend.update.CLEEP_VERSION', '1.2.3')
+    def test_check_dependencies_compatibility(self):
+        self.init_session()
+
+        try:
+            self.module._Update__check_dependencies_compatibility('charts', ['actions', 'audio', 'charts'], MODULES_JSON['list'])
+        except:
+            self.fail('Should not throw exception')
+
+    @patch('backend.update.CLEEP_VERSION', '1.2.3')
+    def test_check_dependencies_compatibility_check_equal_operator(self):
+        self.init_session()
+
+        try:
+            # equal should pass
+            self.module._Update__check_dependencies_compatibility('charts', ['respeaker2mic'], MODULES_JSON['list'])
+        except:
+            self.fail('Should not throw exception for = operator')
+
+        # equal should not pass
+        with self.assertRaises(Exception) as cm:
+            self.module._Update__extract_compat = Mock(return_value={'module_name': 'cleep', 'operator': '=', 'version': '1.2.2'})
+            self.module._Update__check_dependencies_compatibility('charts', ['respeaker2mic'], MODULES_JSON['list'])
+        # message is not valid due to extract_compat mock
+        self.assertEqual(str(cm.exception), 'Application "charts" is not installable due to version incompatibility of app "respeaker2mic" that requires cleep=1.2.3 to be installed')
+
+    @patch('backend.update.CLEEP_VERSION', '1.2.2')
+    def test_check_dependencies_compatibility_check_inferior_operator(self):
+        self.init_session()
+
+        try:
+            # inferior should pass (parameters cleep<1.2.3)
+            self.module._Update__check_dependencies_compatibility('charts', ['parameters'], MODULES_JSON['list'])
+        except:
+            self.fail('Should not throw exception for < operator')
+
+        # inferior should not pass
+        with self.assertRaises(Exception) as cm:
+            self.module._Update__extract_compat = Mock(return_value={'module_name': 'cleep', 'operator': '<', 'version': '1.2.2'})
+            self.module._Update__check_dependencies_compatibility('charts', ['parameters'], MODULES_JSON['list'])
+        # message is not valid due to extract_compat mock
+        self.assertEqual(str(cm.exception), 'Application "charts" is not installable due to version incompatibility of app "parameters" that requires cleep<1.2.3 to be installed')
+
+    @patch('backend.update.CLEEP_VERSION', '1.2.3')
+    def test_check_dependencies_compatibility_check_inferior_equal_operator(self):
+        self.init_session()
+
+        try:
+            # inferior should pass (actions cleep<=1.2.3)
+            self.module._Update__check_dependencies_compatibility('charts', ['actions'], MODULES_JSON['list'])
+
+            # action cleep<=1.2.4 should pass
+            self.module._Update__extract_compat = Mock(return_value={'module_name': 'cleep', 'operator': '<=', 'version': '1.2.5'})
+            self.module._Update__check_dependencies_compatibility('charts', ['actions'], MODULES_JSON['list'])
+        except:
+            self.fail('Should not throw exception for <= operator')
+
+        # inferior equal should not pass
+        with self.assertRaises(Exception) as cm:
+            self.module._Update__extract_compat = Mock(return_value={'module_name': 'cleep', 'operator': '<=', 'version': '1.2.2'})
+            self.module._Update__check_dependencies_compatibility('charts', ['actions'], MODULES_JSON['list'])
+        # message is not valid due to extract_compat mock
+        self.assertEqual(str(cm.exception), 'Application "charts" is not installable due to version incompatibility of app "actions" that requires cleep<=1.2.3 to be installed')
+
+    @patch('backend.update.CLEEP_VERSION', '1.0.0')
+    def test_check_dependencies_compatibility_incompatibility_detected(self):
+        self.init_session()
+
+        with self.assertRaises(Exception) as cm:
+            self.module._Update__check_dependencies_compatibility('charts', ['actions', 'audio', 'system'], MODULES_JSON['list'])
+        self.assertEqual(str(cm.exception), 'Application "charts" is not installable due to version incompatibility of app "system" that requires cleep<=0.0.1 to be installed')
+
+    @patch('backend.update.CLEEP_VERSION', '1.0.0')
+    def test_check_dependencies_compatibility_invalid_compat_string(self):
+        self.init_session()
+
+        # invalid module name
+        self.module._Update__extract_compat = Mock(return_value={'module_name': None, 'operator': '<', 'version': '0.0.0'})
+        with self.assertRaises(Exception) as cm:
+            self.module._Update__check_dependencies_compatibility('charts', ['actions'], MODULES_JSON['list'])
+        self.assertEqual(str(cm.exception), 'Invalid compat string for "actions" application')
+
+        # invalid operator
+        self.module._Update__extract_compat = Mock(return_value={'module_name': 'test', 'operator': None, 'version': '0.0.0'})
+        with self.assertRaises(Exception) as cm:
+            self.module._Update__check_dependencies_compatibility('charts', ['actions'], MODULES_JSON['list'])
+        self.assertEqual(str(cm.exception), 'Invalid compat string for "actions" application')
+
+        # invalid version
+        self.module._Update__extract_compat = Mock(return_value={'module_name': 'test', 'operator': '<', 'version': None})
+        with self.assertRaises(Exception) as cm:
+            self.module._Update__check_dependencies_compatibility('charts', ['actions'], MODULES_JSON['list'])
+        self.assertEqual(str(cm.exception), 'Invalid compat string for "actions" application')
+
+    @patch('backend.update.CLEEP_VERSION', '1.0.0')
+    def test_check_dependencies_compatibility_invalid_module_name(self):
+        self.init_session()
+        self.module._Update__extract_compat = Mock(return_value={'module_name': 'test', 'operator': '<', 'version': '0.0.0'})
+
+        with self.assertRaises(Exception) as cm:
+            self.module._Update__check_dependencies_compatibility('charts', ['actions'], MODULES_JSON['list'])
+        self.assertEqual(str(cm.exception), 'Invalid compat string (invalid module name) for "actions" application')
+
+    @patch('backend.update.CLEEP_VERSION', '1.0.0')
+    def test_check_dependencies_compatibility_invalid_operator(self):
+        self.init_session()
+        self.module._Update__extract_compat = Mock(return_value={'module_name': 'cleep', 'operator': '>', 'version': '0.0.0'})
+
+        with self.assertRaises(Exception) as cm:
+            self.module._Update__check_dependencies_compatibility('charts', ['actions'], MODULES_JSON['list'])
+        self.assertEqual(str(cm.exception), 'Invalid compat string (invalid operator) for "actions" application')
+
     def test_store_process_status_module(self):
         self.init_session()
         with patch('os.path.exists', return_value=True) as mock_os_path_exists:
@@ -1639,9 +1820,11 @@ class TestsUpdate(unittest.TestCase):
             self.assertTrue(self.module.logger.error.called)
 
     @patch('backend.update.Task')
-    def test_install_module(self, mock_task):
+    @patch('backend.update.CleepConf')
+    def test_install_module(self, mock_cleepconf, mock_task):
         self.init_session()
         self.module._postpone_main_action = Mock(return_value=True)
+        mock_cleepconf.return_value.is_module_installed.return_value = False
 
         self.assertTrue(self.module.install_module('dummy'))
         self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_INSTALL, 'dummy')
@@ -1659,14 +1842,31 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait end of it')
 
     @patch('backend.update.Task')
-    def test_install_module_already_installed(self, mock_task):
+    @patch('backend.update.CleepConf')
+    def test_install_module_already_installed(self, mock_cleepconf, mock_task):
         self.init_session()
         self.module._get_installed_modules_names = Mock(return_value=['dummy'])
+        mock_cleepconf.return_value.is_module_installed.return_value = True
 
         with self.assertRaises(InvalidParameter) as cm:
             self.module.install_module('dummy')
         self.assertEqual(str(cm.exception), 'Module "dummy" is already installed')
         self.assertFalse(mock_task.return_value.start.called)
+
+    @patch('backend.update.Task')
+    @patch('backend.update.CleepConf')
+    def test_install_module_already_installed_as_library(self, mock_cleepconf, mock_task):
+        self.init_session()
+        self.module._get_installed_modules_names = Mock(return_value=['dummy'])
+        mock_cleepconf.return_value.is_module_installed.return_value = False
+        self.module._set_module_process = Mock()
+
+        self.module.install_module('dummy')
+
+        mock_cleepconf.return_value.install_module.assert_called_with('dummy')
+        self.module._set_module_process.assert_called_with(progress=100, failed=False, pending=True, forced_module_name='dummy')
+        self.session.assert_event_called_with('update.module.install', {'status': Install.STATUS_DONE, 'module': 'dummy'})
+        self.session.assert_event_called('system.cleep.needrestart')
 
     def test_install_main_module_circular_deps(self):
         self.init_session()
@@ -1854,7 +2054,7 @@ class TestsUpdate(unittest.TestCase):
         self.module._set_module_process.assert_called_once_with(failed=True)
 
     @patch('backend.update.Install')
-    def test_final_install_module(self, mock_install):
+    def test_final_install_module_is_not_dependency(self, mock_install):
         mock_install.return_value.install_module = Mock()
         mock_install.return_value.uninstall_module = Mock()
         mock_install.return_value.update_module = Mock()
@@ -1863,9 +2063,26 @@ class TestsUpdate(unittest.TestCase):
         module_name = 'dummy'
         self.module._Update__install_module_callback = Mock()
 
-        self.module._install_module(module_name, infos)
+        self.module._install_module(module_name, infos, False)
 
-        mock_install.return_value.install_module.assert_called_with(module_name, infos)
+        mock_install.return_value.install_module.assert_called_with(module_name, infos, extra={'isdependency': False})
+        self.assertFalse(mock_install.return_value.uninstall_module.called)
+        self.assertFalse(mock_install.return_value.update_module.called)
+        self.assertFalse(self.module._Update__install_module_callback.called)
+
+    @patch('backend.update.Install')
+    def test_final_install_module_is_dependency(self, mock_install):
+        mock_install.return_value.install_module = Mock()
+        mock_install.return_value.uninstall_module = Mock()
+        mock_install.return_value.update_module = Mock()
+        self.init_session()
+        infos = {'version': '0.0.0'}
+        module_name = 'dummy'
+        self.module._Update__install_module_callback = Mock()
+
+        self.module._install_module(module_name, infos, True)
+
+        mock_install.return_value.install_module.assert_called_with(module_name, infos, extra={'isdependency': True})
         self.assertFalse(mock_install.return_value.uninstall_module.called)
         self.assertFalse(mock_install.return_value.update_module.called)
         self.assertFalse(self.module._Update__install_module_callback.called)
@@ -1880,7 +2097,7 @@ class TestsUpdate(unittest.TestCase):
         module_name = 'dummy'
         self.module._Update__install_module_callback = Mock()
 
-        self.module._install_module(module_name, None)
+        self.module._install_module(module_name, None, False)
 
         self.assertFalse(mock_install.return_value.install_module.called)
         self.assertFalse(mock_install.return_value.uninstall_module.called)
@@ -1895,12 +2112,13 @@ class TestsUpdate(unittest.TestCase):
         module_name = 'dummy'
         self.module._Update__install_module_callback = Mock()
 
-        self.module._install_module(module_name, infos)
+        self.module._install_module(module_name, infos, False)
 
         self.assertTrue(self.module.crash_report.manual_report.called)
         self.assertTrue(self.module._Update__install_module_callback.called)
 
-    def test_get_modules_to_uninstall(self):
+    @patch('backend.update.CleepConf')
+    def test_get_modules_to_uninstall(self, mock_cleepconf):
         self.init_session()
         modules_to_uninstall = [
             'parent',
@@ -1922,12 +2140,43 @@ class TestsUpdate(unittest.TestCase):
                 'loadedby': ['child2']
             },
         }
+        mock_cleepconf.return_value.is_module_installed.return_value = False
 
         modules = self.module._get_modules_to_uninstall(modules_to_uninstall, modules_infos)
 
         self.assertEqual(modules, ['parent', 'child2', 'child3'])
 
-    def test_get_modules_to_uninstall_orphan(self):
+    @patch('backend.update.CleepConf')
+    def test_get_modules_to_uninstall_with_installed_dependency(self, mock_cleepconf):
+        self.init_session()
+        modules_to_uninstall = [
+            'parent',
+            'child1',
+            'child2',
+            'child3'
+        ]
+        modules_infos = {
+            'parent': {
+                'loadedby': []
+            },
+            'child1': {
+                'loadedby': ['parent', 'dummy']
+            },
+            'child2': {
+                'loadedby': ['parent'] # installed by user
+            },
+            'child3': {
+                'loadedby': ['child2']
+            },
+        }
+        mock_cleepconf.return_value.is_module_installed.side_effect = [False, False, True, False]
+
+        modules = self.module._get_modules_to_uninstall(modules_to_uninstall, modules_infos)
+
+        self.assertEqual(modules, ['parent', 'child3'])
+
+    @patch('backend.update.CleepConf')
+    def test_get_modules_to_uninstall_orphan(self, mock_cleepconf):
         self.init_session()
         modules_to_uninstall = [
             'parent',
@@ -1946,10 +2195,35 @@ class TestsUpdate(unittest.TestCase):
                 'loadedby': ['child2']
             },
         }
+        mock_cleepconf.return_value.is_module_installed.return_value = False
 
         modules = self.module._get_modules_to_uninstall(modules_to_uninstall, modules_infos)
 
         self.assertEqual(modules, ['parent', 'child3'])
+
+    @patch('backend.update.importlib')
+    def test_get_local_module_dependencies(self, mock_importlib):
+        self.init_session()
+        dependencies = ['dummy1', 'dummy2']
+        class empty:
+            pass
+        class dummy:
+            class Dummy:
+                MODULE_DEPS = dependencies
+        mock_importlib.import_module.side_effect = [empty(), dummy()]
+
+        deps = self.module._Update__get_local_module_dependencies('dummy')
+
+        self.assertCountEqual(deps, dependencies)
+
+    @patch('backend.update.importlib')
+    def test_get_local_module_dependencies_exception(self, mock_importlib):
+        self.init_session()
+        mock_importlib.import_module.side_effect = Exception('Test exception')
+
+        deps = self.module._Update__get_local_module_dependencies('dummy')
+
+        self.assertCountEqual(deps, [])
 
     def test_get_module_dependencies(self):
         callback = Mock(side_effect=[
@@ -1959,6 +2233,23 @@ class TestsUpdate(unittest.TestCase):
             { 'deps': [] }, # dummy4 deps
         ])
         self.init_session()
+
+        modules_infos = {}
+        deps = self.module._get_module_dependencies('dummy1', modules_infos, callback)
+        logging.debug('Deps: %s' % deps)
+
+        self.assertEqual(deps, ['dummy4', 'dummy3', 'dummy2', 'dummy1'])
+        self.assertCountEqual(deps, list(modules_infos.keys()))
+
+    def test_get_module_dependencies_local_module(self):
+        callback = Mock(side_effect=[
+            { 'deps': ['dummy2'] }, # dummy1 deps
+            None,
+            { 'deps': ['dummy4'] }, # dummy3 deps
+            { 'deps': [] }, # dummy4 deps
+        ])
+        self.init_session()
+        self.module._Update__get_local_module_dependencies = Mock(return_value=['dummy3'])
 
         modules_infos = {}
         deps = self.module._get_module_dependencies('dummy1', modules_infos, callback)
@@ -2071,7 +2362,8 @@ class TestsUpdate(unittest.TestCase):
         self.assertFalse(self.module.uninstall_module('dummy'))
         self.assertEqual(mock_task.return_value.start.call_count, 2) # called twice for main and sub action tasks
 
-    def test_uninstall_main_module_with_deps(self):
+    @patch('backend.update.CleepConf')
+    def test_uninstall_main_module_with_deps(self, mock_cleepconf):
         self.init_session()
         self.module._get_installed_modules_names = Mock(return_value=['dummy'])
         infos_dummy = {
@@ -2089,6 +2381,7 @@ class TestsUpdate(unittest.TestCase):
         extra = {'force': False}
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
         self.module._postpone_sub_action = Mock()
+        mock_cleepconf.return_value.is_module_installed.return_value = False
 
         self.module._uninstall_main_module('dummy', extra)
 
@@ -2099,7 +2392,8 @@ class TestsUpdate(unittest.TestCase):
         ], any_order=True)
         self.assertEqual(self.module._postpone_sub_action.call_count, 3)
 
-    def test_uninstall_main_module_with_circular_deps(self):
+    @patch('backend.update.CleepConf')
+    def test_uninstall_main_module_with_circular_deps(self, mock_cleepconf):
         self.init_session()
         self.module._get_installed_modules_names = Mock(return_value=['dummy'])
         infos_dummy = {
@@ -2124,6 +2418,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
         self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
         self.module._postpone_sub_action = Mock()
+        mock_cleepconf.return_value.is_module_installed.return_value = False
 
         self.module.uninstall_module('dummy')
         self.module._uninstall_main_module('dummy', extra)
@@ -2135,7 +2430,8 @@ class TestsUpdate(unittest.TestCase):
         ], any_order=True)
         self.assertEqual(self.module._postpone_sub_action.call_count, 3)
 
-    def test_uninstall_main_module_with_uninstallable_deps(self):
+    @patch('backend.update.CleepConf')
+    def test_uninstall_main_module_with_uninstallable_deps(self, mock_cleepconf):
         self.init_session()
         self.module._get_installed_modules_names = Mock(return_value=['dummy'])
         infos_dummy = {
@@ -2157,6 +2453,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
         self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
         self.module._postpone_sub_action = Mock()
+        mock_cleepconf.return_value.is_module_installed.return_value = False
 
         self.module.uninstall_module('dummy')
         self.module._uninstall_main_module('dummy', extra)
@@ -2167,7 +2464,8 @@ class TestsUpdate(unittest.TestCase):
         ], any_order=True)
         self.assertEqual(self.module._postpone_sub_action.call_count, 2)
 
-    def test_uninstall_main_module_forced(self):
+    @patch('backend.update.CleepConf')
+    def test_uninstall_main_module_forced(self, mock_cleepconf):
         self.init_session()
         self.module._get_installed_modules_names = Mock(return_value=['dummy'])
         infos_dummy = {
@@ -2175,15 +2473,30 @@ class TestsUpdate(unittest.TestCase):
             'deps': []
         }
         extra = {'force': True}
-        self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy])
+        self.module._get_module_infos_from_inventory = Mock(return_value=infos_dummy)
         self.module._postpone_sub_action = Mock()
         self.module._postpone_main_action = Mock()
+        mock_cleepconf.return_value.is_module_installed.return_value = False
 
         self.module._uninstall_main_module('dummy', extra)
         self.module._postpone_sub_action.assert_called_once_with(self.module.ACTION_MODULE_UNINSTALL, 'dummy', infos_dummy, 'dummy', extra)
 
         self.module.uninstall_module('dummy', force=True)
         self.module._postpone_main_action.assert_called_once_with(self.module.ACTION_MODULE_UNINSTALL, 'dummy', extra=extra)
+
+    @patch('backend.update.CleepConf')
+    def test_uninstall_main_module_no_module_to_uninstall(self, mock_cleepconf):
+        self.init_session()
+        self.module._get_module_dependencies = Mock()
+        self.module._get_modules_to_uninstall = Mock(return_value=[])
+        self.module._set_module_process = Mock()
+
+        self.module._uninstall_main_module('dummy0', extra={'force': False})
+
+        mock_cleepconf.return_value.uninstall_module.assert_called_with('dummy0')
+        self.module._set_module_process.assert_called_with(progress=100, failed=False, pending=True, forced_module_name='dummy0')
+        self.session.assert_event_called_with('update.module.uninstall', {'status': Install.STATUS_DONE, 'module': 'dummy0'})
+        self.session.assert_event_called('system.cleep.needrestart')
 
     @patch('backend.update.CleepConf')
     def test_uninstall_module_callback_processing(self, mock_cleepconf):
@@ -2241,7 +2554,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(self.session.event_call_count('update.module.uninstall'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.uninstall_module.called)
-        self.module._set_module_process.assert_called_once_with(failed=True)
+        self.module._set_module_process.assert_called_once_with(failed=True, pending=True)
 
     @patch('backend.update.Install')
     def test_final_uninstall_module(self, mock_install):

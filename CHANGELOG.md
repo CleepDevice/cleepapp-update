@@ -6,6 +6,7 @@
 * Properly handle dependency uninstall (app status stayed in uninstalling)
 * Fix Dependencies installation of locally installed apps (for dev)
 * Introduce compat flag to handle core releases
+* Properly install/uninstall library modules
 
 ## v1.0.3 - 2021-05-11
 
