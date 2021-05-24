@@ -24,7 +24,7 @@ class Update(CleepModule):
     Update application
     """
     MODULE_AUTHOR = 'Cleep'
-    MODULE_VERSION = '1.1.0'
+    MODULE_VERSION = '1.1.1'
     MODULE_DEPS = []
     MODULE_DESCRIPTION = 'Applications and Cleep updater'
     MODULE_LONGDESCRIPTION = 'Manage all Cleep applications and Cleep core updates.'
@@ -762,52 +762,50 @@ class Update(CleepModule):
         # update modules.json content
         try:
             modules_json_updated = self.modules_json.update()
-            if modules_json_updated:
-                new_modules_json = self.modules_json.get_json()
+            new_modules_json = self.modules_json.get_json()
         except Exception as error:
             self.logger.exception('Unable to refresh modules list from repository')
             raise CommandError('Unable to refresh modules list from internet') from error
 
         update_available = False
-        if modules_json_updated:
-            # request inventory to update its modules list
-            resp = self.send_command('reload_modules', 'inventory')
-            if resp.error:
-                self.logger.error('Error occured during inventory modules reloading: %s' % (resp.message))
+        # request inventory to update its modules list
+        resp = self.send_command('reload_modules', 'inventory')
+        if resp.error:
+            self.logger.error('Error occured during inventory modules reloading: %s' % (resp.message))
 
-            # check for modules updates available
-            for module_name, module in self._modules_updates.items():
-                try:
-                    new_version = (new_modules_json['list'][module_name]['version'] if module_name in new_modules_json['list']
-                                   else '0.0.0')
-                    if Tools.compare_versions(module['version'], new_version):
-                        # new version available for current module
-                        update_available = True
-                        module['updatable'] = True
-                        module['update'] = {
-                            'version': new_version,
-                            'changelog': new_modules_json['list'][module_name]['changelog'],
-                        }
-                        self.logger.info('New version available for app "%s" (v%s => v%s)' % (
-                            module_name,
-                            module['version'],
-                            new_version
-                        ))
-                    else:
-                        # force module infos update in case of version revert in modules.json
-                        module['updatable'] = False
-                        module['update'] = {
-                            'version': module['version'],
-                            'changelog': '',
-                        }
-                        self.logger.debug('No new version available for app "%s" (v%s => v%s)' % (
-                            module_name,
-                            module['version'],
-                            new_version
-                        ))
+        # check for modules updates available
+        for module_name, module in self._modules_updates.items():
+            try:
+                new_version = (new_modules_json['list'][module_name]['version'] if module_name in new_modules_json['list']
+                               else '0.0.0')
+                if Tools.compare_versions(module['version'], new_version):
+                    # new version available for current module
+                    update_available = True
+                    module['updatable'] = True
+                    module['update'].update({
+                        'version': new_version,
+                        'changelog': new_modules_json['list'][module_name]['changelog'],
+                    })
+                    self.logger.info('New version available for app "%s" (v%s => v%s)' % (
+                        module_name,
+                        module['version'],
+                        new_version
+                    ))
+                else:
+                    # force module infos update in case of version revert in modules.json
+                    module['updatable'] = False
+                    module['update'].update({
+                        'version': module['version'],
+                        'changelog': '',
+                    })
+                    self.logger.debug('No new version available for app "%s" (v%s => v%s)' % (
+                        module_name,
+                        module['version'],
+                        new_version
+                    ))
 
-                except Exception:
-                    self.logger.exception('Invalid "%s" app infos from modules.json' % module_name)
+            except Exception:
+                self.logger.exception('Invalid "%s" app infos from modules.json' % module_name)
 
         # update config
         config = {

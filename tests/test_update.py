@@ -1242,20 +1242,6 @@ class TestsUpdate(unittest.TestCase):
         self.assertIsNone(infos)
 
     @patch('backend.update.ModulesJson')
-    def test_check_modules_updates_modules_json_not_updated(self, mock_modulesjson):
-        mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
-        mock_modulesjson.return_value.update.return_value = False
-        self.init_session()
-        self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
-
-        updates = self.module.check_modules_updates()
-        
-        self.assertFalse(updates['modulesupdates'])
-        self.assertFalse(updates['modulesjsonupdated'])
-        self.assertTrue('moduleslastcheck' in updates)
-        self.assertFalse(self.session.command_called('reload_modules'))
-
-    @patch('backend.update.ModulesJson')
     def test_check_modules_updates_modules_json_updated_with_no_module_update(self, mock_modulesjson):
         mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
         mock_modulesjson.return_value.update.return_value = True
@@ -1268,6 +1254,11 @@ class TestsUpdate(unittest.TestCase):
         self.assertTrue(updates['modulesjsonupdated'])
         self.assertTrue('moduleslastcheck' in updates)
         self.assertTrue(self.session.command_called('reload_modules'))
+
+        # make sure modules_updates content is correct
+        for module_name, update in self.module._modules_updates.items():
+            self.assertCountEqual(update.keys(), ['updatable', 'processing', 'pending', 'name', 'version', 'update'])
+            self.assertCountEqual(update['update'].keys(), ['progress', 'failed', 'version', 'changelog'])
 
     @patch('backend.update.ModulesJson')
     def test_check_modules_updates_modules_json_updated_with_module_update(self, mock_modulesjson):
@@ -1296,6 +1287,11 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(modules_updates['system']['update']['changelog'], changelog)
         self.assertEqual(modules_updates['system']['update']['version'], version)
         self.assertTrue(self.session.command_called('reload_modules'))
+
+        # make sure modules_updates content is correct
+        for module_name, update in self.module._modules_updates.items():
+            self.assertCountEqual(update.keys(), ['updatable', 'processing', 'pending', 'name', 'version', 'update'])
+            self.assertCountEqual(update['update'].keys(), ['progress', 'failed', 'version', 'changelog'])
         
     @patch('backend.update.ModulesJson')
     def test_check_modules_updates_modules_json_exception(self, mock_modulesjson):

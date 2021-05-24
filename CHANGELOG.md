@@ -1,6 +1,10 @@
 # Changelog
 
-## v1.1.0 - 2021-05-19 UNRELEASED
+## v1.1.1 - 2021-05-24
+
+* Fix fatal issue during module update
+
+## v1.1.0 - 2021-05-19
 
 * Do not send need restart event if no actions performed
 * Fix Dependencies installation of locally installed apps (for dev)
