@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.2 - 2021-06-08
+
+* Remove useless tools file (transient file to wait for cleep v0.0.27)
+
 ## v1.1.1 - 2021-05-24
 
 * Fix fatal issue during module update
