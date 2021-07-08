@@ -7,6 +7,10 @@ import random
 import copy
 import importlib
 import re
+import shutil
+import tempfile
+import json
+from zipfile import ZipFile
 import cleep.libs.internals.tools as Tools
 from cleep.exception import MissingParameter, InvalidParameter, CommandError, CommandInfo
 from cleep.core import CleepModule
@@ -58,6 +62,7 @@ class Update(CleepModule):
     SUB_ACTIONS_TASK_INTERVAL = 1.0
 
     PYTHON_CLEEP_IMPORT_PATH = 'cleep.modules.'
+    PACKAGE_BASE_PATH = '/tmp/%(module_name)s.zip'
 
     def __init__(self, bootstrap, debug_enabled):
         """
@@ -406,7 +411,7 @@ class Update(CleepModule):
             self.logger.debug('Processing action %s' % action)
             action['processing'] = True
             if action['action'] == Update.ACTION_MODULE_INSTALL:
-                self._install_main_module(action['module'])
+                self._install_main_module(action['module'], action['extra'])
             elif action['action'] == Update.ACTION_MODULE_UNINSTALL:
                 self._uninstall_main_module(action['module'], action['extra'])
             elif action['action'] == Update.ACTION_MODULE_UPDATE:
@@ -482,9 +487,11 @@ class Update(CleepModule):
 
         # launch sub action
         if sub_action['action'] == Update.ACTION_MODULE_INSTALL:
-            self._install_module(sub_action['module'], sub_action['infos'], sub_action['module'] != sub_action['main'])
+            extra = sub_action.get('extra', {}) or {}
+            extra['isdependency'] = sub_action['module'] != sub_action['main']
+            self._install_module(sub_action['module'], sub_action['infos'], extra)
         elif sub_action['action'] == Update.ACTION_MODULE_UNINSTALL:
-            self._uninstall_module(sub_action['module'], sub_action['infos'], sub_action['extra'])
+            self._uninstall_module(sub_action['module'], sub_action['infos'], sub_action.get('extra'))
         elif sub_action['action'] == Update.ACTION_MODULE_UPDATE:
             self._update_module(sub_action['module'], sub_action['infos'])
 
@@ -637,6 +644,21 @@ class Update(CleepModule):
                 'changelog': None,
             },
         }
+
+    def __reset_module_update_data(self, module_name):
+        """
+        Reset module update data in _modules_updates dict.
+        It reset some flags (processing, progress...) to make sure current action can be performed correctly
+
+        Args:
+            module_name (string): module name
+        """
+        if module_name not in self._modules_updates:
+            return
+
+        self._modules_updates[module_name]['processing'] = False
+        self._modules_updates[module_name]['update']['progress'] = 0
+        self._modules_updates[module_name]['update']['failed'] = False
 
     def _restart_cleep(self, delay=10.0):
         """
@@ -1016,9 +1038,39 @@ class Update(CleepModule):
             'modulesupdateenabled': modules_update_enabled
         })
 
+    def _get_module_infos_from_package(self, module_name):
+        """
+        Return module infos from local package
+
+        Args:
+            module_name (string): module name
+
+        Returns:
+            dict: module infos
+
+        Raises:
+            Exception if modules.json is invalid
+        """
+        package_path = self.PACKAGE_BASE_PATH % {'module_name': module_name}
+        if not os.path.exists(package_path):
+            raise Exception('Package "%s" for module "%s" does not exists' % (package_path, module_name))
+
+        try:
+            package_dir = tempfile.mkdtemp()
+            with ZipFile(package_path) as archive:
+                archive.extract('module.json', path=package_dir)
+        except Exception as error:
+            raise Exception('Package "%s" is not a valid application archive' % package_path) from error
+
+        try:
+            with open(os.path.join(package_dir, 'module.json')) as fp:
+                return json.load(fp)
+        except Exception as error:
+            raise Exception('Package "%s" has invalid content' % package_path) from error
+
     def _get_module_infos_from_modules_json(self, module_name):
         """
-        Return modules infos from modules.json file
+        Return module infos from modules.json file
 
         Args:
             module_name (string): module name
@@ -1282,14 +1334,14 @@ class Update(CleepModule):
             'module': status['module'],
         })
 
-    def _install_module(self, module_name, module_infos, is_dependency):
+    def _install_module(self, module_name, module_infos, extra=None):
         """
         Execute specified module installation
 
         Args:
             module_name (string): module name
             module_infos (dict): module infos
-            is_dependency (bool): True if module to install is a dependency
+            extra (dict): extra data to use during module installation
         """
         if module_infos is None:
             # surely locally installed module, no need to perform complete install, just run final callback
@@ -1305,7 +1357,7 @@ class Update(CleepModule):
         # non blocking, end of process handled in specified callback
         try:
             self.__processor = Install(self.cleep_filesystem, self.crash_report, self.__install_module_callback)
-            self.__processor.install_module(module_name, module_infos, extra={'isdependency': is_dependency})
+            self.__processor.install_module(module_name, module_infos, extra)
         except Exception as error:
             self.crash_report.manual_report('Error installing module "%s"' % module_name, extra={'module_infos': module_infos})
             self.__install_module_callback({
@@ -1316,20 +1368,35 @@ class Update(CleepModule):
                 'module': module_name,
             })
 
-    def _install_main_module(self, module_name):
+    def _install_main_module(self, module_name, extra=None):
         """
         Install main module. This function will install all dependencies and update modules
         if necessary.
 
         Args:
             module_name (string): module name to install
+            extra (dict): extra installation parameters
         """
         self.logger.trace('_install_main_module "%s"' % module_name)
         installed_modules = self._get_installed_modules_names()
+        package = extra.get('package') if extra is not None else None
+
+        # handle package
+        if package and not os.path.exists(package):
+            raise Exception('Specified package "%s" does not exists' % package)
+        if package:
+            # move file to known path for next process and update new package path
+            new_package = self.PACKAGE_BASE_PATH % {'module_name': module_name}
+            shutil.move(package, new_package)
+            extra['package'] = new_package
 
         # compute dependencies to install
         modules_infos_json = {}
-        dependencies = self._get_module_dependencies(module_name, modules_infos_json, self._get_module_infos_from_modules_json)
+        dependencies = self._get_module_dependencies(
+            module_name,
+            modules_infos_json,
+            self._get_module_infos_from_modules_json if not package else self._get_module_infos_from_package
+        )
         self.logger.debug('Module "%s" dependencies: %s' % (module_name, dependencies))
 
         # check dependencies compatibility
@@ -1337,6 +1404,9 @@ class Update(CleepModule):
 
         # schedule module + dependencies installs
         for dependency_name in dependencies:
+            # reset previous update status
+            self.__reset_module_update_data(dependency_name)
+            self.logger.debug('Module "%s" update status: %s' % (dependency_name, self._modules_updates.get(dependency_name)))
             if dependency_name not in installed_modules:
                 # install dependency
                 self._postpone_sub_action(
@@ -1344,6 +1414,7 @@ class Update(CleepModule):
                     dependency_name,
                     modules_infos_json[dependency_name],
                     module_name,
+                    extra=extra if dependency_name == module_name else None,
                 )
             else:
                 # check if already installed module needs to be updated
@@ -1356,9 +1427,12 @@ class Update(CleepModule):
                         module_name,
                     )
 
-    def install_module(self, module_name):
+    def install_module(self, module_name, package=None):
         """
-        Install specified module
+        Install specified module.
+        If package is not specified, installation will use infos from modules.json
+        If package is specified, module will be installed using specified file.
+        The package must be a valid application archive built by Cleep.
 
         Args:
             module_name (string): module name to install
@@ -1390,7 +1464,10 @@ class Update(CleepModule):
         # postpone module installation
         postponed = self._postpone_main_action(
             Update.ACTION_MODULE_INSTALL,
-            module_name
+            module_name,
+            extra={
+                'package': package
+            },
         )
 
         # start main actions task
@@ -1442,7 +1519,7 @@ class Update(CleepModule):
             'module': status['module'],
         })
 
-    def _uninstall_module(self, module_name, module_infos, extra):
+    def _uninstall_module(self, module_name, module_infos, extra=None):
         """
         Execute specified module uninstallation
 
@@ -1464,7 +1541,7 @@ class Update(CleepModule):
                 'module': module_name,
             })
 
-    def _uninstall_main_module(self, module_name, extra):
+    def _uninstall_main_module(self, module_name, extra=None):
         """
         Uninstall module. This function will uninstall useless dependencies.
 
@@ -1477,7 +1554,7 @@ class Update(CleepModule):
         modules_infos = {}
         dependencies = self._get_module_dependencies(module_name, modules_infos, self._get_module_infos_from_inventory)
         self.logger.debug('Module "%s" dependencies: %s' % (module_name, dependencies))
-        modules_to_uninstall = self._get_modules_to_uninstall(dependencies, modules_infos)
+        modules_to_uninstall = self._get_modules_to_uninstall(module_name, dependencies, modules_infos)
         self.logger.info('Module "%s" uninstallation will remove "%s"' % (module_name, modules_to_uninstall))
 
         if len(modules_to_uninstall) == 0:
@@ -1532,12 +1609,13 @@ class Update(CleepModule):
 
         return postponed
 
-    def _get_modules_to_uninstall(self, modules_to_uninstall, modules_infos):
+    def _get_modules_to_uninstall(self, module_name, modules_to_uninstall, modules_infos):
         """
         Look for modules to uninstall list and remove modules that cannot be removed
         due to dependency with other module still needed.
 
         Args:
+            module_name (string): main module to uninstall
             modules_to_uninstall (list): module names to uninstall
             modules_infos (dict): dict of modules infos
 
@@ -1547,6 +1625,10 @@ class Update(CleepModule):
         out = modules_to_uninstall[:]
 
         for module_to_uninstall in modules_to_uninstall:
+            # list of modules to uninstall contains the main module itself, drop it
+            if module_to_uninstall == module_name:
+                continue
+
             # fix potential missing module_infos
             if module_to_uninstall not in modules_infos:
                 self.logger.warning('Module infos dict should contains "%s" module infos. '
@@ -1567,7 +1649,7 @@ class Update(CleepModule):
                     out.remove(module_to_uninstall)
                     break
 
-            if self.cleep_conf.is_module_installed(module_to_uninstall):
+            if self.cleep_conf.is_module_installed(module_to_uninstall) and module_to_uninstall in out:
                 # do not uninstall module that has been installed by user
                 out.remove(module_to_uninstall)
 

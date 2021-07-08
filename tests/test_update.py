@@ -15,7 +15,7 @@ from cleep.libs.tests import session
 from cleep.common import MessageResponse
 from cleep.libs.internals.installcleep import InstallCleep
 from cleep.libs.internals.install import Install
-from mock import Mock, patch, MagicMock, call, PropertyMock
+from mock import Mock, patch, MagicMock, call, PropertyMock, mock_open
 
 MODULES_JSON = {
     "list": {
@@ -112,8 +112,8 @@ GITHUB_SAMPLE = [{
 class TestsUpdate(unittest.TestCase):
 
     def setUp(self):
+        logging.basicConfig(level=logging.DEBUG, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
         self.session = session.TestSession(self)
-        logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
 
     def tearDown(self):
         self.session.clean()
@@ -323,6 +323,23 @@ class TestsUpdate(unittest.TestCase):
                 with self.assertRaises(CommandError) as cm:
                     logs = self.module.get_logs('module')
                 self.assertEqual(str(cm.exception), 'Error reading app "module" logs file')
+
+    def test_reset_module_update_data(self):
+        self.init_session()
+        self.module._modules_updates['module'] = self.module._Update__get_module_update_data('module', '0.0.0')
+        self.module._modules_updates['module']['processing'] = True
+        self.module._modules_updates['module']['pending'] = True
+        self.module._modules_updates['module']['updatable'] = True
+        self.module._modules_updates['module']['update']['progress'] = 55
+        self.module._modules_updates['module']['update']['failed'] = True
+
+        self.module._Update__reset_module_update_data('module')
+
+        self.assertFalse(self.module._modules_updates['module']['processing'])
+        self.assertTrue(self.module._modules_updates['module']['pending'])
+        self.assertTrue(self.module._modules_updates['module']['updatable'])
+        self.assertEqual(self.module._modules_updates['module']['update']['progress'], 0)
+        self.assertFalse(self.module._modules_updates['module']['update']['failed'])
 
     def test_restart_cleep(self):
         mock_restart = self.session.make_mock_command('restart_cleep')
@@ -1211,6 +1228,66 @@ class TestsUpdate(unittest.TestCase):
             self.module.set_automatic_update(True, 666)
         self.assertEqual(str(cm.exception), 'Parameter "modules_update_enabled" is invalid')
 
+    @patch('backend.update.os.path.exists')
+    @patch('backend.update.json')
+    def test_get_module_infos_from_package(self, json_mock, path_exists_mock):
+        open_mock = mock_open()
+        path_exists_mock.return_value = True
+        json_mock.load.return_value = 'json content'
+        self.init_session()
+
+        with patch('backend.update.open', open_mock, create=True):
+            with patch('backend.update.ZipFile') as zipfile_mock:
+                data = self.module._get_module_infos_from_package('module')
+
+                self.assertEqual(data, 'json content')
+                zipfile_mock.return_value.__enter__.return_value.extract.assert_called_with('module.json', path=session.PatternArg('/tmp/.*'))
+                json_mock.load.assert_called()
+
+    @patch('backend.update.os.path.exists')
+    @patch('backend.update.json')
+    def test_get_module_infos_from_package_file_not_exists(self, json_mock, path_exists_mock):
+        open_mock = mock_open()
+        json_mock.load.return_value = 'json content'
+        path_exists_mock.return_value = True
+        self.init_session()
+        path_exists_mock.return_value = False
+
+        with patch('backend.update.open', open_mock, create=True):
+            with patch('backend.update.ZipFile') as zipfile_mock:
+                with self.assertRaises(Exception) as cm:
+                    data = self.module._get_module_infos_from_package('module')
+                self.assertEqual(str(cm.exception), 'Package "/tmp/module.zip" for module "module" does not exists')
+
+    @patch('backend.update.os.path.exists')
+    @patch('backend.update.json')
+    def test_get_module_infos_from_package_unzip_error(self, json_mock, path_exists_mock):
+        open_mock = mock_open()
+        path_exists_mock.return_value = True
+        json_mock.load.return_value = 'json content'
+        self.init_session()
+
+        with patch('backend.update.open', open_mock, create=True):
+            with patch('backend.update.ZipFile') as zipfile_mock:
+                zipfile_mock.return_value.__enter__.return_value.extract.side_effect = Exception('Test exception')
+                with self.assertRaises(Exception) as cm:
+                    self.module._get_module_infos_from_package('module')
+                self.assertEqual(str(cm.exception), 'Package "/tmp/module.zip" is not a valid application archive')
+
+    @patch('backend.update.os.path.exists')
+    @patch('backend.update.json')
+    def test_get_module_infos_from_package_content_error(self, json_mock, path_exists_mock):
+        open_mock = mock_open()
+        path_exists_mock.return_value = True
+        json_mock.load.side_effect = Exception('Test exception')
+        self.init_session()
+
+        with patch('backend.update.open', open_mock, create=True):
+            with patch('backend.update.ZipFile') as zipfile_mock:
+                with self.assertRaises(Exception) as cm:
+                    self.module._get_module_infos_from_package('module')
+                self.assertEqual(str(cm.exception), 'Package "/tmp/module.zip" has invalid content')
+
     def test_get_module_infos_from_modules_json(self):
         self.init_session()
         self.module.modules_json = Mock()
@@ -1827,7 +1904,7 @@ class TestsUpdate(unittest.TestCase):
         mock_cleepconf.return_value.is_module_installed.return_value = False
 
         self.assertTrue(self.module.install_module('dummy'))
-        self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_INSTALL, 'dummy')
+        self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_INSTALL, 'dummy', extra={'package': None})
         self.assertTrue(mock_task.return_value.start.called)
 
     def test_install_module_cleep_update_running(self):
@@ -1868,6 +1945,33 @@ class TestsUpdate(unittest.TestCase):
         self.session.assert_event_called_with('update.module.install', {'status': Install.STATUS_DONE, 'module': 'dummy'})
         self.session.assert_event_called('system.cleep.needrestart')
 
+    @patch('backend.update.os.path.exists')
+    def test_install_main_module_from_package_file_not_exists(self, pathexists_mock):
+        self.init_session()
+        pathexists_mock.return_value = False
+
+        with self.assertRaises(Exception) as cm:
+            self.module._install_main_module('dummy', extra={'package': 'dummy.zip'})
+        self.assertEqual(str(cm.exception), 'Specified package "dummy.zip" does not exists')
+
+    @patch('backend.update.os.path.exists')
+    @patch('backend.update.shutil.move')
+    def test_install_main_module_from_package(self, shutilmove_mock, pathexists_mock):
+        infos_dummy = {
+            'loadedby': [],
+            'deps': ['dep1']
+        }
+        self.init_session()
+        pathexists_mock.return_value = True
+        self.module._get_module_infos_from_modules_json = Mock()
+        self.module._get_module_infos_from_package = Mock(return_value=infos_dummy)
+
+        self.module._install_main_module('dummy', extra={'package': 'dummy.zip'})
+
+        shutilmove_mock.assert_called_with('dummy.zip', '/tmp/dummy.zip')
+        self.assertFalse(self.module._get_module_infos_from_modules_json.called)
+        self.module._get_module_infos_from_package.assert_called()
+
     def test_install_main_module_circular_deps(self):
         self.init_session()
         infos_dummy = {
@@ -1889,9 +1993,9 @@ class TestsUpdate(unittest.TestCase):
         self.module._install_main_module('dummy')
 
         self.module._postpone_sub_action.assert_has_calls([
-            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, 'dummy'),
-            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, 'dummy'),
-            call(self.module.ACTION_MODULE_INSTALL, 'dep2', infos_dep2, 'dummy'),
+            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, 'dummy', extra=None),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, 'dummy', extra=None),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep2', infos_dep2, 'dummy', extra=None),
         ], any_order=True)
         self.assertEqual(self.module._postpone_sub_action.call_count, 3)
 
@@ -1917,9 +2021,9 @@ class TestsUpdate(unittest.TestCase):
         self.module._install_main_module(main_module)
 
         self.module._postpone_sub_action.assert_has_calls([
-            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, main_module),
-            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, main_module),
-            call(self.module.ACTION_MODULE_INSTALL, 'dep2', infos_dep2, main_module),
+            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, main_module, extra=None),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, main_module, extra=None),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep2', infos_dep2, main_module, extra=None),
         ], any_order=True)
         self.assertEqual(self.module._postpone_sub_action.call_count, 3)
 
@@ -1948,8 +2052,8 @@ class TestsUpdate(unittest.TestCase):
         self.module._install_main_module('dummy')
 
         self.module._postpone_sub_action.assert_has_calls([
-            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, 'dummy'),
-            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, 'dummy'),
+            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, 'dummy', extra=None),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, 'dummy', extra=None),
         ], any_order=True)
         self.assertEqual(self.module._postpone_sub_action.call_count, 2)
 
@@ -1979,8 +2083,8 @@ class TestsUpdate(unittest.TestCase):
 
         # logging.debug('Calls: %s' % self.module._postpone_sub_action.call_args_list)
         self.module._postpone_sub_action.assert_has_calls([
-            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, 'dummy'),
-            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, 'dummy'),
+            call(self.module.ACTION_MODULE_INSTALL, 'dummy', infos_dummy, 'dummy', extra=None),
+            call(self.module.ACTION_MODULE_INSTALL, 'dep1', infos_dep1, 'dummy', extra=None),
             call(self.module.ACTION_MODULE_UPDATE, 'dep2', infos_dep2, 'dummy'),
         ], any_order=True)
         self.assertEqual(self.module._postpone_sub_action.call_count, 3)
@@ -2063,9 +2167,9 @@ class TestsUpdate(unittest.TestCase):
         module_name = 'dummy'
         self.module._Update__install_module_callback = Mock()
 
-        self.module._install_module(module_name, infos, False)
+        self.module._install_module(module_name, infos, {'isdependency': False})
 
-        mock_install.return_value.install_module.assert_called_with(module_name, infos, extra={'isdependency': False})
+        mock_install.return_value.install_module.assert_called_with(module_name, infos, {'isdependency': False})
         self.assertFalse(mock_install.return_value.uninstall_module.called)
         self.assertFalse(mock_install.return_value.update_module.called)
         self.assertFalse(self.module._Update__install_module_callback.called)
@@ -2080,9 +2184,9 @@ class TestsUpdate(unittest.TestCase):
         module_name = 'dummy'
         self.module._Update__install_module_callback = Mock()
 
-        self.module._install_module(module_name, infos, True)
+        self.module._install_module(module_name, infos, {'isdependency': True})
 
-        mock_install.return_value.install_module.assert_called_with(module_name, infos, extra={'isdependency': True})
+        mock_install.return_value.install_module.assert_called_with(module_name, infos, {'isdependency': True})
         self.assertFalse(mock_install.return_value.uninstall_module.called)
         self.assertFalse(mock_install.return_value.update_module.called)
         self.assertFalse(self.module._Update__install_module_callback.called)
@@ -2118,7 +2222,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertTrue(self.module._Update__install_module_callback.called)
 
     @patch('backend.update.CleepConf')
-    def test_get_modules_to_uninstall(self, mock_cleepconf):
+    def test_get_modules_to_uninstall_with_non_installed_dependencies(self, mock_cleepconf):
         self.init_session()
         modules_to_uninstall = [
             'parent',
@@ -2142,9 +2246,33 @@ class TestsUpdate(unittest.TestCase):
         }
         mock_cleepconf.return_value.is_module_installed.return_value = False
 
-        modules = self.module._get_modules_to_uninstall(modules_to_uninstall, modules_infos)
+        modules = self.module._get_modules_to_uninstall('parent', modules_to_uninstall, modules_infos)
 
         self.assertEqual(modules, ['parent', 'child2', 'child3'])
+
+    @patch('backend.update.CleepConf')
+    def test_get_modules_to_uninstall_without_dependencies(self, mock_cleepconf):
+        self.init_session()
+        modules_to_uninstall = ['parent']
+        modules_infos = {
+            'parent': {
+                'loadedby': []
+            },
+            'child1': {
+                'loadedby': ['dummy']
+            },
+            'child2': {
+                'loadedby': []
+            },
+            'child3': {
+                'loadedby': []
+            },
+        }
+        mock_cleepconf.return_value.is_module_installed.return_value = False
+
+        modules = self.module._get_modules_to_uninstall('parent', modules_to_uninstall, modules_infos)
+
+        self.assertEqual(modules, ['parent'])
 
     @patch('backend.update.CleepConf')
     def test_get_modules_to_uninstall_with_installed_dependency(self, mock_cleepconf):
@@ -2169,9 +2297,9 @@ class TestsUpdate(unittest.TestCase):
                 'loadedby': ['child2']
             },
         }
-        mock_cleepconf.return_value.is_module_installed.side_effect = [False, False, True, False]
+        mock_cleepconf.return_value.is_module_installed.side_effect = [False, True, False]
 
-        modules = self.module._get_modules_to_uninstall(modules_to_uninstall, modules_infos)
+        modules = self.module._get_modules_to_uninstall('parent', modules_to_uninstall, modules_infos)
 
         self.assertEqual(modules, ['parent', 'child3'])
 
@@ -2197,7 +2325,7 @@ class TestsUpdate(unittest.TestCase):
         }
         mock_cleepconf.return_value.is_module_installed.return_value = False
 
-        modules = self.module._get_modules_to_uninstall(modules_to_uninstall, modules_infos)
+        modules = self.module._get_modules_to_uninstall('parent', modules_to_uninstall, modules_infos)
 
         self.assertEqual(modules, ['parent', 'child3'])
 
