@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.2.0] - 2021-07-09 
 
 ### Added
 * Add way to install module from zip package (useful for CI)
