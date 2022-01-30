@@ -28,7 +28,7 @@ class Update(CleepModule):
     Update application
     """
     MODULE_AUTHOR = 'Cleep'
-    MODULE_VERSION = '1.2.1'
+    MODULE_VERSION = '1.2.2'
     MODULE_DEPS = []
     MODULE_DESCRIPTION = 'Applications and Cleep updater'
     MODULE_LONGDESCRIPTION = 'Manage all Cleep applications and Cleep core updates.'
@@ -1146,7 +1146,7 @@ class Update(CleepModule):
                 'version': None,
             }
 
-    def __check_dependencies_compatibility(self, module_name, dependencies, modules_infos_json):
+    def __check_dependencies_compatibility(self, module_name, dependencies, modules_infos_json, no_compatibility_check=False):
         """
         Check dependencies compatibility
 
@@ -1154,11 +1154,14 @@ class Update(CleepModule):
             module_name (string): main module name
             dependencies (list): list of dependencies
             modules_infos_json (dict): modules informations
+            no_compatibility_check (bool): do not check module compatibility but only its dependencies compats
 
         Raises:
             Exception if one of dependencies if not compatible. It should breaks installation
         """
         for dependency in dependencies:
+            if no_compatibility_check and dependency == module_name:
+                continue
             module_infos = modules_infos_json.get(dependency) or {}
             compat_str = module_infos.get('compat', 'cleep<=%s' % CLEEP_VERSION)
             compat = self.__extract_compat(compat_str)
@@ -1380,7 +1383,7 @@ class Update(CleepModule):
         self.logger.trace('_install_main_module "%s"' % module_name)
         installed_modules = self._get_installed_modules_names()
         package = extra.get('package') if extra is not None else None
-        check_compatibility = extra.get('compatibility') if extra is not None else True
+        no_compatibility_check = extra.get('no_compatibility_check') if extra is not None else False
 
         # handle package
         if package and not os.path.exists(package):
@@ -1401,8 +1404,7 @@ class Update(CleepModule):
         self.logger.debug('Module "%s" dependencies: %s' % (module_name, dependencies))
 
         # check dependencies compatibility
-        if check_compatibility:
-            self.__check_dependencies_compatibility(module_name, dependencies, modules_infos_json)
+        self.__check_dependencies_compatibility(module_name, dependencies, modules_infos_json, no_compatibility_check)
 
         # schedule module + dependencies installs
         for dependency_name in dependencies:
@@ -1429,7 +1431,7 @@ class Update(CleepModule):
                         module_name,
                     )
 
-    def install_module(self, module_name, package=None, compatibility=True):
+    def install_module(self, module_name, package=None, no_compatibility_check=False):
         """
         Install specified module.
         If package is not specified, installation will use infos from modules.json
@@ -1439,7 +1441,7 @@ class Update(CleepModule):
         Args:
             module_name (str): module name to install
             package (str): module package path
-            compatibility (bool): check application compatibility (default True)
+            no_compatibility_check (bool): do not check module compatibility (but only deps compat)
 
         Returns:
             bool: True if installation will start
@@ -1471,7 +1473,7 @@ class Update(CleepModule):
             module_name,
             extra={
                 'package': package,
-                'compatibility': compatibility,
+                'no_compatibility_check': no_compatibility_check,
             },
         )
 

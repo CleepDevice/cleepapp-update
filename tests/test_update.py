@@ -1903,7 +1903,14 @@ class TestsUpdate(unittest.TestCase):
         mock_cleepconf.return_value.is_module_installed.return_value = False
 
         self.assertTrue(self.module.install_module('dummy'))
-        self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_INSTALL, 'dummy', extra={'package': None, 'compatibility': True})
+        self.module._postpone_main_action.assert_called_with(
+            self.module.ACTION_MODULE_INSTALL,
+            'dummy',
+            extra={
+                'package': None,
+                'no_compatibility_check': True
+            }
+        )
         self.assertTrue(mock_task.return_value.start.called)
 
     def test_install_module_cleep_update_running(self):
