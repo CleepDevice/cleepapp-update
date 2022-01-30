@@ -28,7 +28,7 @@ class Update(CleepModule):
     Update application
     """
     MODULE_AUTHOR = 'Cleep'
-    MODULE_VERSION = '1.2.0'
+    MODULE_VERSION = '1.2.1'
     MODULE_DEPS = []
     MODULE_DESCRIPTION = 'Applications and Cleep updater'
     MODULE_LONGDESCRIPTION = 'Manage all Cleep applications and Cleep core updates.'
@@ -1380,6 +1380,7 @@ class Update(CleepModule):
         self.logger.trace('_install_main_module "%s"' % module_name)
         installed_modules = self._get_installed_modules_names()
         package = extra.get('package') if extra is not None else None
+        check_compatibility = extra.get('compatibility') if extra is not None else True
 
         # handle package
         if package and not os.path.exists(package):
@@ -1400,7 +1401,8 @@ class Update(CleepModule):
         self.logger.debug('Module "%s" dependencies: %s' % (module_name, dependencies))
 
         # check dependencies compatibility
-        self.__check_dependencies_compatibility(module_name, dependencies, modules_infos_json)
+        if check_compatibility:
+            self.__check_dependencies_compatibility(module_name, dependencies, modules_infos_json)
 
         # schedule module + dependencies installs
         for dependency_name in dependencies:
@@ -1427,7 +1429,7 @@ class Update(CleepModule):
                         module_name,
                     )
 
-    def install_module(self, module_name, package=None):
+    def install_module(self, module_name, package=None, compatibility=True):
         """
         Install specified module.
         If package is not specified, installation will use infos from modules.json
@@ -1435,10 +1437,12 @@ class Update(CleepModule):
         The package must be a valid application archive built by Cleep.
 
         Args:
-            module_name (string): module name to install
+            module_name (str): module name to install
+            package (str): module package path
+            compatibility (bool): check application compatibility (default True)
 
         Returns:
-            bool: True if installation will starts
+            bool: True if installation will start
         """
         # check params
         if self._cleep_updates['processing'] or self._cleep_updates['pending']:
@@ -1448,7 +1452,7 @@ class Update(CleepModule):
         if self.cleep_conf.is_module_installed(module_name):
             raise InvalidParameter('Module "%s" is already installed' % module_name)
 
-        # check if module not already installed as library
+        # check if module is not already installed as library
         installed_modules = self._get_installed_modules_names()
         if module_name in installed_modules:
             self.logger.debug('Module "%s" is already installed as library, just enable it in cleep.conf' % module_name)
@@ -1466,7 +1470,8 @@ class Update(CleepModule):
             Update.ACTION_MODULE_INSTALL,
             module_name,
             extra={
-                'package': package
+                'package': package,
+                'compatibility': compatibility,
             },
         )
 

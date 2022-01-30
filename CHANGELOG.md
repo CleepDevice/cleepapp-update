@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.1] - 2022-01-30
+### Added
+- Add option to check compatibility
+
 ## [1.2.0] - 2021-07-09 
 
 ### Added

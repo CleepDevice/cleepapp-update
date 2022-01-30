@@ -112,7 +112,7 @@ GITHUB_SAMPLE = [{
 class TestsUpdate(unittest.TestCase):
 
     def setUp(self):
-        logging.basicConfig(level=logging.DEBUG, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
         self.session = session.TestSession(self)
 
     def tearDown(self):
@@ -252,7 +252,6 @@ class TestsUpdate(unittest.TestCase):
                 self.assertTrue(logs['system']['installed'])
                 self.assertFalse('audio' in logs)
 
-    @patch('os.path.exists', Mock(side_effect=[True, True, True, True, False]))
     def test_get_modules_logs_no_install_path(self):
         self.init_session()
 
@@ -1904,7 +1903,7 @@ class TestsUpdate(unittest.TestCase):
         mock_cleepconf.return_value.is_module_installed.return_value = False
 
         self.assertTrue(self.module.install_module('dummy'))
-        self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_INSTALL, 'dummy', extra={'package': None})
+        self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_INSTALL, 'dummy', extra={'package': None, 'compatibility': True})
         self.assertTrue(mock_task.return_value.start.called)
 
     def test_install_module_cleep_update_running(self):
