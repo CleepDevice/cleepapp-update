@@ -1,8 +1,11 @@
 # Changelog
 
-## [1.2.2] - 2022-01-30
+## [1.2.2] - 2022-01-31
 ### Fixed
 - Fix compatibility check
+
+### Added
+- Check if applciation is already up to date before updating it
 
 ## [1.2.1] - 2022-01-30
 ### Added

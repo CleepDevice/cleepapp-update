@@ -2743,6 +2743,20 @@ class TestsUpdate(unittest.TestCase):
             self.module.update_module('dummy')
         self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait end of it')
 
+    def test_update_module_module_already_uptodate(self):
+        self.init_session()
+        mod5 = {
+            'name': 'mod5',
+            'updatable': False,
+            'processing': False,
+            'pending': False,
+        }
+        self.module._modules_updates = {
+            'mod5': mod5
+        }
+
+        self.assertFalse(self.module.update_module('mod5'))
+
     @patch('backend.update.Task')
     def test_update_module_not_installed(self, mock_task):
         self.init_session()

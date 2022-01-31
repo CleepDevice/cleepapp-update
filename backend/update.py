@@ -1786,16 +1786,19 @@ class Update(CleepModule):
         Update specified module
 
         Args:
-            module_name (string): module name to uninstall
+            module_name (string): module name to update
 
         Returns:
-            bool: True if module update started. False if update is postponed
+            bool: True if module update postponed, False otherwise
         """
         # check params
         if self._cleep_updates['processing'] or self._cleep_updates['pending']:
-            raise CommandInfo('Cleep update is in progress. Please wait end of it')
+            raise CommandInfo('Cleep update is in progress. Please wait for end of it')
         if module_name is None or len(module_name) == 0:
             raise MissingParameter('Parameter "module_name" is missing')
+        if not self._modules_updates[module_name]['updatable']:
+            self.logger.info('Module "%s" is already up to date', module_name)
+            return False
         installed_modules = self._get_installed_modules_names()
         if module_name not in installed_modules:
             raise InvalidParameter('Module "%s" is not installed' % module_name)
