@@ -900,7 +900,7 @@ class Update(CleepModule):
         if not self._cleep_updates['updatable']:
             raise CommandInfo('No Cleep update available, please launch update check first')
         if len(self.__main_actions) != 0:
-            raise CommandInfo('Applications updates are in progress. Please wait end of it')
+            raise CommandInfo('Applications updates are in progress. Please wait for end of it')
 
         # unlock filesystem
         self.cleep_filesystem.enable_write(True, True)
@@ -925,7 +925,7 @@ class Update(CleepModule):
         during module updates check.
         """
         if self._cleep_updates['processing'] or self._cleep_updates['pending']:
-            raise CommandInfo('Cleep update is in progress. Please wait end of it')
+            raise CommandInfo('Cleep update is in progress. Please wait for end of it')
 
         # fill main actions with upgradable modules
         for module in [
@@ -1448,7 +1448,7 @@ class Update(CleepModule):
         """
         # check params
         if self._cleep_updates['processing'] or self._cleep_updates['pending']:
-            raise CommandInfo('Cleep update is in progress. Please wait end of it')
+            raise CommandInfo('Cleep update is in progress. Please wait for end of it')
         if module_name is None or len(module_name) == 0:
             raise MissingParameter('Parameter "module_name" is missing')
         if self.cleep_conf.is_module_installed(module_name):
@@ -1596,7 +1596,7 @@ class Update(CleepModule):
         """
         # check params
         if self._cleep_updates['processing'] or self._cleep_updates['pending']:
-            raise CommandInfo('Cleep update is in progress. Please wait end of it')
+            raise CommandInfo('Cleep update is in progress. Please wait for end of it')
         if module_name is None or len(module_name) == 0:
             raise MissingParameter('Parameter "module_name" is missing')
         installed_modules = self._get_installed_modules_names()

@@ -1504,7 +1504,7 @@ class TestsUpdate(unittest.TestCase):
         with patch.object(self.module, '_Update__main_actions', [Mock()]):
             with self.assertRaises(CommandInfo) as cm:
                 self.module.update_cleep()
-            self.assertEqual(str(cm.exception), 'Applications updates are in progress. Please wait end of it')
+            self.assertEqual(str(cm.exception), 'Applications updates are in progress. Please wait for end of it')
 
     @patch('backend.update.Task')
     def test_update_modules(self, mock_task):
@@ -1571,7 +1571,7 @@ class TestsUpdate(unittest.TestCase):
 
         with self.assertRaises(CommandInfo) as cm:
             self.module.update_modules()
-        self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait end of it')
+        self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait for end of it')
         self.assertFalse(mock_task.return_value.start.called)
 
     def test_postpone_main_action_install(self):
@@ -1908,7 +1908,7 @@ class TestsUpdate(unittest.TestCase):
             'dummy',
             extra={
                 'package': None,
-                'no_compatibility_check': True
+                'no_compatibility_check': False
             }
         )
         self.assertTrue(mock_task.return_value.start.called)
@@ -1922,7 +1922,7 @@ class TestsUpdate(unittest.TestCase):
 
         with self.assertRaises(CommandInfo) as cm:
             self.module.install_module('dummy')
-        self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait end of it')
+        self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait for end of it')
 
     @patch('backend.update.Task')
     @patch('backend.update.CleepConf')
@@ -2450,7 +2450,7 @@ class TestsUpdate(unittest.TestCase):
 
         with self.assertRaises(CommandInfo) as cm:
             self.module.uninstall_module('dummy')
-        self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait end of it')
+        self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait for end of it')
 
     @patch('backend.update.Task')
     def test_uninstall_module_check_params(self, mock_task):
@@ -2727,6 +2727,15 @@ class TestsUpdate(unittest.TestCase):
         self.init_session()
         self.module._get_installed_modules_names = Mock(return_value=['dummy'])
         self.module._postpone_main_action = Mock(return_value=True)
+        dummy = {
+            'name': 'dummy',
+            'updatable': True,
+            'processing': False,
+            'pending': False,
+        }
+        self.module._modules_updates = {
+            'dummy': dummy
+        }
 
         self.assertTrue(self.module.update_module('dummy'))
         self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_UPDATE, 'dummy')
@@ -2741,7 +2750,7 @@ class TestsUpdate(unittest.TestCase):
 
         with self.assertRaises(CommandInfo) as cm:
             self.module.update_module('dummy')
-        self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait end of it')
+        self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait for end of it')
 
     def test_update_module_module_already_uptodate(self):
         self.init_session()
