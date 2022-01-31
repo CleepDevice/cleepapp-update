@@ -2754,6 +2754,7 @@ class TestsUpdate(unittest.TestCase):
         self.module._modules_updates = {
             'mod5': mod5
         }
+        self.module._get_installed_modules_names = Mock(return_value=['mod5'])
 
         self.assertFalse(self.module.update_module('mod5'))
 
