@@ -28,7 +28,7 @@ class Update(CleepModule):
     Update application
     """
     MODULE_AUTHOR = 'Cleep'
-    MODULE_VERSION = '1.2.2'
+    MODULE_VERSION = '1.2.3'
     MODULE_DEPS = []
     MODULE_DESCRIPTION = 'Applications and Cleep updater'
     MODULE_LONGDESCRIPTION = 'Manage all Cleep applications and Cleep core updates.'
@@ -1391,7 +1391,7 @@ class Update(CleepModule):
         if package:
             # move file to known path for next process and update new package path
             new_package = self.PACKAGE_BASE_PATH % {'module_name': module_name}
-            shutil.move(package, new_package)
+            shutil.copyfile(package, new_package)
             extra['package'] = new_package
 
         # compute dependencies to install

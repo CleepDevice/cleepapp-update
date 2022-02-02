@@ -1961,8 +1961,8 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'Specified package "dummy.zip" does not exists')
 
     @patch('backend.update.os.path.exists')
-    @patch('backend.update.shutil.move')
-    def test_install_main_module_from_package(self, shutilmove_mock, pathexists_mock):
+    @patch('backend.update.shutil.copyfile')
+    def test_install_main_module_from_package(self, shutilcopyfile_mock, pathexists_mock):
         infos_dummy = {
             'loadedby': [],
             'deps': ['dep1']
@@ -1974,7 +1974,7 @@ class TestsUpdate(unittest.TestCase):
 
         self.module._install_main_module('dummy', extra={'package': 'dummy.zip'})
 
-        shutilmove_mock.assert_called_with('dummy.zip', '/tmp/dummy.zip')
+        shutilcopyfile_mock.assert_called_with('dummy.zip', '/tmp/dummy.zip')
         self.assertFalse(self.module._get_module_infos_from_modules_json.called)
         self.module._get_module_infos_from_package.assert_called()
 

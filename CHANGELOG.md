@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.3] - 2022-01-31
+### Fixed
+- Copy package file instead instead of moving it
+
 ## [1.2.2] - 2022-01-31
 ### Fixed
 - Fix compatibility check
