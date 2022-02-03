@@ -112,7 +112,7 @@ GITHUB_SAMPLE = [{
 class TestsUpdate(unittest.TestCase):
 
     def setUp(self):
-        logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        logging.basicConfig(level=logging.DEBUG, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
         self.session = session.TestSession(self)
 
     def tearDown(self):
@@ -1962,10 +1962,10 @@ class TestsUpdate(unittest.TestCase):
 
     @patch('backend.update.os.path.exists')
     @patch('backend.update.shutil.copyfile')
-    def test_install_main_module_from_package(self, shutilcopyfile_mock, pathexists_mock):
+    def test_install_main_module_from_package_without_dependencies(self, shutilcopyfile_mock, pathexists_mock):
         infos_dummy = {
             'loadedby': [],
-            'deps': ['dep1']
+            'deps': []
         }
         self.init_session()
         pathexists_mock.return_value = True
@@ -1975,8 +1975,30 @@ class TestsUpdate(unittest.TestCase):
         self.module._install_main_module('dummy', extra={'package': 'dummy.zip'})
 
         shutilcopyfile_mock.assert_called_with('dummy.zip', '/tmp/dummy.zip')
-        self.assertFalse(self.module._get_module_infos_from_modules_json.called)
         self.module._get_module_infos_from_package.assert_called()
+        self.module._get_module_infos_from_modules_json.assert_not_called()
+
+    @patch('backend.update.os.path.exists')
+    @patch('backend.update.shutil.copyfile')
+    def test_install_main_module_from_package_with_dependencies(self, shutilcopyfile_mock, pathexists_mock):
+        infos_dep1 = {
+            'loadedby': [],
+            'deps': []
+        }
+        infos_dummy = {
+            'loadedby': [],
+            'deps': ['dep1']
+        }
+        self.init_session()
+        pathexists_mock.return_value = True
+        self.module._get_module_infos_from_modules_json = Mock(return_value=infos_dep1)
+        self.module._get_module_infos_from_package = Mock(return_value=infos_dummy)
+
+        self.module._install_main_module('dummy', extra={'package': 'dummy.zip'})
+
+        shutilcopyfile_mock.assert_called_with('dummy.zip', '/tmp/dummy.zip')
+        self.module._get_module_infos_from_package.assert_called()
+        self.module._get_module_infos_from_modules_json.assert_called()
 
     def test_install_main_module_circular_deps(self):
         self.init_session()
