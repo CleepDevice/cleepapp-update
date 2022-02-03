@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.4] - 2022-02-22
+### Fixed
+- Fix problem to install dependencies from package
+
 ## [1.2.3] - 2022-01-31
 ### Fixed
 - Copy package file instead instead of moving it

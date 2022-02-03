@@ -28,7 +28,7 @@ class Update(CleepModule):
     Update application
     """
     MODULE_AUTHOR = 'Cleep'
-    MODULE_VERSION = '1.2.3'
+    MODULE_VERSION = '1.2.4'
     MODULE_DEPS = []
     MODULE_DESCRIPTION = 'Applications and Cleep updater'
     MODULE_LONGDESCRIPTION = 'Manage all Cleep applications and Cleep core updates.'
@@ -1227,8 +1227,13 @@ class Update(CleepModule):
             module_name (string): module name
             module_infos (dict): module infos (as returned by _get_module_infos). It must contains
                                  infos of module_name to allow dependencies search.
-            get_module_infos_callback (function): callback to get module infos. Can be either _get_module_infos_from_inventory
-                                 or _get_module_infos_from_modules_json
+            get_module_infos_callback (function|array): callback to get module infos.
+                                                        If function is specified, same callback is used during
+                                                        recursivity.
+                                                        If array is specified, callback is popped until last one that
+                                                        is used until end of recursivity.
+                                                        Can be either _get_module_infos_from_inventory,
+                                                        _get_module_infos_from_modules_json or _get_module_infos_from_package
             context (None): internal context for recursive call. Do not set.
 
         Returns:
@@ -1246,7 +1251,8 @@ class Update(CleepModule):
 
         # get module infos if needed
         if module_name not in modules_infos:
-            infos = get_module_infos_callback(module_name)
+            callback = get_module_infos_callback.pop(0) if isinstance(get_module_infos_callback, list) else get_module_infos_callback
+            infos = callback(module_name)
             modules_infos[module_name] = infos
 
         # get list of dependencies
@@ -1262,7 +1268,8 @@ class Update(CleepModule):
             if dependency_name == module_name:
                 # avoid infinite loop
                 continue
-            self._get_module_dependencies(dependency_name, modules_infos, get_module_infos_callback, context)
+            next_callback = callback if not isinstance(get_module_infos_callback, list) or (isinstance(get_module_infos_callback, list) and len(get_module_infos_callback) == 0) else get_module_infos_callback
+            self._get_module_dependencies(dependency_name, modules_infos, next_callback, context)
 
         context['dependencies'].append(module_name)
         return context['dependencies']
@@ -1287,7 +1294,7 @@ class Update(CleepModule):
             self.cleep_filesystem.mkdir(path, True)
 
         # store status
-        self.logger.debug('Storing process status in "%s"' % fullpath)
+        self.logger.info('Storing process status in "%s"' % fullpath)
         if not self.cleep_filesystem.write_json(fullpath, status):
             self.logger.error('Error storing module "%s" process status into "%s"' % (module_name, fullpath))
 
@@ -1399,14 +1406,14 @@ class Update(CleepModule):
         dependencies = self._get_module_dependencies(
             module_name,
             modules_infos_json,
-            self._get_module_infos_from_modules_json if not package else self._get_module_infos_from_package
+            self._get_module_infos_from_modules_json if not package else [self._get_module_infos_from_package, self._get_module_infos_from_modules_json]
         )
         self.logger.debug('Module "%s" dependencies: %s' % (module_name, dependencies))
 
         # check dependencies compatibility
         self.__check_dependencies_compatibility(module_name, dependencies, modules_infos_json, no_compatibility_check)
 
-        # schedule module + dependencies installs
+        # schedule module + dependencies installations
         for dependency_name in dependencies:
             # reset previous update status
             self.__reset_module_update_data(dependency_name)
