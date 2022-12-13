@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.0.0]
+### Changed
+- Use new core AppsSources lib to handle multi apps sources
+
 ## [1.2.4] - 2022-02-22
 ### Fixed
 - Fix problem to install dependencies from package

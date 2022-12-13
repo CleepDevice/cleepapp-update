@@ -112,7 +112,7 @@ GITHUB_SAMPLE = [{
 class TestsUpdate(unittest.TestCase):
 
     def setUp(self):
-        logging.basicConfig(level=logging.DEBUG, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
         self.session = session.TestSession(self)
 
     def tearDown(self):
@@ -525,7 +525,7 @@ class TestsUpdate(unittest.TestCase):
             'deps': [],
             'version': '1.0.0',
         }
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_mod1])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_mod1])
         with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
             with patch.object(self.module, '_Update__main_actions', [action_install]) as mock_main_actions:
                 self.module._execute_main_action_task()
@@ -561,7 +561,7 @@ class TestsUpdate(unittest.TestCase):
             'deps': [],
             'version': '1.0.0',
         }
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_mod1])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_mod1])
         with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
             with patch.object(self.module, '_Update__main_actions', [action_update]) as mock_main_actions:
                 self.module._execute_main_action_task()
@@ -597,7 +597,7 @@ class TestsUpdate(unittest.TestCase):
             'deps': [],
             'version': '1.0.0',
         }
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_mod1])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_mod1])
         with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
             with patch.object(self.module, '_Update__main_actions', [action_uninstall]) as mock_main_actions:
                 self.module._execute_main_action_task()
@@ -676,7 +676,7 @@ class TestsUpdate(unittest.TestCase):
             'version': '1.0.0',
         }
         self.module._set_module_process = Mock()
-        self.module._get_module_infos_from_modules_json = Mock(return_value=infos_mod1)
+        self.module._get_module_infos_from_market = Mock(return_value=infos_mod1)
         with patch.object(self.module, '_Update__main_actions', [action_install]) as mock_mainactions:
             with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
                 self.module._execute_main_action_task()
@@ -708,7 +708,7 @@ class TestsUpdate(unittest.TestCase):
             'version': '0.0.0',
         }
         self.module._set_module_process = Mock()
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_mod1, infos_mod2, infos_mod3])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_mod1, infos_mod2, infos_mod3])
         with patch.object(self.module, '_Update__main_actions', [action_install]) as mock_mainactions:
             with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
                 self.module._execute_main_action_task()
@@ -742,7 +742,7 @@ class TestsUpdate(unittest.TestCase):
             'deps': [],
             'version': '1.0.0',
         }
-        self.module._get_module_infos_from_modules_json = Mock(return_value=[infos_mod1])
+        self.module._get_module_infos_from_market = Mock(return_value=[infos_mod1])
 
         # install
         with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
@@ -770,7 +770,7 @@ class TestsUpdate(unittest.TestCase):
             'deps': [],
             'version': '1.0.0',
         }
-        self.module._get_module_infos_from_modules_json = Mock(return_value=[infos_mod1])
+        self.module._get_module_infos_from_market = Mock(return_value=[infos_mod1])
 
         # update
         with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
@@ -1069,7 +1069,7 @@ class TestsUpdate(unittest.TestCase):
     def test_set_module_process_update_inc_progress_greater_100(self):
         self.init_session()
         self.module._get_processing_module_name = Mock(return_value='mod1')
-        self.module._get_module_infos_from_modules_json = Mock(return_value=MODULES_JSON['list']['system'])
+        self.module._get_module_infos_from_market = Mock(return_value=MODULES_JSON['list']['system'])
         self.module._modules_updates = {
             'mod1': {
                 'processing': False,
@@ -1093,7 +1093,7 @@ class TestsUpdate(unittest.TestCase):
     def test_set_module_process_update_failed(self):
         self.init_session()
         self.module._get_processing_module_name = Mock(return_value='mod1')
-        self.module._get_module_infos_from_modules_json = Mock(return_value=MODULES_JSON['list']['system'])
+        self.module._get_module_infos_from_market = Mock(return_value=MODULES_JSON['list']['system'])
         self.module._modules_updates = {
             'mod1': {
                 'processing': False,
@@ -1141,7 +1141,7 @@ class TestsUpdate(unittest.TestCase):
     def test_set_module_process_update_new_module_install(self):
         self.init_session()
         self.module._get_processing_module_name = Mock(return_value='mod1')
-        self.module._get_module_infos_from_modules_json = Mock(return_value=MODULES_JSON['list']['system'])
+        self.module._get_module_infos_from_market = Mock(return_value=MODULES_JSON['list']['system'])
         self.module._modules_updates = {
             'mod2': {
                 'processing': False,
@@ -1158,6 +1158,7 @@ class TestsUpdate(unittest.TestCase):
         }
 
         self.module._set_module_process(inc_progress=15)
+
         self.assertEqual(self.module._modules_updates['mod1']['processing'], True)
         self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 15)
         self.assertEqual(self.module._modules_updates['mod1']['update']['version'], MODULES_JSON['list']['system']['version'])
@@ -1256,7 +1257,7 @@ class TestsUpdate(unittest.TestCase):
             with patch('backend.update.ZipFile') as zipfile_mock:
                 with self.assertRaises(Exception) as cm:
                     data = self.module._get_module_infos_from_package('module')
-                self.assertEqual(str(cm.exception), 'Package "/tmp/module.zip" for module "module" does not exists')
+                self.assertEqual(str(cm.exception), 'Package "/tmp/module.zip" for app "module" does not exists')
 
     @patch('backend.update.os.path.exists')
     @patch('backend.update.json')
@@ -1287,9 +1288,9 @@ class TestsUpdate(unittest.TestCase):
                     self.module._get_module_infos_from_package('module')
                 self.assertEqual(str(cm.exception), 'Package "/tmp/module.zip" has invalid content')
 
-    def test_get_module_infos_from_modules_json(self):
+    def test_get_module_infos_from_market(self):
         self.init_session()
-        self.module.modules_json = Mock()
+        self.module.apps_sources = Mock()
         content = {
             'list': {
                 'dummy': {
@@ -1297,14 +1298,14 @@ class TestsUpdate(unittest.TestCase):
                 }
             }
         }
-        self.module.modules_json.get_json = Mock(return_value=content)
+        self.module.apps_sources.get_market = Mock(return_value=content)
 
-        infos = self.module._get_module_infos_from_modules_json('dummy')
+        infos = self.module._get_module_infos_from_market('dummy')
         self.assertEqual(infos, content['list']['dummy'])
 
-    def test_get_module_infos_from_modules_json_unknown_module(self):
+    def test_get_module_infos_from_market_unknown_module(self):
         self.init_session()
-        self.module.modules_json = Mock()
+        self.module.apps_sources = Mock()
         content = {
             'list': {
                 'other': {
@@ -1312,22 +1313,22 @@ class TestsUpdate(unittest.TestCase):
                 }
             }
         }
-        self.module.modules_json.get_json = Mock(return_value=content)
+        self.module.apps_sources.get_market = Mock(return_value=content)
 
-        infos = self.module._get_module_infos_from_modules_json('dummy')
+        infos = self.module._get_module_infos_from_market('dummy')
         self.assertIsNone(infos)
 
-    @patch('backend.update.ModulesJson')
-    def test_check_modules_updates_modules_json_updated_with_no_module_update(self, mock_modulesjson):
-        mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
-        mock_modulesjson.return_value.update.return_value = True
+    @patch('backend.update.AppsSources')
+    def test_check_modules_updates_apps_sources_updated_with_no_app_update(self, mock_appssources):
+        mock_appssources.return_value.get_market.return_value = MODULES_JSON
+        mock_appssources.return_value.update_market.return_value = True
         self.init_session()
         self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
 
         updates = self.module.check_modules_updates()
         
         self.assertFalse(updates['modulesupdates'])
-        self.assertTrue(updates['modulesjsonupdated'])
+        self.assertTrue(updates['marketupdated'])
         self.assertTrue('moduleslastcheck' in updates)
         self.assertTrue(self.session.command_called('reload_modules'))
 
@@ -1336,15 +1337,15 @@ class TestsUpdate(unittest.TestCase):
             self.assertCountEqual(update.keys(), ['updatable', 'processing', 'pending', 'name', 'version', 'update'])
             self.assertCountEqual(update['update'].keys(), ['progress', 'failed', 'version', 'changelog'])
 
-    @patch('backend.update.ModulesJson')
-    def test_check_modules_updates_modules_json_updated_with_module_update(self, mock_modulesjson):
+    @patch('backend.update.AppsSources')
+    def test_check_modules_updates_market_updated_with_module_update(self, mock_appssources):
         modules_json = copy.deepcopy(MODULES_JSON)
         version = '6.6.6'
         changelog = 'new version changelog'
         modules_json['list']['system']['version'] = version
         modules_json['list']['system']['changelog'] = changelog
-        mock_modulesjson.return_value.get_json.return_value = modules_json
-        mock_modulesjson.return_value.update.return_value = True
+        mock_appssources.return_value.get_market.return_value = modules_json
+        mock_appssources.return_value.update_market.return_value = True
         self.init_session()
         self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
 
@@ -1354,7 +1355,7 @@ class TestsUpdate(unittest.TestCase):
         logging.debug('modules updates: %s' % modules_updates)
         
         self.assertTrue(updates['modulesupdates'])
-        self.assertTrue(updates['modulesjsonupdated'])
+        self.assertTrue(updates['marketupdated'])
         self.assertTrue(modules_updates['system']['updatable'])
         self.assertFalse(modules_updates['audio']['updatable'])
         self.assertFalse(modules_updates['sensors']['updatable'])
@@ -1369,23 +1370,24 @@ class TestsUpdate(unittest.TestCase):
             self.assertCountEqual(update.keys(), ['updatable', 'processing', 'pending', 'name', 'version', 'update'])
             self.assertCountEqual(update['update'].keys(), ['progress', 'failed', 'version', 'changelog'])
         
-    @patch('backend.update.ModulesJson')
-    def test_check_modules_updates_modules_json_exception(self, mock_modulesjson):
-        mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
-        mock_modulesjson.return_value.update.side_effect = Exception('Test exception')
+    @patch('backend.update.AppsSources')
+    def test_check_modules_updates_market_exception(self, mock_appssources):
+        mock_appssources.return_value.get_market.return_value = MODULES_JSON
+        mock_appssources.return_value.update_market.side_effect = Exception('Test exception')
         self.init_session()
         self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
 
         with self.assertRaises(CommandError) as cm:
            self.module.check_modules_updates()
-        self.assertEqual(str(cm.exception), 'Unable to refresh modules list from internet')
+
+        self.assertEqual(str(cm.exception), 'Unable to update market')
         self.assertFalse(self.session.command_called('reload_modules'))
 
-    @patch('backend.update.ModulesJson')
+    @patch('backend.update.AppsSources')
     @patch('backend.update.Tools')
-    def test_check_modules_updates_check_module_version_failed(self, mock_tools, mock_modulesjson):
-        mock_modulesjson.return_value.get_json.return_value = MODULES_JSON
-        mock_modulesjson.return_value.update.return_value = True
+    def test_check_modules_updates_check_module_version_failed(self, mock_tools, mock_appssources):
+        mock_appssources.return_value.get_market.return_value = MODULES_JSON
+        mock_appssources.return_value.update_market.return_value = True
         mock_tools.compare_versions.side_effect = Exception('Test exception')
         self.init_session()
         self.session.add_mock_command(self.session.make_mock_command('reload_modules'))
@@ -1394,7 +1396,7 @@ class TestsUpdate(unittest.TestCase):
         updates = self.module.check_modules_updates()
         logging.debug('Updates: %s' % updates)
 
-        self.assertEqual(updates['modulesjsonupdated'], True)
+        self.assertEqual(updates['marketupdated'], True)
         self.assertEqual(updates['modulesupdates'], False)
         self.assertTrue(self.session.command_called('reload_modules'))
 
@@ -1408,15 +1410,15 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'No Cleep update available, please launch update check first')
         self.assertFalse(self.module.cleep_filesystem.enable_write.called)
 
-    @patch('backend.update.ModulesJson')
-    def test_check_modules_updates_reload_modules_fails(self, mock_modulesjson):
+    @patch('backend.update.AppsSources')
+    def test_check_modules_updates_reload_modules_fails(self, mock_appssources):
         modules_json = copy.deepcopy(MODULES_JSON)
         version = '6.6.6'
         changelog = 'new version changelog'
         modules_json['list']['system']['version'] = version
         modules_json['list']['system']['changelog'] = changelog
-        mock_modulesjson.return_value.get_json.return_value = modules_json
-        mock_modulesjson.return_value.update.return_value = True
+        mock_appssources.return_value.get_market.return_value = modules_json
+        mock_appssources.return_value.update_market.return_value = True
         self.init_session()
         self.module.logger.error = Mock()
         self.session.add_mock_command(self.session.make_mock_command('reload_modules', fail=True))
@@ -1424,7 +1426,7 @@ class TestsUpdate(unittest.TestCase):
         updates = self.module.check_modules_updates()
 
         self.assertTrue(self.session.command_called('reload_modules'))
-        self.module.logger.error.assert_called_with('Error occured during inventory modules reloading: TEST: command "reload_modules" fails for tests')
+        self.module.logger.error.assert_called_with('Error occured during inventory modules reloading: %s', 'TEST: command "reload_modules" fails for tests')
     
     @patch('backend.update.InstallCleep')
     def test_update_cleep_update_available(self, mock_installcleep):
@@ -1649,7 +1651,7 @@ class TestsUpdate(unittest.TestCase):
 
         with self.assertRaises(Exception) as cm:
             self.module._get_module_infos_from_inventory('audio')
-        self.assertEqual(str(cm.exception), 'Unable to get module "audio" infos')
+        self.assertEqual(str(cm.exception), 'Unable to get app "audio" infos')
 
     def test_get_module_infos_from_inventory_unknown_module(self):
         mock_getmodules = self.session.make_mock_command(
@@ -1664,7 +1666,7 @@ class TestsUpdate(unittest.TestCase):
 
         with self.assertRaises(Exception) as cm:
             self.module._get_module_infos_from_inventory('audio')
-        self.assertEqual(str(cm.exception), 'Module "audio" not found in installable modules list')
+        self.assertEqual(str(cm.exception), 'App "audio" not found in installable apps list')
 
     def test_extract_compat(self):
         self.init_session()
@@ -1707,6 +1709,24 @@ class TestsUpdate(unittest.TestCase):
             self.module._Update__check_dependencies_compatibility('charts', ['actions', 'audio', 'charts'], MODULES_JSON['list'])
         except:
             self.fail('Should not throw exception')
+
+    @patch('backend.update.CLEEP_VERSION', '1.2.4')
+    def test_check_dependencies_compatibility_should_not_check_module_compat(self):
+        self.init_session()
+
+        try:
+            self.module._Update__check_dependencies_compatibility('charts', ['charts'], MODULES_JSON['list'], True)
+        except:
+            self.fail('Should not throw exception')
+
+    @patch('backend.update.CLEEP_VERSION', '1.2.4')
+    def test_check_dependencies_compatibility_should_check_module_compat(self):
+        self.init_session()
+
+        with self.assertRaises(Exception) as cm:
+            self.module._Update__check_dependencies_compatibility('charts', ['charts'], MODULES_JSON['list'], False)
+
+        self.assertEqual(str(cm.exception), 'Application "charts" is not installable due to version incompatibility of app "charts" that requires cleep<=1.2.3 to be installed')
 
     @patch('backend.update.CLEEP_VERSION', '1.2.3')
     def test_check_dependencies_compatibility_check_equal_operator(self):
@@ -1902,7 +1922,9 @@ class TestsUpdate(unittest.TestCase):
         self.module._postpone_main_action = Mock(return_value=True)
         mock_cleepconf.return_value.is_module_installed.return_value = False
 
-        self.assertTrue(self.module.install_module('dummy'))
+        result= self.module.install_module('dummy')
+
+        self.assertTrue(result)
         self.module._postpone_main_action.assert_called_with(
             self.module.ACTION_MODULE_INSTALL,
             'dummy',
@@ -1969,14 +1991,14 @@ class TestsUpdate(unittest.TestCase):
         }
         self.init_session()
         pathexists_mock.return_value = True
-        self.module._get_module_infos_from_modules_json = Mock()
+        self.module._get_module_infos_from_market = Mock()
         self.module._get_module_infos_from_package = Mock(return_value=infos_dummy)
 
         self.module._install_main_module('dummy', extra={'package': 'dummy.zip'})
 
         shutilcopyfile_mock.assert_called_with('dummy.zip', '/tmp/dummy.zip')
         self.module._get_module_infos_from_package.assert_called()
-        self.module._get_module_infos_from_modules_json.assert_not_called()
+        self.module._get_module_infos_from_market.assert_not_called()
 
     @patch('backend.update.os.path.exists')
     @patch('backend.update.shutil.copyfile')
@@ -1991,14 +2013,14 @@ class TestsUpdate(unittest.TestCase):
         }
         self.init_session()
         pathexists_mock.return_value = True
-        self.module._get_module_infos_from_modules_json = Mock(return_value=infos_dep1)
+        self.module._get_module_infos_from_market = Mock(return_value=infos_dep1)
         self.module._get_module_infos_from_package = Mock(return_value=infos_dummy)
 
         self.module._install_main_module('dummy', extra={'package': 'dummy.zip'})
 
         shutilcopyfile_mock.assert_called_with('dummy.zip', '/tmp/dummy.zip')
         self.module._get_module_infos_from_package.assert_called()
-        self.module._get_module_infos_from_modules_json.assert_called()
+        self.module._get_module_infos_from_market.assert_called()
 
     def test_install_main_module_circular_deps(self):
         self.init_session()
@@ -2015,7 +2037,7 @@ class TestsUpdate(unittest.TestCase):
             'deps': ['dummy']
         }
         self.module._get_installed_modules_names = Mock(return_value=[])
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
         self.module._postpone_sub_action = Mock()
 
         self.module._install_main_module('dummy')
@@ -2042,7 +2064,7 @@ class TestsUpdate(unittest.TestCase):
             'deps': []
         }
         self.module._get_installed_modules_names = Mock(return_value=[])
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
         self.module._postpone_sub_action = Mock()
 
         main_module = 'dummy'
@@ -2074,7 +2096,7 @@ class TestsUpdate(unittest.TestCase):
         }
         self.module._get_installed_modules_names = Mock(return_value=['dep2'])
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dep1])
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
         self.module._postpone_sub_action = Mock()
 
         self.module._install_main_module('dummy')
@@ -2104,7 +2126,7 @@ class TestsUpdate(unittest.TestCase):
         }
         self.module._get_installed_modules_names = Mock(return_value=['dep2'])
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dep1])
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy, infos_dep1, infos_dep2])
         self.module._postpone_sub_action = Mock()
 
         self.module._install_main_module('dummy')
@@ -2156,7 +2178,7 @@ class TestsUpdate(unittest.TestCase):
         self.init_session()
         self.module._store_process_status = Mock()
         mod_infos = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[mod_infos])
+        self.module._get_module_infos_from_market = Mock(side_effect=[mod_infos])
 
         self.module._Update__install_module_callback(status)
 
@@ -2512,7 +2534,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
         infos_dep1_json = self.__generate_module_infos([], ['dep2'], '0.0.0')
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
 
         self.assertTrue(self.module.uninstall_module('dummy'))
         self.assertFalse(self.module.uninstall_module('dummy'))
@@ -2572,7 +2594,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
         infos_dep1_json = self.__generate_module_infos([], ['dep2'], '0.0.0')
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
         self.module._postpone_sub_action = Mock()
         mock_cleepconf.return_value.is_module_installed.return_value = False
 
@@ -2607,7 +2629,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
         infos_dep1_json = self.__generate_module_infos([], ['dep2'], '0.0.0')
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
         self.module._postpone_sub_action = Mock()
         mock_cleepconf.return_value.is_module_installed.return_value = False
 
@@ -2683,7 +2705,7 @@ class TestsUpdate(unittest.TestCase):
         self.init_session()
         self.module._store_process_status = Mock()
         mod_infos = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[mod_infos])
+        self.module._get_module_infos_from_market = Mock(side_effect=[mod_infos])
 
         self.module._Update__uninstall_module_callback(status)
 
@@ -2827,7 +2849,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
         infos_dep1_json = self.__generate_module_infos([], ['dep2'], '0.1.0')
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv, infos_dep2_inv])
         self.module._postpone_sub_action = Mock()
 
@@ -2849,7 +2871,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
         infos_dep1_json = self.__generate_module_infos([], ['dep2'], '0.0.0')
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv, infos_dep2_inv])
         self.module._postpone_sub_action = Mock()
 
@@ -2870,7 +2892,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
         infos_dep1_json = self.__generate_module_infos([], [], '0.1.0')
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv, infos_dep2_inv])
         self.module._postpone_sub_action = Mock()
 
@@ -2892,7 +2914,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dummy_json = self.__generate_module_infos([], ['dep1'], '0.0.0')
         infos_dep1_json = self.__generate_module_infos([], [], '0.1.0')
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv, infos_dep2_inv])
         self.module._postpone_sub_action = Mock()
 
@@ -2913,7 +2935,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dummy_json = self.__generate_module_infos([], ['dep1'], '1.0.0')
         infos_dep1_json = self.__generate_module_infos([], ['dep2'], '0.1.0')
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv, infos_dep2_inv])
         self.module._postpone_sub_action = Mock()
 
@@ -2935,7 +2957,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dummy_json = self.__generate_module_infos([], ['dep2'], '1.0.0')
         infos_dep1_json = self.__generate_module_infos([], [], '0.1.0')
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[infos_dummy_json, infos_dep2_json])
+        self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy_json, infos_dep2_json])
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy_inv, infos_dep1_inv])
         self.module._postpone_sub_action = Mock()
 
@@ -2977,7 +2999,7 @@ class TestsUpdate(unittest.TestCase):
         self.init_session()
         self.module._store_process_status = Mock()
         mod_infos = self.__generate_module_infos([], [], '0.0.1')
-        self.module._get_module_infos_from_modules_json = Mock(side_effect=[mod_infos])
+        self.module._get_module_infos_from_market = Mock(side_effect=[mod_infos])
 
         self.module._Update__update_module_callback(status)
 
