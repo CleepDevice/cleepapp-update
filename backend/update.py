@@ -35,7 +35,7 @@ class Update(CleepModule):
     """
 
     MODULE_AUTHOR = "Cleep"
-    MODULE_VERSION = "1.2.4"
+    MODULE_VERSION = "1.3.0"
     MODULE_DEPS = []
     MODULE_DESCRIPTION = "Applications and Cleep updater"
     MODULE_LONGDESCRIPTION = "Manage all Cleep applications and Cleep core updates."
@@ -855,12 +855,14 @@ class Update(CleepModule):
 
         """
         # update market
+        self.logger.info('===> check_modules_updates [START]')
         try:
             market_updated = self.apps_sources.update_market()
             new_market = self.apps_sources.get_market()
         except Exception as error:
             self.logger.exception("Unable to update market")
             raise CommandError("Unable to update market") from error
+        self.logger.info('===> check_modules_updates [END]')
 
         update_available = False
         # request inventory to update its modules list
