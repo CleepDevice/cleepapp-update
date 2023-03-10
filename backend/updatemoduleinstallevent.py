@@ -3,14 +3,15 @@
 
 from cleep.libs.internals.event import Event
 
+
 class UpdateModuleInstallEvent(Event):
     """
     Update.module.install event
     """
 
-    EVENT_NAME = 'update.module.install'
+    EVENT_NAME = "update.module.install"
     EVENT_PROPAGATE = False
-    EVENT_PARAMS = ['module', 'status']
+    EVENT_PARAMS = ["module", "status"]
 
     def __init__(self, params):
         """
@@ -20,4 +21,3 @@ class UpdateModuleInstallEvent(Event):
             params (dict): event parameters
         """
         Event.__init__(self, params)
-

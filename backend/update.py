@@ -855,14 +855,14 @@ class Update(CleepModule):
 
         """
         # update market
-        self.logger.info('===> check_modules_updates [START]')
+        self.logger.info("===> check_modules_updates [START]")
         try:
             market_updated = self.apps_sources.update_market()
             new_market = self.apps_sources.get_market()
         except Exception as error:
             self.logger.exception("Unable to update market")
             raise CommandError("Unable to update market") from error
-        self.logger.info('===> check_modules_updates [END]')
+        self.logger.info("===> check_modules_updates [END]")
 
         update_available = False
         # request inventory to update its modules list
@@ -1186,12 +1186,12 @@ class Update(CleepModule):
             ) from error
 
         try:
-            with open(os.path.join(package_dir, "module.json"), encoding="utf8") as file_obj:
+            with open(
+                os.path.join(package_dir, "module.json"), encoding="utf8"
+            ) as file_obj:
                 return json.load(file_obj)
         except Exception as error:
-            raise Exception(
-                f'Package "{package_path}" has invalid content'
-            ) from error
+            raise Exception(f'Package "{package_path}" has invalid content') from error
 
     def _get_module_infos_from_market(self, module_name):
         """
@@ -1339,18 +1339,21 @@ class Update(CleepModule):
         """
         module_deps = []
         try:
-            module_path = f'{self.PYTHON_CLEEP_IMPORT_PATH}{module_name}'
+            module_path = f"{self.PYTHON_CLEEP_IMPORT_PATH}{module_name}"
             module_ = importlib.import_module(module_path)
             module_filename = getattr(module_, "APP_FILENAME", module_name)
             del module_
-            class_path = f"{self.PYTHON_CLEEP_IMPORT_PATH}{module_name}.{module_filename}"
+            class_path = (
+                f"{self.PYTHON_CLEEP_IMPORT_PATH}{module_name}.{module_filename}"
+            )
             self.logger.trace('Importing module "%s"', class_path)
             module_ = importlib.import_module(class_path)
             module_class_ = getattr(module_, module_filename.capitalize())
             module_deps = getattr(module_class_, "MODULE_DEPS", [])
         except Exception:
             self.logger.exception(
-                'Error loading locally installed application "%s". Dependencies may not be installed.', module_name
+                'Error loading locally installed application "%s". Dependencies may not be installed.',
+                module_name,
             )
 
         return module_deps
@@ -1759,9 +1762,7 @@ class Update(CleepModule):
             error_msg = str(error)
             self.__uninstall_module_callback(
                 {
-                    "process": [
-                        f"Internal error during uninstallation: {error_msg}"
-                    ],
+                    "process": [f"Internal error during uninstallation: {error_msg}"],
                     "stdout": [],
                     "stderr": [],
                     "status": Install.STATUS_ERROR,

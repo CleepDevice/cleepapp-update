@@ -3,14 +3,15 @@
 
 from cleep.libs.internals.event import Event
 
+
 class UpdateCleepUpdateEvent(Event):
     """
     Update.cleep.update event
     """
 
-    EVENT_NAME = 'update.cleep.update'
+    EVENT_NAME = "update.cleep.update"
     EVENT_PROPAGATE = False
-    EVENT_PARAMS = ['status']
+    EVENT_PARAMS = ["status"]
 
     def __init__(self, params):
         """
@@ -20,4 +21,3 @@ class UpdateCleepUpdateEvent(Event):
             params (dict): event parameters
         """
         Event.__init__(self, params)
-
