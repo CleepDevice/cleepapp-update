@@ -42,10 +42,10 @@ class Update(CleepModule):
     MODULE_TAGS = ["update", "application", "module"]
     MODULE_CATEGORY = "APPLICATION"
     MODULE_COUNTRY = None
-    MODULE_URLINFO = "https://github.com/tangb/cleepmod-update"
+    MODULE_URLINFO = "https://github.com/CleepDevice/cleepapp-update"
     MODULE_URLHELP = None
     MODULE_URLSITE = None
-    MODULE_URLBUGS = "https://github.com/tangb/cleepmod-update/issues"
+    MODULE_URLBUGS = "https://github.com/CleepDevice/cleepapp-update/issues"
 
     MODULE_CONFIG_FILE = "update.conf"
     DEFAULT_CONFIG = {
@@ -56,7 +56,7 @@ class Update(CleepModule):
         "moduleslastcheck": None,
     }
 
-    CLEEP_GITHUB_OWNER = "tangb"
+    CLEEP_GITHUB_OWNER = "CleepDevice"
     CLEEP_GITHUB_REPO = "cleep"
     PROCESS_STATUS_SUCCESS_FILENAME = "process_success.log"
     PROCESS_STATUS_FAILURE_FILENAME = "process_failure.log"
