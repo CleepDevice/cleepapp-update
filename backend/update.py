@@ -855,14 +855,12 @@ class Update(CleepModule):
 
         """
         # update market
-        self.logger.info("===> check_modules_updates [START]")
         try:
             market_updated = self.apps_sources.update_market()
             new_market = self.apps_sources.get_market()
         except Exception as error:
             self.logger.exception("Unable to update market")
             raise CommandError("Unable to update market") from error
-        self.logger.info("===> check_modules_updates [END]")
 
         update_available = False
         # request inventory to update its modules list
