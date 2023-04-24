@@ -1,5 +1,9 @@
 # Changelog
 
+## [UNRELEASED]
+### Fixed
+- Fix documentation
+
 ## [1.3.0] - 2023-02-12
 ### Changed
 - Use new core AppsSources lib to handle multi apps sources

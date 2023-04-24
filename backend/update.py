@@ -1641,8 +1641,8 @@ class Update(CleepModule):
 
         Args:
             module_name (str): module name to install
-            package (str): module package path
-            no_compatibility_check (bool): do not check module compatibility (but only deps compat)
+            package (str, optional): module package path. Defaults to None.
+            no_compatibility_check (bool, optional): do not check module compatibility (but only deps compat). Defaults to False.
 
         Returns:
             bool: True if installation will start
@@ -1827,7 +1827,7 @@ class Update(CleepModule):
 
         Args:
             module_name (string): module name to uninstall
-            force (bool): True to force uninstall even if error occured
+            force (bool, optional): True to force uninstall even if error occured. Defaults to False.
         """
         # check params
         if self._cleep_updates["processing"] or self._cleep_updates["pending"]:
