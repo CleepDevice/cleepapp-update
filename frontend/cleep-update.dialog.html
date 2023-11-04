@@ -4,8 +4,8 @@
             <div class="md-toolbar-tools">
                 <h2>Cleep update infos</h2>
                 <span flex></span>
-                <md-button class="md-icon-button" ng-click="updateCtl.closeDialog()" aria-label="Close dialog">
-                    <md-icon md-svg-icon="close"></md-icon>
+                <md-button class="md-icon-button" ng-click="$ctrl.closeDialog()" aria-label="Close dialog">
+                    <cl-icon cl-mdi="close"></cl-icon>
                 </md-button>
             </div>
         </md-toolbar>
@@ -17,7 +17,7 @@
 	                <!-- header -->
     	            <md-list-item>
         	            <p>
-                            You're going to install new version {{updateCtl.cleepUpdates.version}} of Cleep.<br>
+                            You're going to install new version {{ $ctrl.cleepUpdates.version }} of Cleep.<br>
                             After installation, device will restart automatically.
                         </p>
             	    </md-list-item>
@@ -25,8 +25,8 @@
     	            <!-- changelog -->
         	        <md-subheader style="background-color:white;" class="md-subheader-inner">What's new</md-subheader>
             	    <md-list-item>
-                	    <span ng-if="updateCtl.cleepUpdates.changelog.length>0" marked="updateCtl.cleepUpdates.changelog"></span>
-	                    <span ng-if="!updateCtl.cleepUpdates.changelog || updateCtl.cleepUpdates.changelog.length===0">
+                	    <span ng-if="$ctrl.cleepUpdates.changelog.length>0" marked="$ctrl.cleepUpdates.changelog"></span>
+	                    <span ng-if="!$ctrl.cleepUpdates.changelog || $ctrl.cleepUpdates.changelog.length===0">
                             No changelog provided
                         </span>
     	            </md-list-item>
@@ -37,12 +37,12 @@
         </md-dialog-content>
 
         <md-dialog-actions>
-            <md-button ng-click="updateCtl.closeDialog()">
-                <md-icon md-svg-icon="close-circle"></md-icon>
+            <md-button ng-click="$ctrl.closeDialog()">
+                <cl-icon cl-mdi="close-circle"></cl-icon>
                 Cancel
             </md-button>
-            <md-button ng-click="updateCtl.updateCleep()" class="md-accent">
-                <md-icon md-svg-icon="plus-circle"></md-icon>
+            <md-button ng-click="$ctrl.updateCleep()" class="md-accent">
+                <cl-icon cl-mdi="plus-circle"></cl-icon>
                 Update
             </md-button>
         </md-dialog-actions>

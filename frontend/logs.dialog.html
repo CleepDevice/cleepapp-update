@@ -4,16 +4,16 @@
             <div class="md-toolbar-tools">
                 <h2>Logs</h2>
                 <span flex></span>
-                <md-button class="md-icon-button" ng-click="logsCtl.closeDialog()" aria-label="Close dialog">
-                    <md-icon md-svg-icon="close"></md-icon>
+                <md-button class="md-icon-button" ng-click="$ctrl.closeDialog()">
+                    <cl-icon cl-mdi="close"></cl-icon>
                 </md-button>
             </div>
         </md-toolbar>
 
         <md-dialog-content>
             <div class="md-dialog-content" block-ui="logs-blockui">
-                <span class="md-caption" ng-if="logsCtl.logs.length>0" style="white-space: pre-wrap;">{{logsCtl.logs}}</span>
-                <span class="md-caption" ng-if="logsCtl.logs.length===0">
+                <span class="md-caption" ng-if="$ctrl.logs.length>0" style="white-space: pre-wrap;">{{$ctrl.logs}}</span>
+                <span class="md-caption" ng-if="$ctrl.logs.length===0">
                     There is no log.
                 </span>
             </div>
