@@ -15,7 +15,7 @@ from cleep.libs.tests import session
 from cleep.common import MessageResponse
 from cleep.libs.internals.installcleep import InstallCleep
 from cleep.libs.internals.install import Install
-from mock import Mock, patch, MagicMock, call, PropertyMock, mock_open
+from unittest.mock import Mock, patch, MagicMock, call, PropertyMock, mock_open
 
 MODULES_JSON = {
     "list": {
@@ -121,7 +121,7 @@ class TestsUpdate(unittest.TestCase):
 
     def init_session(self, mock_setconfigfield=None, mock_commands=[]):
         # create module instance
-        self.module = self.session.setup(Update)
+        self.module = self.session.setup(Update, mock_on_start=False, mock_on_stop=False)
 
         # add command mocks
         for command in mock_commands:
