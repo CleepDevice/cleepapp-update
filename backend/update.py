@@ -26,7 +26,6 @@ from cleep.libs.internals.cleepgithub import CleepGithub
 from cleep import __version__ as CLEEP_VERSION
 from cleep.libs.internals.installcleep import InstallCleep
 from cleep.libs.internals.install import Install
-from cleep.libs.internals.task import Task
 
 
 class Update(CleepModule):
@@ -83,7 +82,7 @@ class Update(CleepModule):
         # self.logger.setLevel(logging.TRACE)
 
         # members
-        self.apps_sources = AppsSources(self.cleep_filesystem)
+        self.apps_sources = AppsSources(self.cleep_filesystem, self.task_factory)
         self.cleep_conf = CleepConf(self.cleep_filesystem)
         self._modules_updates = {}
         self._cleep_updates = {
@@ -372,20 +371,18 @@ class Update(CleepModule):
         # main actions task
         if not self.__main_actions_task:
             self.logger.debug("Start main actions task")
-            self.__main_actions_task = Task(
+            self.__main_actions_task = self.task_factory.create_task(
                 Update.MAIN_ACTIONS_TASK_INTERVAL,
                 self._execute_main_action_task,
-                logger=self.logger,
             )
             self.__main_actions_task.start()
 
         # sub actions task
         if not self.__sub_actions_task:
             self.logger.debug("Start sub actions task")
-            self.__sub_actions_task = Task(
+            self.__sub_actions_task = self.task_factory.create_task(
                 Update.SUB_ACTIONS_TASK_INTERVAL,
                 self._execute_sub_actions_task,
-                logger=self.logger,
             )
             self.__sub_actions_task.start()
 
@@ -652,9 +649,8 @@ class Update(CleepModule):
 
         # save modules
         modules = {}
-        for (module_name, module) in {
-            k: v for (k, v) in inventory_modules.items() if v["installed"]
-        }.items():
+        installed_modules = {k: v for (k, v) in inventory_modules.items() if v["installed"]}
+        for (module_name, module) in installed_modules.items():
             modules[module_name] = self.__get_module_update_data(
                 module_name, module.get("version", "0.0.0")
             )
@@ -1012,7 +1008,7 @@ class Update(CleepModule):
         self.logger.debug(
             "Update Cleep: package_url=%s checksum_url=%s", package_url, checksum_url
         )
-        update = InstallCleep(self.cleep_filesystem, self.crash_report)
+        update = InstallCleep(self.cleep_filesystem, self.crash_report, self.task_factory)
         update.install(package_url, checksum_url, self._update_cleep_callback)
 
     def update_modules(self):
@@ -1535,7 +1531,7 @@ class Update(CleepModule):
         # non blocking, end of process handled in specified callback
         try:
             self.__processor = Install(
-                self.cleep_filesystem, self.crash_report, self.__install_module_callback
+                self.cleep_filesystem, self.crash_report, self.task_factory, self.__install_module_callback
             )
             self.__processor.install_module(module_name, module_infos, extra)
         except Exception as error:
@@ -1749,6 +1745,7 @@ class Update(CleepModule):
             self.__processor = Install(
                 self.cleep_filesystem,
                 self.crash_report,
+                self.task_factory,
                 self.__uninstall_module_callback,
             )
             self.__processor.uninstall_module(module_name, module_infos, extra["force"])
@@ -1958,7 +1955,7 @@ class Update(CleepModule):
             module_infos (dict): module infos
         """
         self.__processor = Install(
-            self.cleep_filesystem, self.crash_report, self.__update_module_callback
+            self.cleep_filesystem, self.crash_report, self.task_factory, self.__update_module_callback
         )
         self.__processor.update_module(module_name, module_infos)
 

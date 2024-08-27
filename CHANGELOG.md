@@ -6,6 +6,7 @@
 
 ### Changed
 - Migrate to Cleep components
+- Update after core changes (TaskFactory)
 
 ## [1.3.0] - 2023-02-12
 ### Changed
