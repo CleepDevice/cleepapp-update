@@ -3129,6 +3129,6 @@ class TestUpdateModuleUpdateEvent(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # coverage run --omit="*lib/python*/*","test_*" --concurrency=thread test_update.py; coverage report -m -i
+    # coverage run --include="**/backend/**/*.py" --concurrency=thread test_update.py; coverage report -m -i
     unittest.main()
     
