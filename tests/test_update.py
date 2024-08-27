@@ -16,7 +16,6 @@ from cleep.exception import InvalidParameter, MissingParameter, CommandError, Un
 from cleep.common import MessageResponse
 from cleep.libs.internals.installcleep import InstallCleep
 from cleep.libs.internals.install import Install
-from cleep.libs.internals.taskfactory import TaskFactory
 from unittest.mock import Mock, patch, MagicMock, call, PropertyMock, mock_open
 from cleep.libs.tests.common import get_log_level
 
@@ -125,14 +124,7 @@ class TestsUpdate(unittest.TestCase):
         self.module = None
 
     def init_session(self, mock_setconfigfield=None, mock_commands=[]):
-        # create module instance
-        app_stop_event = Event()
-        self.task_factory = TaskFactory({ 'app_stop_event': app_stop_event })
-        bootstrap = {
-            'app_stop_event': app_stop_event,
-            'task_factory': self.task_factory,
-        }
-        self.module = self.session.setup(Update, bootstrap=bootstrap, mock_on_start=False, mock_on_stop=False)
+        self.module = self.session.setup(Update, mock_on_start=False, mock_on_stop=False)
 
         # add command mocks
         for command in mock_commands:
@@ -381,7 +373,6 @@ class TestsUpdate(unittest.TestCase):
         mock_cleepgithub.return_value.get_release_assets_infos.return_value = GITHUB_SAMPLE[0]['assets']
         self.init_session()
 
-        logging.debug('HERE')
         update = self.module.check_cleep_updates()
         logging.debug('update: %s' % update)
 
@@ -1566,7 +1557,7 @@ class TestsUpdate(unittest.TestCase):
         }
         self.module._postpone_main_action = Mock()
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         self.module.update_modules()
         logging.debug('Calls: %s' % self.module._postpone_main_action.mock_calls)
@@ -1584,7 +1575,7 @@ class TestsUpdate(unittest.TestCase):
             'pending': True
         }
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         with self.assertRaises(CommandInfo) as cm:
             self.module.update_modules()
@@ -1936,7 +1927,7 @@ class TestsUpdate(unittest.TestCase):
         self.module._postpone_main_action = Mock(return_value=True)
         mock_cleepconf.return_value.is_module_installed.return_value = False
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         result= self.module.install_module('dummy')
 
@@ -1969,7 +1960,7 @@ class TestsUpdate(unittest.TestCase):
         self.module._get_installed_modules_names = Mock(return_value=['dummy'])
         mock_cleepconf.return_value.is_module_installed.return_value = True
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         with self.assertRaises(InvalidParameter) as cm:
             self.module.install_module('dummy')
@@ -2497,7 +2488,7 @@ class TestsUpdate(unittest.TestCase):
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy])
         self.module._postpone_main_action = Mock()
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         self.assertTrue(self.module.uninstall_module('dummy'))
         self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_UNINSTALL, 'dummy', extra=extra)
@@ -2522,7 +2513,7 @@ class TestsUpdate(unittest.TestCase):
         }
         self.module._get_module_infos_from_inventory = Mock(side_effect=[infos_dummy])
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         with self.assertRaises(MissingParameter) as cm:
             self.module.uninstall_module('')
@@ -2535,7 +2526,7 @@ class TestsUpdate(unittest.TestCase):
     def test_uninstall_module_not_installed_module(self):
         self.init_session()
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         with self.assertRaises(InvalidParameter) as cm:
             self.module.uninstall_module('dummy')
@@ -2555,7 +2546,7 @@ class TestsUpdate(unittest.TestCase):
         infos_dep2_json = self.__generate_module_infos([], [], '0.0.1')
         self.module._get_module_infos_from_market = Mock(side_effect=[infos_dummy_json, infos_dep1_json, infos_dep2_json])
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         self.assertTrue(self.module.uninstall_module('dummy'))
         self.assertFalse(self.module.uninstall_module('dummy'))
@@ -2801,7 +2792,7 @@ class TestsUpdate(unittest.TestCase):
             'dummy': dummy
         }
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         self.assertTrue(self.module.update_module('dummy'))
         self.module._postpone_main_action.assert_called_with(self.module.ACTION_MODULE_UPDATE, 'dummy')
@@ -2837,7 +2828,7 @@ class TestsUpdate(unittest.TestCase):
         self.init_session()
         self.module._get_installed_modules_names = Mock(return_value=[])
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         with self.assertRaises(InvalidParameter) as cm:
             self.module.update_module('dummy')
@@ -2847,7 +2838,7 @@ class TestsUpdate(unittest.TestCase):
     def test_update_module_check_params(self):
         self.init_session()
         mock_task = Mock()
-        self.task_factory.create_task = Mock(return_value=mock_task)
+        self.session.task_factory.create_task = Mock(return_value=mock_task)
 
         with self.assertRaises(MissingParameter) as cm:
             self.module.update_module(None)
