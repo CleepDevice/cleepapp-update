@@ -34,7 +34,7 @@ class Update(CleepModule):
     """
 
     MODULE_AUTHOR = "Cleep"
-    MODULE_VERSION = "1.3.0"
+    MODULE_VERSION = "1.4.0"
     MODULE_DEPS = []
     MODULE_DESCRIPTION = "Applications and Cleep updater"
     MODULE_LONGDESCRIPTION = "Manage all Cleep applications and Cleep core updates."

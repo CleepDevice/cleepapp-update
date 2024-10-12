@@ -1,6 +1,6 @@
 # Changelog
 
-## [UNRELEASED]
+## [1.4.0] - 2024-10-12
 ### Fixed
 - Fix documentation
 
