@@ -34,7 +34,7 @@ class Update(CleepModule):
     """
 
     MODULE_AUTHOR = "Cleep"
-    MODULE_VERSION = "1.4.0"
+    MODULE_VERSION = "1.4.1"
     MODULE_DEPS = []
     MODULE_DESCRIPTION = "Applications and Cleep updater"
     MODULE_LONGDESCRIPTION = "Manage all Cleep applications and Cleep core updates."
@@ -1289,17 +1289,19 @@ class Update(CleepModule):
             Exception if one of dependencies if not compatible. It should breaks installation
         """
         for dependency in dependencies:
+            self.logger.info("Checking app %s compatibility", dependency)
             if no_compatibility_check and dependency == module_name:
+                self.logger.info(" -> Main app dependency check disabled")
                 continue
             module_infos = modules_infos_json.get(dependency) or {}
             compat_str = module_infos.get("compat", f"cleep<={CLEEP_VERSION}")
             compat = self.__extract_compat(compat_str)
-            self.logger.debug('Compat for "%s" dependency: %s', dependency, compat)
+            self.logger.info(' -> Checking compatibility for "%s" app: %s', dependency, compat)
             if any(val is None for val in compat.values()):
                 raise Exception(f'Invalid compat string for "{dependency}" application')
             if compat["module_name"].lower() != "cleep":
                 raise Exception(
-                    f'Invalid compat string (invalid module name) for "{dependency}" application'
+                    f'Invalid compat string (invalid app name) for "{dependency}" application'
                 )
             if compat["operator"] not in ("<", "=", "<="):
                 raise Exception(
@@ -1314,7 +1316,7 @@ class Update(CleepModule):
                 )
             ):
                 raise Exception(
-                    f'Application "{module_name}" is not installable due to version incompatibility of app "{dependency}" that requires {compat_str} to be installed'
+                    f'App "{module_name}" is not installable due to version incompatibility of app dependency "{dependency}" that requires {compat_str} to be installed'
                 )
 
     def __get_local_module_dependencies(self, module_name):

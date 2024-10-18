@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.1] - 2024-10-18
+## Updated
+- Add log during application installation during compat checks
+
 ## [1.4.0] - 2024-10-12
 ### Fixed
 - Fix documentation
