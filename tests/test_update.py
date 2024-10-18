@@ -1732,7 +1732,7 @@ class TestsUpdate(unittest.TestCase):
         with self.assertRaises(Exception) as cm:
             self.module._Update__check_dependencies_compatibility('charts', ['charts'], MODULES_JSON['list'], False)
 
-        self.assertEqual(str(cm.exception), 'Application "charts" is not installable due to version incompatibility of app "charts" that requires cleep<=1.2.3 to be installed')
+        self.assertEqual(str(cm.exception), 'App "charts" is not installable due to version incompatibility of app dependency "charts" that requires cleep<=1.2.3 to be installed')
 
     @patch('backend.update.CLEEP_VERSION', '1.2.3')
     def test_check_dependencies_compatibility_check_equal_operator(self):
@@ -1749,7 +1749,7 @@ class TestsUpdate(unittest.TestCase):
             self.module._Update__extract_compat = Mock(return_value={'module_name': 'cleep', 'operator': '=', 'version': '1.2.2'})
             self.module._Update__check_dependencies_compatibility('charts', ['respeaker2mic'], MODULES_JSON['list'])
         # message is not valid due to extract_compat mock
-        self.assertEqual(str(cm.exception), 'Application "charts" is not installable due to version incompatibility of app "respeaker2mic" that requires cleep=1.2.3 to be installed')
+        self.assertEqual(str(cm.exception), 'App "charts" is not installable due to version incompatibility of app dependency "respeaker2mic" that requires cleep=1.2.3 to be installed')
 
     @patch('backend.update.CLEEP_VERSION', '1.2.2')
     def test_check_dependencies_compatibility_check_inferior_operator(self):
@@ -1766,7 +1766,7 @@ class TestsUpdate(unittest.TestCase):
             self.module._Update__extract_compat = Mock(return_value={'module_name': 'cleep', 'operator': '<', 'version': '1.2.2'})
             self.module._Update__check_dependencies_compatibility('charts', ['parameters'], MODULES_JSON['list'])
         # message is not valid due to extract_compat mock
-        self.assertEqual(str(cm.exception), 'Application "charts" is not installable due to version incompatibility of app "parameters" that requires cleep<1.2.3 to be installed')
+        self.assertEqual(str(cm.exception), 'App "charts" is not installable due to version incompatibility of app dependency "parameters" that requires cleep<1.2.3 to be installed')
 
     @patch('backend.update.CLEEP_VERSION', '1.2.3')
     def test_check_dependencies_compatibility_check_inferior_equal_operator(self):
@@ -1787,7 +1787,7 @@ class TestsUpdate(unittest.TestCase):
             self.module._Update__extract_compat = Mock(return_value={'module_name': 'cleep', 'operator': '<=', 'version': '1.2.2'})
             self.module._Update__check_dependencies_compatibility('charts', ['actions'], MODULES_JSON['list'])
         # message is not valid due to extract_compat mock
-        self.assertEqual(str(cm.exception), 'Application "charts" is not installable due to version incompatibility of app "actions" that requires cleep<=1.2.3 to be installed')
+        self.assertEqual(str(cm.exception), 'App "charts" is not installable due to version incompatibility of app dependency "actions" that requires cleep<=1.2.3 to be installed')
 
     @patch('backend.update.CLEEP_VERSION', '1.0.0')
     def test_check_dependencies_compatibility_incompatibility_detected(self):
@@ -1795,7 +1795,7 @@ class TestsUpdate(unittest.TestCase):
 
         with self.assertRaises(Exception) as cm:
             self.module._Update__check_dependencies_compatibility('charts', ['actions', 'audio', 'system'], MODULES_JSON['list'])
-        self.assertEqual(str(cm.exception), 'Application "charts" is not installable due to version incompatibility of app "system" that requires cleep<=0.0.1 to be installed')
+        self.assertEqual(str(cm.exception), 'App "charts" is not installable due to version incompatibility of app dependency "system" that requires cleep<=0.0.1 to be installed')
 
     @patch('backend.update.CLEEP_VERSION', '1.0.0')
     def test_check_dependencies_compatibility_invalid_compat_string(self):
@@ -1826,7 +1826,7 @@ class TestsUpdate(unittest.TestCase):
 
         with self.assertRaises(Exception) as cm:
             self.module._Update__check_dependencies_compatibility('charts', ['actions'], MODULES_JSON['list'])
-        self.assertEqual(str(cm.exception), 'Invalid compat string (invalid module name) for "actions" application')
+        self.assertEqual(str(cm.exception), 'Invalid compat string (invalid app name) for "actions" application')
 
     @patch('backend.update.CLEEP_VERSION', '1.0.0')
     def test_check_dependencies_compatibility_invalid_operator(self):
