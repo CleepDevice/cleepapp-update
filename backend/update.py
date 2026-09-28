@@ -1747,7 +1747,7 @@ class Update(CleepModule):
 
         elif status["status"] == Install.STATUS_ERROR:
             # set main action failed
-            self._set_module_process(failed=True, pending=True)
+            self._set_module_process(failed=True)
             self._store_process_status(status, success=False)
 
         # handle end of process

@@ -2833,7 +2833,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(self.session.event_call_count('update.module.uninstall'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.uninstall_module.called)
-        self.module._set_module_process.assert_called_once_with(failed=True, pending=True)
+        self.module._set_module_process.assert_called_once_with(failed=True)
 
     @patch('backend.update.Install')
     def test_final_uninstall_module(self, mock_install):

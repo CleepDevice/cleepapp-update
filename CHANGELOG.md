@@ -9,6 +9,7 @@
 - Send event to UI to say action is terminated
 - Update application that crashes create deadlock in queue
 - Better circular dependency detection
+- Do not trigger cleep restart while app uninstall failed
 
 ## [1.4.1] - 2024-10-18
 
