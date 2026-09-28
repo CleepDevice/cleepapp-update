@@ -1199,22 +1199,44 @@ class Update(CleepModule):
                 f'Package "{package_path}" for app "{module_name}" does not exists'
             )
 
+        package_dir = tempfile.mkdtemp()
         try:
-            package_dir = tempfile.mkdtemp()
-            with ZipFile(package_path) as archive:
-                archive.extract("module.json", path=package_dir)
-        except Exception as error:
-            raise Exception(
-                f'Package "{package_path}" is not a valid application archive'
-            ) from error
+            try:
+                with ZipFile(package_path) as archive:
+                    archive.extract("module.json", path=package_dir)
+            except Exception as error:
+                raise Exception(
+                    f'Package "{package_path}" is not a valid application archive'
+                ) from error
 
+            try:
+                with open(
+                    os.path.join(package_dir, "module.json"), encoding="utf8"
+                ) as file_obj:
+                    return json.load(file_obj)
+            except Exception as error:
+                raise Exception(
+                    f'Package "{package_path}" has invalid content'
+                ) from error
+        finally:
+            shutil.rmtree(package_dir, ignore_errors=True)
+
+    def _cleanup_module_package(self, module_name):
+        """
+        Remove local package copy under PACKAGE_BASE_PATH if it exists.
+
+        Args:
+            module_name (string): module name
+        """
+        package_path = self.PACKAGE_BASE_PATH % {"module_name": module_name}
         try:
-            with open(
-                os.path.join(package_dir, "module.json"), encoding="utf8"
-            ) as file_obj:
-                return json.load(file_obj)
-        except Exception as error:
-            raise Exception(f'Package "{package_path}" has invalid content') from error
+            if os.path.exists(package_path):
+                os.remove(package_path)
+                self.logger.debug('Removed local package "%s"', package_path)
+        except OSError:
+            self.logger.warning(
+                'Unable to remove local package "%s"', package_path, exc_info=True
+            )
 
     def _get_module_infos_from_market(self, module_name):
         """
@@ -1505,6 +1527,9 @@ class Update(CleepModule):
 
         """
         self.logger.debug("Module install callback status: %s", status)
+        is_dependency = "extra" in status and status["extra"].get(
+            "isdependency", False
+        )
 
         # handle install success
         if status["status"] == Install.STATUS_DONE:
@@ -1514,9 +1539,6 @@ class Update(CleepModule):
             self._store_process_status(status, success=True)
 
             # update cleep.conf only for main module not dependencies
-            is_dependency = "extra" in status and status["extra"].get(
-                "isdependency", False
-            )
             if not is_dependency:
                 self.cleep_conf.install_module(status["module"])
 
@@ -1529,6 +1551,13 @@ class Update(CleepModule):
         if status["status"] >= Install.STATUS_DONE:
             # reset processor
             self.__processor = None
+            # drop local package copy: after main module ends, or when process
+            # fails (dependency failure would otherwise leave /tmp/<main>.zip)
+            if status["status"] == Install.STATUS_ERROR:
+                main_name = self._get_processing_module_name() or status["module"]
+                self._cleanup_module_package(main_name)
+            elif not is_dependency:
+                self._cleanup_module_package(status["module"])
 
         # send process status
         self.module_install_event.send(
@@ -1600,70 +1629,78 @@ class Update(CleepModule):
         no_compatibility_check = (
             extra.get("no_compatibility_check") if extra is not None else False
         )
+        package_copied = False
 
-        # handle package
-        if package and not os.path.exists(package):
-            raise Exception(f'Specified package "{package}" does not exists')
-        if package:
-            # move file to known path for next process and update new package path
-            new_package = self.PACKAGE_BASE_PATH % {"module_name": module_name}
-            shutil.copyfile(package, new_package)
-            extra["package"] = new_package
+        try:
+            # handle package
+            if package and not os.path.exists(package):
+                raise Exception(f'Specified package "{package}" does not exists')
+            if package:
+                # copy file to known path for next process and update new package path
+                new_package = self.PACKAGE_BASE_PATH % {"module_name": module_name}
+                shutil.copyfile(package, new_package)
+                extra["package"] = new_package
+                package_copied = True
 
-        # compute dependencies to install
-        modules_infos_json = {}
-        dependencies = self._get_module_dependencies(
-            module_name,
-            modules_infos_json,
-            (
-                self._get_module_infos_from_market
-                if not package
-                else [
-                    self._get_module_infos_from_package,
-                    self._get_module_infos_from_market,
-                ]
-            ),
-        )
-        self.logger.debug('Module "%s" dependencies: %s', module_name, dependencies)
-
-        # check dependencies compatibility
-        self.__check_dependencies_compatibility(
-            module_name, dependencies, modules_infos_json, no_compatibility_check
-        )
-
-        # schedule module + dependencies installations
-        for dependency_name in dependencies:
-            # reset previous update status
-            self.__reset_module_update_data(dependency_name)
-            self.logger.debug(
-                'Module "%s" update status: %s',
-                dependency_name,
-                self._modules_updates.get(dependency_name),
+            # compute dependencies to install
+            modules_infos_json = {}
+            dependencies = self._get_module_dependencies(
+                module_name,
+                modules_infos_json,
+                (
+                    self._get_module_infos_from_market
+                    if not package
+                    else [
+                        self._get_module_infos_from_package,
+                        self._get_module_infos_from_market,
+                    ]
+                ),
             )
-            if dependency_name not in installed_modules:
-                # install dependency
-                self._postpone_sub_action(
-                    Update.ACTION_MODULE_INSTALL,
+            self.logger.debug('Module "%s" dependencies: %s', module_name, dependencies)
+
+            # check dependencies compatibility
+            self.__check_dependencies_compatibility(
+                module_name, dependencies, modules_infos_json, no_compatibility_check
+            )
+
+            # schedule module + dependencies installations
+            for dependency_name in dependencies:
+                # reset previous update status
+                self.__reset_module_update_data(dependency_name)
+                self.logger.debug(
+                    'Module "%s" update status: %s',
                     dependency_name,
-                    modules_infos_json[dependency_name],
-                    module_name,
-                    extra=extra if dependency_name == module_name else None,
+                    self._modules_updates.get(dependency_name),
                 )
-            else:
-                # check if already installed module needs to be updated
-                module_infos_inventory = self._get_module_infos_from_inventory(
-                    dependency_name
-                )
-                if Tools.compare_versions(
-                    module_infos_inventory["version"],
-                    modules_infos_json[dependency_name]["version"],
-                ):
+                if dependency_name not in installed_modules:
+                    # install dependency
                     self._postpone_sub_action(
-                        Update.ACTION_MODULE_UPDATE,
+                        Update.ACTION_MODULE_INSTALL,
                         dependency_name,
                         modules_infos_json[dependency_name],
                         module_name,
+                        extra=extra if dependency_name == module_name else None,
                     )
+                else:
+                    # check if already installed module needs to be updated
+                    module_infos_inventory = self._get_module_infos_from_inventory(
+                        dependency_name
+                    )
+                    if Tools.compare_versions(
+                        module_infos_inventory["version"],
+                        modules_infos_json[dependency_name]["version"],
+                    ):
+                        self._postpone_sub_action(
+                            Update.ACTION_MODULE_UPDATE,
+                            dependency_name,
+                            modules_infos_json[dependency_name],
+                            module_name,
+                        )
+        except Exception:
+            # drop copied package if scheduling failed before install started
+            if package_copied:
+                self._cleanup_module_package(module_name)
+            raise
 
     def install_module(self, module_name, package=None, no_compatibility_check=False):
         """

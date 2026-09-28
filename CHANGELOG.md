@@ -14,6 +14,7 @@
 - Missing need_restart flag reset
 - Progress bar can never reach 100%
 - Fix invalid var in ui
+- Propery clean downloaded files
 
 ## [1.4.1] - 2024-10-18
 

@@ -1294,12 +1294,15 @@ class TestsUpdate(unittest.TestCase):
             self.module.set_automatic_update(True, 666)
         self.assertEqual(str(cm.exception), 'Parameter "modules_update_enabled" is invalid')
 
+    @patch('backend.update.shutil.rmtree')
+    @patch('backend.update.tempfile.mkdtemp')
     @patch('backend.update.os.path.exists')
     @patch('backend.update.json')
-    def test_get_module_infos_from_package(self, json_mock, path_exists_mock):
+    def test_get_module_infos_from_package(self, json_mock, path_exists_mock, mkdtemp_mock, rmtree_mock):
         open_mock = mock_open()
         path_exists_mock.return_value = True
         json_mock.load.return_value = 'json content'
+        mkdtemp_mock.return_value = '/tmp/extract-dir'
         self.init_session()
 
         with patch('backend.update.open', open_mock, create=True):
@@ -1307,8 +1310,9 @@ class TestsUpdate(unittest.TestCase):
                 data = self.module._get_module_infos_from_package('module')
 
                 self.assertEqual(data, 'json content')
-                zipfile_mock.return_value.__enter__.return_value.extract.assert_called_with('module.json', path=session.PatternArg('/tmp/.*'))
+                zipfile_mock.return_value.__enter__.return_value.extract.assert_called_with('module.json', path='/tmp/extract-dir')
                 json_mock.load.assert_called()
+                rmtree_mock.assert_called_with('/tmp/extract-dir', ignore_errors=True)
 
     @patch('backend.update.os.path.exists')
     @patch('backend.update.json')
@@ -1325,12 +1329,15 @@ class TestsUpdate(unittest.TestCase):
                     data = self.module._get_module_infos_from_package('module')
                 self.assertEqual(str(cm.exception), 'Package "/tmp/module.zip" for app "module" does not exists')
 
+    @patch('backend.update.shutil.rmtree')
+    @patch('backend.update.tempfile.mkdtemp')
     @patch('backend.update.os.path.exists')
     @patch('backend.update.json')
-    def test_get_module_infos_from_package_unzip_error(self, json_mock, path_exists_mock):
+    def test_get_module_infos_from_package_unzip_error(self, json_mock, path_exists_mock, mkdtemp_mock, rmtree_mock):
         open_mock = mock_open()
         path_exists_mock.return_value = True
         json_mock.load.return_value = 'json content'
+        mkdtemp_mock.return_value = '/tmp/extract-dir'
         self.init_session()
 
         with patch('backend.update.open', open_mock, create=True):
@@ -1339,13 +1346,17 @@ class TestsUpdate(unittest.TestCase):
                 with self.assertRaises(Exception) as cm:
                     self.module._get_module_infos_from_package('module')
                 self.assertEqual(str(cm.exception), 'Package "/tmp/module.zip" is not a valid application archive')
+                rmtree_mock.assert_called_with('/tmp/extract-dir', ignore_errors=True)
 
+    @patch('backend.update.shutil.rmtree')
+    @patch('backend.update.tempfile.mkdtemp')
     @patch('backend.update.os.path.exists')
     @patch('backend.update.json')
-    def test_get_module_infos_from_package_content_error(self, json_mock, path_exists_mock):
+    def test_get_module_infos_from_package_content_error(self, json_mock, path_exists_mock, mkdtemp_mock, rmtree_mock):
         open_mock = mock_open()
         path_exists_mock.return_value = True
         json_mock.load.side_effect = Exception('Test exception')
+        mkdtemp_mock.return_value = '/tmp/extract-dir'
         self.init_session()
 
         with patch('backend.update.open', open_mock, create=True):
@@ -1353,6 +1364,27 @@ class TestsUpdate(unittest.TestCase):
                 with self.assertRaises(Exception) as cm:
                     self.module._get_module_infos_from_package('module')
                 self.assertEqual(str(cm.exception), 'Package "/tmp/module.zip" has invalid content')
+                rmtree_mock.assert_called_with('/tmp/extract-dir', ignore_errors=True)
+
+    @patch('backend.update.os.remove')
+    @patch('backend.update.os.path.exists')
+    def test_cleanup_module_package(self, path_exists_mock, remove_mock):
+        path_exists_mock.return_value = True
+        self.init_session()
+
+        self.module._cleanup_module_package('dummy')
+
+        remove_mock.assert_called_once_with('/tmp/dummy.zip')
+
+    @patch('backend.update.os.remove')
+    @patch('backend.update.os.path.exists')
+    def test_cleanup_module_package_missing(self, path_exists_mock, remove_mock):
+        path_exists_mock.return_value = False
+        self.init_session()
+
+        self.module._cleanup_module_package('dummy')
+
+        self.assertFalse(remove_mock.called)
 
     def test_get_module_infos_from_market(self):
         self.init_session()
@@ -2247,6 +2279,7 @@ class TestsUpdate(unittest.TestCase):
         }
         self.init_session()
         self.module._store_process_status = Mock()
+        self.module._cleanup_module_package = Mock()
         mod_infos = self.__generate_module_infos([], [], '0.0.1')
         self.module._get_module_infos_from_market = Mock(side_effect=[mod_infos])
 
@@ -2256,6 +2289,25 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(self.session.event_call_count('update.module.install'), 1)
         self.assertTrue(self.module._need_restart)
         mock_cleepconf.return_value.install_module.assert_called_with('dummy')
+        self.module._cleanup_module_package.assert_called_once_with('dummy')
+
+    @patch('backend.update.CleepConf')
+    def test_install_module_callback_done_dependency_skips_package_cleanup(self, mock_cleepconf):
+        status = {
+            'status': Install.STATUS_DONE,
+            'module': 'dummy',
+            'stdout': ['hello'],
+            'stderr': ['world'],
+            'extra': {'isdependency': True},
+        }
+        self.init_session()
+        self.module._store_process_status = Mock()
+        self.module._cleanup_module_package = Mock()
+
+        self.module._Update__install_module_callback(status)
+
+        self.assertFalse(mock_cleepconf.return_value.install_module.called)
+        self.assertFalse(self.module._cleanup_module_package.called)
 
     @patch('backend.update.CleepConf')
     def test_install_module_callback_error(self, mock_cleepconf):
@@ -2268,6 +2320,8 @@ class TestsUpdate(unittest.TestCase):
         self.init_session()
         self.module._store_process_status = Mock()
         self.module._set_module_process = Mock()
+        self.module._cleanup_module_package = Mock()
+        self.module._get_processing_module_name = Mock(return_value='mainmod')
 
         self.module._Update__install_module_callback(status)
 
@@ -2276,6 +2330,26 @@ class TestsUpdate(unittest.TestCase):
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.install_module.called)
         self.module._set_module_process.assert_called_once_with(failed=True)
+        self.module._cleanup_module_package.assert_called_once_with('mainmod')
+
+    @patch('backend.update.CleepConf')
+    def test_install_module_callback_error_dependency_cleans_main_package(self, mock_cleepconf):
+        status = {
+            'status': Install.STATUS_ERROR,
+            'module': 'dep',
+            'stdout': [],
+            'stderr': [],
+            'extra': {'isdependency': True},
+        }
+        self.init_session()
+        self.module._store_process_status = Mock()
+        self.module._set_module_process = Mock()
+        self.module._cleanup_module_package = Mock()
+        self.module._get_processing_module_name = Mock(return_value='mainmod')
+
+        self.module._Update__install_module_callback(status)
+
+        self.module._cleanup_module_package.assert_called_once_with('mainmod')
 
     @patch('backend.update.Install')
     def test_final_install_module_is_not_dependency(self, mock_install):
