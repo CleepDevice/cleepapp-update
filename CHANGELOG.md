@@ -8,6 +8,7 @@
 - Disabling auto update while updates were in progress will block later updates
 - Send event to UI to say action is terminated
 - Update application that crashes create deadlock in queue
+- Better circular dependency detection
 
 ## [1.4.1] - 2024-10-18
 

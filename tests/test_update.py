@@ -2533,6 +2533,39 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(sorted(deps), ['dummy1', 'dummy2', 'dummy3'])
         self.assertCountEqual(deps, list(modules_infos.keys()))
 
+    def test_get_module_dependencies_circular_deps_non_root(self):
+        """Cycle that does not include the root (A→B→C→B) must not recurse forever."""
+        callback = Mock(side_effect=[
+            { 'deps': ['dummy2'] },  # dummy1
+            { 'deps': ['dummy3'] },  # dummy2
+            { 'deps': ['dummy2'] },  # dummy3 → back to dummy2
+        ])
+        self.init_session()
+
+        modules_infos = {}
+        deps = self.module._get_module_dependencies('dummy1', modules_infos, callback)
+
+        self.assertEqual(deps, ['dummy3', 'dummy2', 'dummy1'])
+        self.assertCountEqual(deps, list(modules_infos.keys()))
+        self.assertEqual(callback.call_count, 3)
+
+    def test_get_module_dependencies_diamond(self):
+        """Shared leaf reached from two parents must appear once (no UnboundLocalError)."""
+        callback = Mock(side_effect=[
+            { 'deps': ['dummy2', 'dummy3'] },  # dummy1
+            { 'deps': ['dummy4'] },            # dummy2
+            { 'deps': ['dummy4'] },            # dummy3
+            { 'deps': [] },                    # dummy4
+        ])
+        self.init_session()
+
+        modules_infos = {}
+        deps = self.module._get_module_dependencies('dummy1', modules_infos, callback)
+
+        self.assertEqual(deps, ['dummy4', 'dummy2', 'dummy3', 'dummy1'])
+        self.assertCountEqual(deps, list(modules_infos.keys()))
+        self.assertEqual(callback.call_count, 4)
+
     def test_uninstall_module(self):
         self.init_session()
         self.module._get_installed_modules_names = Mock(return_value=['dummy'])

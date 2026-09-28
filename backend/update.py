@@ -1406,19 +1406,19 @@ class Update(CleepModule):
             # initiate recursive process
             context = {
                 "dependencies": [],
-                "visited": [module_name],
+                "visited": [],
             }
-        elif module_name in context["visited"]:
-            # avoid circular deps
+
+        # already visited: circular dependency or diamond shared leaf
+        if module_name in context["visited"]:
             return None
+        context["visited"].append(module_name)
 
         # get module infos if needed
+        callback = get_module_infos_callback
         if module_name not in modules_infos:
-            callback = (
-                get_module_infos_callback.pop(0)
-                if isinstance(get_module_infos_callback, list)
-                else get_module_infos_callback
-            )
+            if isinstance(get_module_infos_callback, list):
+                callback = get_module_infos_callback.pop(0)
             infos = callback(module_name)
             modules_infos[module_name] = infos
 
@@ -1435,15 +1435,14 @@ class Update(CleepModule):
             if dependency_name == module_name:
                 # avoid infinite loop
                 continue
-            next_callback = (
-                callback
-                if not isinstance(get_module_infos_callback, list)
-                or (
-                    isinstance(get_module_infos_callback, list)
-                    and len(get_module_infos_callback) == 0
-                )
-                else get_module_infos_callback
-            )
+            if (
+                isinstance(get_module_infos_callback, list)
+                and len(get_module_infos_callback) > 0
+            ):
+                next_callback = get_module_infos_callback
+            else:
+                # reuse last (or only) infos callback for remaining recursion
+                next_callback = callback
             self._get_module_dependencies(
                 dependency_name, modules_infos, next_callback, context
             )
