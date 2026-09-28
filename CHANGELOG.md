@@ -12,6 +12,7 @@
 - Do not trigger cleep restart while app uninstall failed
 - Fix typo in message log
 - Missing need_restart flag reset
+- Progress bar can never reach 100%
 
 ## [1.4.1] - 2024-10-18
 

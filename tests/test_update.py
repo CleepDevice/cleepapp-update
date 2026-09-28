@@ -719,9 +719,14 @@ class TestsUpdate(unittest.TestCase):
                 self.module._execute_main_action_task()
 
                 self.module._set_module_process.assert_called_once_with(progress=0)
-                self.assertEqual(mock_subactions[0]['progressstep'], 33)
+                # 100 = 34+33+33 (remainder on index 0, last executed)
+                self.assertEqual(mock_subactions[0]['progressstep'], 34)
                 self.assertEqual(mock_subactions[1]['progressstep'], 33)
                 self.assertEqual(mock_subactions[2]['progressstep'], 33)
+                self.assertEqual(
+                    sum(s['progressstep'] for s in mock_subactions),
+                    100,
+                )
 
     def test_execute_main_action_task_no_sub_actions_clears_processing(self):
         self.init_session()

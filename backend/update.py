@@ -484,9 +484,14 @@ class Update(CleepModule):
 
             # update progress step for all sub actions
             # this is done after all sub actions are stored to compute valid progress step
-            progress_step = int(100 / len(self.__sub_actions))
-            for sub_action in self.__sub_actions:
-                sub_action["progressstep"] = progress_step
+            # remainder goes on index 0 (executed last: insert(0)+pop) so total reaches 100
+            n_sub_actions = len(self.__sub_actions)
+            progress_step = 100 // n_sub_actions
+            progress_remainder = 100 % n_sub_actions
+            for i, sub_action in enumerate(self.__sub_actions):
+                sub_action["progressstep"] = progress_step + (
+                    progress_remainder if i == 0 else 0
+                )
 
         except Exception as error:
             self.logger.exception("Error occured executing action: %s", action)
