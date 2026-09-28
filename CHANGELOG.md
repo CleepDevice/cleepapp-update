@@ -5,6 +5,7 @@
 ### Fixed
 
 - If Cleep update enabled, never update applications
+- Disabling auto update while updates were in progress will block later updates
 
 ## [1.4.1] - 2024-10-18
 

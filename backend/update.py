@@ -1144,9 +1144,11 @@ class Update(CleepModule):
         if not isinstance(modules_update_enabled, bool):
             raise InvalidParameter('Parameter "modules_update_enabled" is invalid')
 
-        # stop modules update task if necessary
-        if not modules_update_enabled and self.__main_actions_task:
-            self.__main_actions_task.stop()
+        # Action tasks are shared with manual install/update/uninstall.
+        # When disabling modules auto-update, stop them properly (null refs)
+        # so a later __start_actions_tasks can recreate them.
+        if not modules_update_enabled:
+            self.__stop_actions_tasks()
 
         return self._update_config(
             {

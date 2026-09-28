@@ -1212,9 +1212,17 @@ class TestsUpdate(unittest.TestCase):
             self.module.set_automatic_update(True, True)
             self.assertFalse(mock_task.stop.called)
 
-        with patch.object(self.module, '_Update__main_actions_task') as mock_task:
-            self.module.set_automatic_update(False, False)
-            self.assertTrue(mock_task.stop.called)
+        main_task = Mock()
+        sub_task = Mock()
+        self.module._Update__main_actions_task = main_task
+        self.module._Update__sub_actions_task = sub_task
+
+        self.module.set_automatic_update(False, False)
+
+        self.assertTrue(main_task.stop.called)
+        self.assertTrue(sub_task.stop.called)
+        self.assertIsNone(self.module._Update__main_actions_task)
+        self.assertIsNone(self.module._Update__sub_actions_task)
 
     def test_set_automatic_update_invalid_parameters(self):
         self.init_session()
