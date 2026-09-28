@@ -437,6 +437,7 @@ class Update(CleepModule):
                 # send need restart event
                 if self._need_restart:
                     self.cleep_need_restart_event.send()
+                    self._need_restart = False
 
                 self.__stop_actions_tasks()
                 return

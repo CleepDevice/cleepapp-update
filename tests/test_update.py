@@ -647,6 +647,7 @@ class TestsUpdate(unittest.TestCase):
                         'No more main action to execute, stop all tasks.'
                     )
                     self.session.assert_event_called('system.cleep.needrestart')
+                    self.assertFalse(self.module._need_restart)
 
     def test_execute_main_action_task_last_action_terminated_no_more_after_no_needrestart_event(self):
         self.init_session()
