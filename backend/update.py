@@ -10,6 +10,7 @@ import re
 import shutil
 import tempfile
 import json
+import fcntl
 from zipfile import ZipFile
 import cleep.libs.internals.tools as Tools
 from cleep.exception import (
@@ -69,6 +70,10 @@ class Update(CleepModule):
 
     PYTHON_CLEEP_IMPORT_PATH = "cleep.modules."
     PACKAGE_BASE_PATH = "/tmp/%(module_name)s.zip"
+    # /tmp is always writable (rootfs may be RO); flock is released on process death
+    UPDATE_LOCK_PATH = "/tmp/cleep/update.lock"
+    # Minimum free space before downloading/installing Cleep .deb
+    CLEEP_UPDATE_MIN_FREE_BYTES = 150 * 1024 * 1024
 
     def __init__(self, bootstrap, debug_enabled):
         """
@@ -104,6 +109,7 @@ class Update(CleepModule):
             % self._check_update_time
         )
         self.__processor = None
+        self.__lock_fd = None
         self._need_restart = False
         # contains main actions (install/uninstall/update)
         self.__main_actions = []
@@ -138,6 +144,51 @@ class Update(CleepModule):
         Module stopped
         """
         self.__stop_actions_tasks()
+        self._release_update_lock()
+
+    def _acquire_update_lock(self):
+        """
+        Acquire exclusive non-blocking file lock for update operations.
+
+        Raises:
+            CommandInfo: if another process already holds the lock
+        """
+        if self.__lock_fd is not None:
+            return
+
+        lock_dir = os.path.dirname(self.UPDATE_LOCK_PATH)
+        os.makedirs(lock_dir, exist_ok=True)
+        lock_fd = open(self.UPDATE_LOCK_PATH, "a+", encoding="utf8")
+        try:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            lock_fd.close()
+            raise CommandInfo(
+                "An update operation is already in progress. Please wait for end of it"
+            ) from error
+        except OSError as error:
+            lock_fd.close()
+            self.logger.error("Unable to acquire update lock: %s", error)
+            raise CommandError("Unable to acquire update lock") from error
+
+        self.__lock_fd = lock_fd
+        self.logger.debug('Update lock acquired (%s)', self.UPDATE_LOCK_PATH)
+
+    def _release_update_lock(self):
+        """
+        Release update file lock if held.
+        """
+        if self.__lock_fd is None:
+            return
+
+        try:
+            fcntl.flock(self.__lock_fd.fileno(), fcntl.LOCK_UN)
+            self.__lock_fd.close()
+        except OSError:
+            self.logger.warning("Error releasing update lock", exc_info=True)
+        finally:
+            self.__lock_fd = None
+            self.logger.debug("Update lock released")
 
     def get_module_config(self):
         """
@@ -368,6 +419,8 @@ class Update(CleepModule):
         Tasks are not started if there are already running.
         Main actions and sub actions tasks are correlated, start them at the same time.
         """
+        self._acquire_update_lock()
+
         # main actions task
         if not self.__main_actions_task:
             self.logger.debug("Start main actions task")
@@ -390,6 +443,8 @@ class Update(CleepModule):
         """
         Stop actions tasks.
         """
+        had_actions_tasks = bool(self.__main_actions_task or self.__sub_actions_task)
+
         if self.__main_actions_task:
             self.logger.debug("Stop main actions task")
             self.__main_actions_task.stop()
@@ -399,6 +454,11 @@ class Update(CleepModule):
             self.logger.debug("Stop sub actions task")
             self.__sub_actions_task.stop()
             self.__sub_actions_task = None
+
+        # Only release when this path held the lock for module actions.
+        # Cleep updates acquire/release the lock independently.
+        if had_actions_tasks:
+            self._release_update_lock()
 
     def _execute_main_action_task(self):
         """
@@ -956,13 +1016,19 @@ class Update(CleepModule):
         """
         self.logger.debug("Cleep update callback status: %s", status)
 
-        # send process status (only status)
-        self.cleep_update_event.send(params={"status": status["status"]})
+        # send process status (status + coarse progress from InstallCleep phases)
+        self.cleep_update_event.send(
+            params={
+                "status": status["status"],
+                "progress": status.get("progress", 0),
+            }
+        )
 
         # store final status when update terminated (successfully or not)
         if status["status"] >= InstallCleep.STATUS_UPDATED:
             # lock filesystem
             self.cleep_filesystem.disable_write(True, True)
+            self._release_update_lock()
 
         # handle end of cleep update
         if status["status"] == InstallCleep.STATUS_UPDATED:
@@ -1014,29 +1080,57 @@ class Update(CleepModule):
             raise CommandInfo(
                 "Applications updates are in progress. Please wait for end of it"
             )
+        self._check_cleep_update_disk_space()
 
-        # unlock filesystem
-        self.cleep_filesystem.enable_write(True, True)
+        self._acquire_update_lock()
 
-        # reset flags
-        self._cleep_updates.update(
-            {
-                "failed": False,
-                "pending": False,
-                "processing": True,
-            }
-        )
+        try:
+            # unlock filesystem
+            self.cleep_filesystem.enable_write(True, True)
 
-        # launch update
-        package_url = self._cleep_updates["packageurl"]
-        checksum_url = self._cleep_updates["checksumurl"]
-        self.logger.debug(
-            "Update Cleep: package_url=%s checksum_url=%s", package_url, checksum_url
-        )
-        update = InstallCleep(
-            self.cleep_filesystem, self.crash_report, self.task_factory
-        )
-        update.install(package_url, checksum_url, self._update_cleep_callback)
+            # reset flags
+            self._cleep_updates.update(
+                {
+                    "failed": False,
+                    "pending": False,
+                    "processing": True,
+                }
+            )
+
+            # launch update
+            package_url = self._cleep_updates["packageurl"]
+            checksum_url = self._cleep_updates["checksumurl"]
+            self.logger.debug(
+                "Update Cleep: package_url=%s checksum_url=%s", package_url, checksum_url
+            )
+            update = InstallCleep(
+                self.cleep_filesystem, self.crash_report, self.task_factory
+            )
+            update.install(package_url, checksum_url, self._update_cleep_callback)
+        except Exception:
+            self._release_update_lock()
+            raise
+
+    def _check_cleep_update_disk_space(self):
+        """
+        Ensure enough free disk space before downloading/installing Cleep package.
+
+        Raises:
+            CommandInfo: if free space is below CLEEP_UPDATE_MIN_FREE_BYTES
+        """
+        try:
+            usage = shutil.disk_usage("/")
+        except OSError as error:
+            self.logger.warning("Unable to check disk space: %s", error)
+            return
+
+        if usage.free < self.CLEEP_UPDATE_MIN_FREE_BYTES:
+            needed_mb = self.CLEEP_UPDATE_MIN_FREE_BYTES // (1024 * 1024)
+            free_mb = usage.free // (1024 * 1024)
+            raise CommandInfo(
+                f"Not enough free disk space to update Cleep "
+                f"(need at least {needed_mb} MB, only {free_mb} MB available)"
+            )
 
     def update_modules(self):
         """
@@ -1047,6 +1141,7 @@ class Update(CleepModule):
             raise CommandInfo("Cleep update is in progress. Please wait for end of it")
 
         # fill main actions with upgradable modules
+        self._acquire_update_lock()
         for module in [
             module
             for module in self._modules_updates.values()
@@ -1746,6 +1841,7 @@ class Update(CleepModule):
             return True
 
         # postpone module installation
+        self._acquire_update_lock()
         postponed = self._postpone_main_action(
             Update.ACTION_MODULE_INSTALL,
             module_name,
@@ -1758,6 +1854,8 @@ class Update(CleepModule):
         # start main actions task
         if postponed:
             self.__start_actions_tasks()
+        elif not (self.__main_actions_task or self.__sub_actions_task):
+            self._release_update_lock()
 
         return postponed
 
@@ -1910,6 +2008,7 @@ class Update(CleepModule):
             raise InvalidParameter(f'Module "{module_name}" is not installed')
 
         # postpone uninstall
+        self._acquire_update_lock()
         postponed = self._postpone_main_action(
             Update.ACTION_MODULE_UNINSTALL,
             module_name,
@@ -1919,6 +2018,8 @@ class Update(CleepModule):
         # start main actions task
         if postponed:
             self.__start_actions_tasks()
+        elif not (self.__main_actions_task or self.__sub_actions_task):
+            self._release_update_lock()
 
         return postponed
 
@@ -2165,7 +2266,8 @@ class Update(CleepModule):
             self.logger.info('Module "%s" is already up to date', module_name)
             return False
 
-        # postpone uninstall
+        # postpone update
+        self._acquire_update_lock()
         postponed = self._postpone_main_action(
             Update.ACTION_MODULE_UPDATE,
             module_name,
@@ -2174,5 +2276,7 @@ class Update(CleepModule):
         # start actions tasks
         if postponed:
             self.__start_actions_tasks()
+        elif not (self.__main_actions_task or self.__sub_actions_task):
+            self._release_update_lock()
 
         return postponed

@@ -9,6 +9,7 @@ function($q, $rootScope, rpcService) {
 
     var self = this;
     self.cleepUpdateStatus = 0;
+    self.cleepUpdateProgress = 0;
 
     self.getModulesUpdates = function() {
         return rpcService.sendCommand('get_modules_updates', 'update');
@@ -75,6 +76,9 @@ function($q, $rootScope, rpcService) {
 
     $rootScope.$on('update.cleep.update', function(event, uuid, params) {
         self.cleepUpdateStatus = params.status;
+        if (params.progress !== undefined && params.progress !== null) {
+            self.cleepUpdateProgress = params.progress;
+        }
     });
 
 }]); 

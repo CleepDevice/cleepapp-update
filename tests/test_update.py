@@ -120,6 +120,8 @@ class TestsUpdate(unittest.TestCase):
         self.session = session.TestSession(self)
 
     def tearDown(self):
+        if getattr(self, 'module', None) is not None:
+            self.module._release_update_lock()
         self.session.clean()
         self.module = None
 
@@ -1294,6 +1296,104 @@ class TestsUpdate(unittest.TestCase):
             self.module.set_automatic_update(True, 666)
         self.assertEqual(str(cm.exception), 'Parameter "modules_update_enabled" is invalid')
 
+    def test_acquire_and_release_update_lock(self):
+        self.init_session()
+
+        self.module._acquire_update_lock()
+        self.assertIsNotNone(self.module._Update__lock_fd)
+
+        # re-entrant in same process
+        self.module._acquire_update_lock()
+        self.assertIsNotNone(self.module._Update__lock_fd)
+
+        self.module._release_update_lock()
+        self.assertIsNone(self.module._Update__lock_fd)
+
+        # release is idempotent
+        self.module._release_update_lock()
+        self.assertIsNone(self.module._Update__lock_fd)
+
+    def test_acquire_update_lock_busy(self):
+        self.init_session()
+        other = self.session.setup(Update, mock_on_start=False, mock_on_stop=False)
+        other._acquire_update_lock()
+        try:
+            with self.assertRaises(CommandInfo) as cm:
+                self.module._acquire_update_lock()
+            self.assertIn('already in progress', str(cm.exception))
+            self.assertIsNone(self.module._Update__lock_fd)
+        finally:
+            other._release_update_lock()
+
+    def test_start_actions_tasks_acquires_lock(self):
+        self.init_session()
+        self.module._acquire_update_lock = Mock()
+
+        self.module._Update__start_actions_tasks()
+
+        self.assertTrue(self.module._acquire_update_lock.called)
+
+    def test_stop_actions_tasks_releases_lock_when_tasks_were_running(self):
+        self.init_session()
+        self.module._release_update_lock = Mock()
+        self.module._Update__main_actions_task = Mock()
+        self.module._Update__sub_actions_task = Mock()
+
+        self.module._Update__stop_actions_tasks()
+
+        self.assertTrue(self.module._release_update_lock.called)
+        self.assertIsNone(self.module._Update__main_actions_task)
+        self.assertIsNone(self.module._Update__sub_actions_task)
+
+    def test_stop_actions_tasks_does_not_release_lock_without_tasks(self):
+        """Cleep update may hold the lock while no action tasks are running."""
+        self.init_session()
+        self.module._release_update_lock = Mock()
+        self.module._Update__main_actions_task = None
+        self.module._Update__sub_actions_task = None
+
+        self.module._Update__stop_actions_tasks()
+
+        self.assertFalse(self.module._release_update_lock.called)
+
+    @patch('backend.update.InstallCleep')
+    def test_update_cleep_acquires_lock(self, mock_installcleep):
+        mock_installcleep.return_value.install = Mock()
+        self.init_session()
+        self.module.cleep_filesystem = MagicMock()
+        self.module._acquire_update_lock = Mock()
+        self.module._cleep_updates = {
+            'updatable': True,
+            'processing': False,
+            'pending': False,
+            'failed': False,
+            'version': '1.0.0',
+            'changelog': 'changelog',
+            'packageurl': 'https://www.cleep.com/packageurl',
+            'checksumurl': 'https://www.cleep.com/checksumurl',
+        }
+
+        self.module.update_cleep()
+
+        self.assertTrue(self.module._acquire_update_lock.called)
+
+    def test_update_cleep_callback_releases_lock(self):
+        self.init_session()
+        self.module.cleep_filesystem = Mock()
+        self.module._store_process_status = Mock()
+        self.module._restart_cleep = Mock()
+        self.module._release_update_lock = Mock()
+        status = {
+            'status': InstallCleep.STATUS_UPDATED,
+            'module': 'cleep',
+            'stdout': [],
+            'stderr': [],
+        }
+
+        self.module._update_cleep_callback(status)
+
+        self.assertTrue(self.module._release_update_lock.called)
+
     @patch('backend.update.shutil.rmtree')
     @patch('backend.update.tempfile.mkdtemp')
     @patch('backend.update.os.path.exists')
@@ -1570,7 +1670,10 @@ class TestsUpdate(unittest.TestCase):
         self.module._update_cleep_callback(status)
         
         self.assertEqual(self.session.event_call_count('update.cleep.update'), 1)
-        self.assertEqual(self.session.get_last_event_params('update.cleep.update'), {'status': status['status']})
+        self.assertEqual(
+            self.session.get_last_event_params('update.cleep.update'),
+            {'status': status['status'], 'progress': 0},
+        )
         self.module._store_process_status.assert_called_with(status, success=True)
         self.assertTrue(self.module.cleep_filesystem.disable_write.called)
         self.assertTrue(self.module._restart_cleep.called)
@@ -1586,12 +1689,16 @@ class TestsUpdate(unittest.TestCase):
             'returncode': 1,
             'stdout': ['stdout'],
             'stderr': ['stderr'],
+            'progress': 33,
         }
 
         self.module._update_cleep_callback(status)
         
         self.assertEqual(self.session.event_call_count('update.cleep.update'), 1)
-        self.assertEqual(self.session.get_last_event_params('update.cleep.update'), {'status': status['status']})
+        self.assertEqual(
+            self.session.get_last_event_params('update.cleep.update'),
+            {'status': status['status'], 'progress': 33},
+        )
         self.module._store_process_status.assert_called_with(status, success=False)
         self.assertTrue(self.module.cleep_filesystem.disable_write.called)
         self.assertFalse(self.module._restart_cleep.called)
@@ -1605,6 +1712,44 @@ class TestsUpdate(unittest.TestCase):
             with self.assertRaises(CommandInfo) as cm:
                 self.module.update_cleep()
             self.assertEqual(str(cm.exception), 'Applications updates are in progress. Please wait for end of it')
+
+    @patch('backend.update.shutil.disk_usage')
+    def test_check_cleep_update_disk_space_ok(self, disk_usage_mock):
+        disk_usage_mock.return_value = Mock(free=500 * 1024 * 1024)
+        self.init_session()
+
+        self.module._check_cleep_update_disk_space()
+
+        disk_usage_mock.assert_called_once_with('/')
+
+    @patch('backend.update.shutil.disk_usage')
+    def test_check_cleep_update_disk_space_insufficient(self, disk_usage_mock):
+        disk_usage_mock.return_value = Mock(free=10 * 1024 * 1024)
+        self.init_session()
+
+        with self.assertRaises(CommandInfo) as cm:
+            self.module._check_cleep_update_disk_space()
+        self.assertIn('Not enough free disk space', str(cm.exception))
+
+    @patch('backend.update.InstallCleep')
+    @patch('backend.update.shutil.disk_usage')
+    def test_update_cleep_aborts_when_disk_full(self, disk_usage_mock, mock_installcleep):
+        disk_usage_mock.return_value = Mock(free=1 * 1024 * 1024)
+        self.init_session()
+        self.module.cleep_filesystem = MagicMock()
+        self.module._cleep_updates = {
+            'updatable': True,
+            'processing': False,
+            'pending': False,
+            'packageurl': 'https://example/package.deb',
+            'checksumurl': 'https://example/package.sha256',
+        }
+
+        with self.assertRaises(CommandInfo):
+            self.module.update_cleep()
+
+        self.assertFalse(mock_installcleep.called)
+        self.assertFalse(self.module.cleep_filesystem.enable_write.called)
 
     def test_update_modules(self):
         self.init_session()
@@ -3271,7 +3416,7 @@ class TestUpdateCleepUpdateEvent(unittest.TestCase):
         self.event = UpdateCleepUpdateEvent(params)
 
     def test_event_params(self):
-        self.assertEqual(self.event.EVENT_PARAMS, ['status'])
+        self.assertEqual(self.event.EVENT_PARAMS, ['status', 'progress'])
 
 
 

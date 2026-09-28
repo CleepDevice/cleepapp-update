@@ -46,12 +46,20 @@
 
         <config-progress
             ng-if="$ctrl.cleepUpdates.processing && $ctrl.updateService.cleepUpdateStatus < 2"
-            cl-title="{{ $ctrl.cleepInstallProgress }}" cl-infinite="true" cl-style="md-accent"
+            cl-title="{{ $ctrl.cleepInstallProgress }}"
+            cl-model="$ctrl.updateService.cleepUpdateProgress"
+            cl-style="md-accent"
         ></config-progress>
         <config-progress
-            ng-if="$ctrl.cleepUpdates.processing && $ctrl.updateService.cleepUpdateStatus >= 2"
+            ng-if="$ctrl.cleepUpdates.processing && $ctrl.updateService.cleepUpdateStatus === 2"
             cl-title="{{ $ctrl.cleepInstallProgress }}" cl-model="100"
         ></config-progress>
+        <config-note
+            ng-if="$ctrl.cleepUpdates.failed && $ctrl.updateService.cleepUpdateStatus > 2"
+            cl-type="warning"
+            cl-note="{{ $ctrl.cleepInstallProgress }}"
+            cl-icon="alert"
+        ></config-note>
 
         <config-button
             ng-if="$ctrl.config.cleepupdatelogs.timestamp"

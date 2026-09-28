@@ -11,7 +11,7 @@ class UpdateCleepUpdateEvent(Event):
 
     EVENT_NAME = "update.cleep.update"
     EVENT_PROPAGATE = False
-    EVENT_PARAMS = ["status"]
+    EVENT_PARAMS = ["status", "progress"]
 
     def __init__(self, params):
         """

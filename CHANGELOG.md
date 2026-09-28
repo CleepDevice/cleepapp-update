@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.4.2] - 2026-09-28
+## [1.5.0] - 2026-09-28
 
 ### Fixed
 
@@ -15,6 +15,13 @@
 - Progress bar can never reach 100%
 - Fix invalid var in ui
 - Propery clean downloaded files
+
+### Changed
+
+- Add lock to avoid concurrency issues (for example simultaneous install and update)
+- Implement progress during cleep update
+- FS check before install
+- Better error message
 
 ## [1.4.1] - 2024-10-18
 

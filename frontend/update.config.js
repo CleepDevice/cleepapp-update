@@ -124,10 +124,15 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
 
         self.updateCleep = function() {
             self.cleepUpdates.processing = true;
+            self.cleepUpdates.failed = false;
+            updateService.cleepUpdateStatus = 1;
+            updateService.cleepUpdateProgress = 0;
             self.closeDialog();
             updateService.updateCleep()
                 .catch(function() {
                     self.cleepUpdates.processing = false;
+                    updateService.cleepUpdateStatus = 0;
+                    updateService.cleepUpdateProgress = 0;
                 });
         };
 
@@ -248,7 +253,9 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 if (newVal !== undefined && newVal !== null) {
                     switch (newVal) {
                         case 1:
-                            self.cleepInstallProgress = 'Installing update, it might takes some time...';
+                            self.cleepInstallProgress = self._cleepPhaseLabel(
+                                updateService.cleepUpdateProgress
+                            );
                             break;
                         case 2:
                             self.cleepInstallProgress = 'Installation completed successfully';
@@ -257,7 +264,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                             self.cleepInstallProgress = 'Installation failed (internal error)';
                             break;
                         case 4:
-                            self.cleepInstallProgress = 'Download failed';
+                            self.cleepInstallProgress = 'Download failed (checksum)';
                             break;
                         case 5:
                             self.cleepInstallProgress = 'Download failed (file may be corrupted)';
@@ -269,13 +276,41 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                             self.cleepInstallProgress = 'Updating Cleep...';
                     }
 
-                    if (newVal >= 2) {
-                        // cleep install terminated, refresh config to get last results
-                        cleepService.reloadModuleConfig('update')
+                    if (newVal >= 2 && self.cleepUpdates) {
+                        // cleep install terminated
+                        self.cleepUpdates.processing = newVal === 2;
+                        self.cleepUpdates.pending = newVal === 2;
+                        self.cleepUpdates.failed = newVal > 2;
+                        if (newVal === 2) {
+                            self.cleepUpdates.updatable = false;
+                        }
+                        cleepService.reloadModuleConfig('update');
                     }
                 }
             },
         );
+
+        $rootScope.$watch(
+            () => updateService.cleepUpdateProgress,
+            (newVal) => {
+                if (updateService.cleepUpdateStatus === 1) {
+                    self.cleepInstallProgress = self._cleepPhaseLabel(newVal);
+                }
+            },
+        );
+
+        self._cleepPhaseLabel = function(progress) {
+            if (progress >= 66) {
+                return 'Installing package (' + progress + '%)...';
+            }
+            if (progress >= 33) {
+                return 'Downloading package (' + progress + '%)...';
+            }
+            if (progress > 0) {
+                return 'Preparing update (' + progress + '%)...';
+            }
+            return 'Starting Cleep update...';
+        };
     }];
 
     return {
