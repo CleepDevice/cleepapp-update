@@ -10,6 +10,7 @@
 - Update application that crashes create deadlock in queue
 - Better circular dependency detection
 - Do not trigger cleep restart while app uninstall failed
+- Fix typo in message log
 
 ## [1.4.1] - 2024-10-18
 

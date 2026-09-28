@@ -1571,7 +1571,7 @@ class Update(CleepModule):
             error_msg = str(error)
             self.__install_module_callback(
                 {
-                    "process": [f"Internal error during installation: {error_msg}%s"],
+                    "process": [f"Internal error during installation: {error_msg}"],
                     "stdout": [],
                     "stderr": [],
                     "status": Install.STATUS_ERROR,

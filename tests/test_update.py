@@ -2333,7 +2333,15 @@ class TestsUpdate(unittest.TestCase):
         self.module._install_module(module_name, infos, False)
 
         self.assertTrue(self.module.crash_report.manual_report.called)
-        self.assertTrue(self.module._Update__install_module_callback.called)
+        self.module._Update__install_module_callback.assert_called_with(
+            {
+                'process': ['Internal error during installation: Test exception'],
+                'stdout': [],
+                'stderr': [],
+                'status': Install.STATUS_ERROR,
+                'module': module_name,
+            }
+        )
 
     @patch('backend.update.CleepConf')
     def test_get_modules_to_uninstall_with_non_installed_dependencies(self, mock_cleepconf):
