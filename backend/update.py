@@ -34,7 +34,7 @@ class Update(CleepModule):
     """
 
     MODULE_AUTHOR = "Cleep"
-    MODULE_VERSION = "1.4.1"
+    MODULE_VERSION = "1.4.2"
     MODULE_DEPS = []
     MODULE_DESCRIPTION = "Applications and Cleep updater"
     MODULE_LONGDESCRIPTION = "Manage all Cleep applications and Cleep core updates."
@@ -180,7 +180,7 @@ class Update(CleepModule):
                         self.update_cleep()
                     except Exception:  # pragma: no cover
                         self.crash_report.report_exception()
-                elif config["modulesupdateenabled"]:
+                if config["modulesupdateenabled"]:
                     try:
                         self.update_modules()
                     except Exception:  # pragma: no cover
@@ -649,8 +649,10 @@ class Update(CleepModule):
 
         # save modules
         modules = {}
-        installed_modules = {k: v for (k, v) in inventory_modules.items() if v["installed"]}
-        for (module_name, module) in installed_modules.items():
+        installed_modules = {
+            k: v for (k, v) in inventory_modules.items() if v["installed"]
+        }
+        for module_name, module in installed_modules.items():
             modules[module_name] = self.__get_module_update_data(
                 module_name, module.get("version", "0.0.0")
             )
@@ -1008,7 +1010,9 @@ class Update(CleepModule):
         self.logger.debug(
             "Update Cleep: package_url=%s checksum_url=%s", package_url, checksum_url
         )
-        update = InstallCleep(self.cleep_filesystem, self.crash_report, self.task_factory)
+        update = InstallCleep(
+            self.cleep_filesystem, self.crash_report, self.task_factory
+        )
         update.install(package_url, checksum_url, self._update_cleep_callback)
 
     def update_modules(self):
@@ -1296,7 +1300,9 @@ class Update(CleepModule):
             module_infos = modules_infos_json.get(dependency) or {}
             compat_str = module_infos.get("compat", f"cleep<={CLEEP_VERSION}")
             compat = self.__extract_compat(compat_str)
-            self.logger.info(' -> Checking compatibility for "%s" app: %s', dependency, compat)
+            self.logger.info(
+                ' -> Checking compatibility for "%s" app: %s', dependency, compat
+            )
             if any(val is None for val in compat.values()):
                 raise Exception(f'Invalid compat string for "{dependency}" application')
             if compat["module_name"].lower() != "cleep":
@@ -1533,7 +1539,10 @@ class Update(CleepModule):
         # non blocking, end of process handled in specified callback
         try:
             self.__processor = Install(
-                self.cleep_filesystem, self.crash_report, self.task_factory, self.__install_module_callback
+                self.cleep_filesystem,
+                self.crash_report,
+                self.task_factory,
+                self.__install_module_callback,
             )
             self.__processor.install_module(module_name, module_infos, extra)
         except Exception as error:
@@ -1582,12 +1591,14 @@ class Update(CleepModule):
         dependencies = self._get_module_dependencies(
             module_name,
             modules_infos_json,
-            self._get_module_infos_from_market
-            if not package
-            else [
-                self._get_module_infos_from_package,
-                self._get_module_infos_from_market,
-            ],
+            (
+                self._get_module_infos_from_market
+                if not package
+                else [
+                    self._get_module_infos_from_package,
+                    self._get_module_infos_from_market,
+                ]
+            ),
         )
         self.logger.debug('Module "%s" dependencies: %s', module_name, dependencies)
 
@@ -1957,7 +1968,10 @@ class Update(CleepModule):
             module_infos (dict): module infos
         """
         self.__processor = Install(
-            self.cleep_filesystem, self.crash_report, self.task_factory, self.__update_module_callback
+            self.cleep_filesystem,
+            self.crash_report,
+            self.task_factory,
+            self.__update_module_callback,
         )
         self.__processor.update_module(module_name, module_infos)
 

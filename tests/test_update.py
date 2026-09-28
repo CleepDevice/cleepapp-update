@@ -175,7 +175,7 @@ class TestsUpdate(unittest.TestCase):
         self.assertTrue(self.module.check_cleep_updates.called)
         self.assertTrue(self.module.check_modules_updates.called)
         self.assertTrue(self.module.update_cleep.called)
-        self.assertFalse(self.module.update_modules.called)
+        self.assertTrue(self.module.update_modules.called)
 
     def test_on_event_updates_not_allowed(self):
         self.init_session()
