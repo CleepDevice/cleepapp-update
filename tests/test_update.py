@@ -3113,6 +3113,28 @@ class TestsUpdate(unittest.TestCase):
         self.assertFalse(mock_install.return_value.uninstall_module.called)
         mock_install.return_value.update_module.assert_called_with(module_name, infos)
 
+    @patch('backend.update.Install')
+    def test_final_update_module_exception(self, mock_install):
+        mock_install.return_value.update_module = Mock(side_effect=Exception('Test exception'))
+        self.init_session()
+        infos = {'version': '0.0.0'}
+        module_name = 'dummy'
+        self.module._Update__update_module_callback = Mock()
+
+        self.module._update_module(module_name, infos)
+
+        self.assertTrue(self.module.crash_report.manual_report.called)
+        self.assertTrue(self.module._Update__update_module_callback.called)
+        self.module._Update__update_module_callback.assert_called_with(
+            {
+                'process': ['Internal error during update: Test exception'],
+                'stdout': [],
+                'stderr': [],
+                'status': Install.STATUS_ERROR,
+                'module': module_name,
+            }
+        )
+
 
 
 

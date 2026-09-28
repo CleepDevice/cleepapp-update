@@ -1986,13 +1986,29 @@ class Update(CleepModule):
             module_name (string): module name to install
             module_infos (dict): module infos
         """
-        self.__processor = Install(
-            self.cleep_filesystem,
-            self.crash_report,
-            self.task_factory,
-            self.__update_module_callback,
-        )
-        self.__processor.update_module(module_name, module_infos)
+        try:
+            self.__processor = Install(
+                self.cleep_filesystem,
+                self.crash_report,
+                self.task_factory,
+                self.__update_module_callback,
+            )
+            self.__processor.update_module(module_name, module_infos)
+        except Exception as error:
+            self.crash_report.manual_report(
+                f'Error updating module "{module_name}"',
+                extra={"module_infos": module_infos},
+            )
+            error_msg = str(error)
+            self.__update_module_callback(
+                {
+                    "process": [f"Internal error during update: {error_msg}"],
+                    "stdout": [],
+                    "stderr": [],
+                    "status": Install.STATUS_ERROR,
+                    "module": module_name,
+                }
+            )
 
     def _update_main_module(self, module_name):
         """

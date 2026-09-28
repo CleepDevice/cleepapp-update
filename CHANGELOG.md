@@ -7,6 +7,7 @@
 - If Cleep update enabled, never update applications
 - Disabling auto update while updates were in progress will block later updates
 - Send event to UI to say action is terminated
+- Update application that crashes create deadlock in queue
 
 ## [1.4.1] - 2024-10-18
 
