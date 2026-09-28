@@ -39,18 +39,14 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
 
         self.checkCleepUpdates = function() {
             toast.loading('Checking Cleep updates...');
-            var message = 'No update available';
             updateService.checkCleepUpdates()
                 .then(function(resp) {
                     self.cleepUpdates = resp.data;
-                    if (resp.data.updatable) {
-                        message = 'Update available';
-                    }
-
-                    return self.cleepService.reloadModuleConfig('update');
-                })
-                .finally(function() {
+                    var message = resp.data.updatable
+                        ? 'Update available'
+                        : 'No update available';
                     toast.info(message);
+                    return self.cleepService.reloadModuleConfig('update');
                 });
         };
 
@@ -129,7 +125,10 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
         self.updateCleep = function() {
             self.cleepUpdates.processing = true;
             self.closeDialog();
-            updateService.updateCleep();
+            updateService.updateCleep()
+                .catch(function() {
+                    self.cleepUpdates.processing = false;
+                });
         };
 
         self.$onInit = function() {
@@ -189,14 +188,34 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
 
             for (const [moduleName, moduleUpdate] of Object.entries(moduleUpdates)) {
                 const updatable = moduleUpdate.updatable;
+                const processing = moduleUpdate.processing;
+                const pending = moduleUpdate.pending;
+                const failed = moduleUpdate.update && moduleUpdate.update.failed;
+                const progress = moduleUpdate.update && moduleUpdate.update.progress;
+                let subtitle = '';
+                if (processing) {
+                    subtitle = 'Updating... ' + (progress || 0) + '%';
+                } else if (pending) {
+                    subtitle = 'Update applied, restart required';
+                } else if (failed) {
+                    subtitle = 'Last update failed';
+                } else if (updatable) {
+                    subtitle = 'Update available: v' + moduleUpdate.update.version;
+                }
+
                 self.moduleUpdates.push({
                     title: moduleName + ' v'+ moduleUpdate.version,
+                    subtitle: subtitle,
                     clicks: [
                         {
-                            tooltip: updatable ? 'Update available' : 'No update available',
+                            tooltip: updatable && !processing && !pending
+                                ? 'Update available'
+                                : 'No update available',
                             icon: 'update',
-                            disabled: !updatable,
-                            style: updatable ? 'md-accent md-raised' : '',
+                            disabled: !updatable || processing || pending,
+                            style: updatable && !processing && !pending
+                                ? 'md-accent md-raised'
+                                : '',
                             meta: { moduleName },
                             click: self.gotoModulesPage,
                         },

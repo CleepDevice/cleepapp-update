@@ -13,6 +13,7 @@
 - Fix typo in message log
 - Missing need_restart flag reset
 - Progress bar can never reach 100%
+- Fix invalid var in ui
 
 ## [1.4.1] - 2024-10-18
 

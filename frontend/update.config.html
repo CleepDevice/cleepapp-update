@@ -31,7 +31,7 @@
         <config-button
             cl-title="Cleep version {{$ctrl.config.cleepversion}} is installed"
             cl-subtitle="No update available (last check {{$ctrl.cleepService.modules['update'].config.cleeplastcheck | hrDatetime}})"
-            cl-disabled="$ctrl.cleepInstalling || $ctrl.cleepPending"
+            cl-disabled="$ctrl.cleepUpdates.processing || $ctrl.cleepUpdates.pending"
             cl-btn-label="Check updates" cl-btn-icon="find-replace"
             cl-click="$ctrl.checkCleepUpdates()"
         ></config-button>
