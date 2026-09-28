@@ -458,6 +458,23 @@ class Update(CleepModule):
                 self.logger.debug(
                     "Stop current action here because no subaction to execute"
                 )
+                # _postpone_main_action set processing=True; clear it when there
+                # is nothing to run (uninstall "library only" already cleared it).
+                module_name = action.get("module")
+                module_update = self._modules_updates.get(module_name)
+                if module_update and module_update["processing"]:
+                    module_update["processing"] = False
+                    module_update["update"]["progress"] = 100
+                    params = {
+                        "module": module_name,
+                        "status": Install.STATUS_DONE,
+                    }
+                    if action["action"] == Update.ACTION_MODULE_INSTALL:
+                        self.module_install_event.send(params)
+                    elif action["action"] == Update.ACTION_MODULE_UNINSTALL:
+                        self.module_uninstall_event.send(params)
+                    elif action["action"] == Update.ACTION_MODULE_UPDATE:
+                        self.module_update_event.send(params)
                 return
 
             # update main action and module infos

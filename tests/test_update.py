@@ -722,6 +722,54 @@ class TestsUpdate(unittest.TestCase):
                 self.assertEqual(mock_subactions[1]['progressstep'], 33)
                 self.assertEqual(mock_subactions[2]['progressstep'], 33)
 
+    def test_execute_main_action_task_no_sub_actions_clears_processing(self):
+        self.init_session()
+        self.module._install_main_module = Mock()
+        action_install = {
+            'action': Update.ACTION_MODULE_INSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': None,
+        }
+        self.module._modules_updates['mod1'] = self.module._Update__get_module_update_data(
+            'mod1', None, '1.0.0'
+        )
+        self.module._modules_updates['mod1']['processing'] = True
+
+        with patch.object(self.module, '_Update__sub_actions', []):
+            with patch.object(self.module, '_Update__main_actions', [action_install]):
+                self.module._execute_main_action_task()
+
+        self.assertTrue(action_install['processing'])
+        self.assertFalse(self.module._modules_updates['mod1']['processing'])
+        self.assertEqual(self.module._modules_updates['mod1']['update']['progress'], 100)
+        self.session.assert_event_called_with(
+            'update.module.install',
+            {'status': Install.STATUS_DONE, 'module': 'mod1'},
+        )
+
+    def test_execute_main_action_task_no_sub_actions_already_cleared(self):
+        """Uninstall library-only path clears processing itself; do not re-emit."""
+        self.init_session()
+        self.module._uninstall_main_module = Mock()
+        action_uninstall = {
+            'action': Update.ACTION_MODULE_UNINSTALL,
+            'processing': False,
+            'module': 'mod1',
+            'extra': {'force': False},
+        }
+        self.module._modules_updates['mod1'] = self.module._Update__get_module_update_data(
+            'mod1', '1.0.0'
+        )
+        self.module._modules_updates['mod1']['processing'] = False
+        self.module._modules_updates['mod1']['pending'] = True
+
+        with patch.object(self.module, '_Update__sub_actions', []):
+            with patch.object(self.module, '_Update__main_actions', [action_uninstall]):
+                self.module._execute_main_action_task()
+
+        self.session.assert_event_not_called('update.module.uninstall')
+
     def test_execute_main_action_exception_wo_action(self):
         self.init_session()
         self.module._set_module_process = Mock()
