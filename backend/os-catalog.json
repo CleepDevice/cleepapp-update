@@ -9,7 +9,7 @@
       "blocks_cleep_update": false,
       "playbook_url": null,
       "playbook_sha256": null,
-      "changelog": "Baseline CleepOs bullseye image (Packer 2023-12-05)."
+      "changelog": "Baseline CleepOs bullseye image (2023-12-05)."
     }
   }
 }

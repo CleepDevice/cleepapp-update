@@ -8,7 +8,7 @@ Expected file content: one line, suite + image date, e.g.::
 
     bullseye20231205
 
-Packer (or a manual drop on older devices) must create this file.
+This file must exist on the device (shipped with the CleepOs image).
 """
 
 import re
