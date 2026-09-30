@@ -7,7 +7,7 @@
     },
     "config": {
         "js": ["update.config.js"],
-        "html": ["update.config.html", "cleep-update.dialog.html", "logs.dialog.html"]
+        "html": ["update.config.html", "cleep-update.dialog.html", "logs.dialog.html", "os-conf-report.dialog.html"]
     }
 }
-    
+

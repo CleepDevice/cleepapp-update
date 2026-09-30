@@ -61,6 +61,25 @@ function($q, $rootScope, rpcService) {
         });
     };
 
+    self.setOsConfReportOptions = function(enabled, autosend) {
+        return rpcService.sendCommand('set_os_conf_report_options', 'update', {
+            'enabled': enabled,
+            'autosend': autosend,
+        });
+    };
+
+    self.getOsConfReport = function() {
+        return rpcService.sendCommand('get_os_conf_report', 'update');
+    };
+
+    self.generateOsConfReport = function() {
+        return rpcService.sendCommand('generate_os_conf_report', 'update');
+    };
+
+    self.sendOsConfReport = function() {
+        return rpcService.sendCommand('send_os_conf_report', 'update');
+    };
+
     self.installModule = function(moduleName) {
         return rpcService.sendCommand('install_module', 'update', {
             'module_name': moduleName,

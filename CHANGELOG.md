@@ -9,6 +9,7 @@
 - Soft gate: block Cleep update when catalog marks OS update as required first
 - OS updates tab: show CleepOs version, check for updates, apply minor OS playbook
 - RPC `update_os` with shared update lock, progress events, reboot after success
+- Allow sending OS upgrade report to help Cleep team improving OS upgrade
 
 ## [1.5.0] - 2026-09-28
 

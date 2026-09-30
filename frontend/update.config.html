@@ -120,6 +120,39 @@
             cl-icon="alert"
             cl-note="OS update {{ $ctrl.osUpdates.version }} requires Cleep {{ $ctrl.osUpdates.min_cleep_version }} or newer. Update Cleep first."
         ></config-note>
+
+        <config-section
+            ng-if="$ctrl.config.osconfreportenabled"
+            cl-title="OS conf leftover report"
+            cl-icon="file-document-outline"
+        ></config-section>
+        <config-note
+            ng-if="$ctrl.config.osconfreportenabled"
+            cl-type="info"
+            cl-icon="shield-check"
+            cl-note="Only file paths and apt action lines are collected — never configuration file contents (wifi passwords, keys, etc.). This highlights files to review for a future migration script."
+        ></config-note>
+        <config-button
+            ng-if="$ctrl.config.osconfreportenabled"
+            cl-title="{{ $ctrl.osConfReportTitle }}"
+            cl-subtitle="{{ $ctrl.osConfReportSubtitle }}"
+            cl-btn-label="Show report" cl-btn-icon="file-document-outline"
+            cl-click="$ctrl.showOsConfReportDialog($event)"
+        ></config-button>
+        <config-button
+            ng-if="$ctrl.config.osconfreportenabled"
+            cl-title="Refresh report from this device"
+            cl-subtitle="Rescan leftover .dpkg-* / .ucf-* paths without running an OS update"
+            cl-btn-label="Refresh" cl-btn-icon="refresh"
+            cl-click="$ctrl.refreshOsConfReport()"
+        ></config-button>
+        <config-button
+            ng-if="$ctrl.config.osconfreportenabled && $ctrl.osConfReport && $ctrl.osConfReport.leftover_count >= 0"
+            cl-title="Send last report to Sentry"
+            cl-subtitle="{{ $ctrl.osConfReport.sent ? ('Last sent ' + ($ctrl.osConfReport.sent_at | hrDatetime)) : 'Not sent yet' }}"
+            cl-btn-label="Send to Sentry" cl-btn-icon="cloud-upload" cl-btn-style="md-raised"
+            cl-click="$ctrl.sendOsConfReport()"
+        ></config-button>
 	</div>
 
     <div layout="column" layout-padding ng-if="$ctrl.tabIndex==='options'">
@@ -135,6 +168,26 @@
             cl-title="Enable automatic applications updates"
             cl-meta="{ type: 'apps' }"
             cl-model="$ctrl.config.modulesupdateenabled" cl-click="$ctrl.setAutomaticUpdate(value, meta)"
+        ></config-switch>
+
+        <config-section cl-title="OS upgrade feedback" cl-icon="raspberry-pi"></config-section>
+        <config-note
+            cl-type="info"
+            cl-icon="information"
+            cl-note="After an OS playbook upgrade, Cleep can list configuration files that apt kept or replaced (.dpkg-dist, etc.). Only paths are stored or sent — never file contents."
+        ></config-note>
+        <config-switch
+            cl-title="Enable OS conf leftover report"
+            cl-meta="{ field: 'enabled' }"
+            cl-model="$ctrl.config.osconfreportenabled"
+            cl-click="$ctrl.setOsConfReportOptions(value, meta)"
+        ></config-switch>
+        <config-switch
+            ng-if="$ctrl.config.osconfreportenabled"
+            cl-title="Automatically send report to Sentry after OS upgrade"
+            cl-meta="{ field: 'autosend' }"
+            cl-model="$ctrl.config.osconfreportautosend"
+            cl-click="$ctrl.setOsConfReportOptions(value, meta)"
         ></config-switch>
 	</div>
 

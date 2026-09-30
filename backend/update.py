@@ -32,10 +32,20 @@ try:
     from .os_identity import get_os_identity
     from .os_catalog import load_os_catalog, evaluate_os_update
     from .os_upgrade_runner import OsUpgradeRunner
+    from .os_conf_report import (
+        DEFAULT_REPORT_PATH,
+        build_os_conf_report,
+        sentry_extra_from_report,
+    )
 except ImportError:  # pragma: no cover - flat import in tests / module loader
     from os_identity import get_os_identity
     from os_catalog import load_os_catalog, evaluate_os_update
     from os_upgrade_runner import OsUpgradeRunner
+    from os_conf_report import (
+        DEFAULT_REPORT_PATH,
+        build_os_conf_report,
+        sentry_extra_from_report,
+    )
 
 
 class Update(CleepModule):
@@ -64,6 +74,10 @@ class Update(CleepModule):
         "cleeplastcheck": None,
         "moduleslastcheck": None,
         "oslastcheck": None,
+        # OS conf leftover report (paths only) after playbook upgrade
+        "osconfreportenabled": False,
+        "osconfreportautosend": False,
+        "osconfreport": None,
     }
 
     CLEEP_GITHUB_OWNER = "CleepDevice"
@@ -535,6 +549,11 @@ class Update(CleepModule):
         if not target_version:
             raise CommandError("OS update target version is missing")
 
+        try:
+            self._os_upgrade_from_version = get_os_identity().get("version")
+        except ValueError:
+            self._os_upgrade_from_version = self._os_updates.get("current")
+
         self._acquire_update_lock()
         try:
             self.cleep_filesystem.enable_write(True, True)
@@ -587,6 +606,15 @@ class Update(CleepModule):
             )
 
         if runner_status == OsUpgradeRunner.STATUS_SUCCESS:
+            from_version = getattr(self, "_os_upgrade_from_version", None) or self._os_updates.get(
+                "current"
+            )
+            to_version = self._os_updates.get("version")
+            self._maybe_build_os_conf_report(
+                from_version=from_version,
+                to_version=to_version,
+                allow_autosend=True,
+            )
             self._os_updates.update(
                 {
                     "processing": False,
@@ -609,6 +637,179 @@ class Update(CleepModule):
                 }
             )
             self.logger.error("OS update failed")
+
+    def _maybe_build_os_conf_report(
+        self, *, from_version=None, to_version=None, allow_autosend=False
+    ):
+        """Generate path-only conf leftover report when the option is enabled."""
+        if not self._get_config_field("osconfreportenabled"):
+            return None
+        try:
+            report = build_os_conf_report(
+                from_version=from_version,
+                to_version=to_version,
+                report_path=DEFAULT_REPORT_PATH,
+            )
+            summary = {
+                "generated_at": report["generated_at"],
+                "from_version": report.get("from_version"),
+                "to_version": report.get("to_version"),
+                "leftover_count": report.get("leftover_count", 0),
+                "leftover_paths": report.get("leftover_paths") or [],
+                "apt_conf_actions": report.get("apt_conf_actions") or [],
+                "high_interest": report.get("high_interest") or [],
+                "report_path": report.get("report_path"),
+                "sent": False,
+                "sent_at": None,
+            }
+            self._set_config_field("osconfreport", summary)
+            self.logger.info(
+                "OS conf report ready: %s leftover(s)",
+                summary["leftover_count"],
+            )
+            if allow_autosend and self._get_config_field("osconfreportautosend"):
+                try:
+                    self._send_os_conf_report_to_sentry(report)
+                except Exception as error:
+                    self.logger.warning(
+                        "Auto-send OS conf report to Sentry failed: %s",
+                        error,
+                    )
+            return report
+        except Exception:
+            self.logger.exception("Unable to build OS conf leftover report")
+            return None
+
+    def set_os_conf_report_options(self, enabled, autosend):
+        """
+        Enable/disable OS conf leftover reporting and optional auto-send to Sentry.
+
+        Args:
+            enabled (bool): generate + show report after OS upgrade
+            autosend (bool): send report to Sentry automatically after generation
+
+        Returns:
+            dict: saved options
+        """
+        if not isinstance(enabled, bool):
+            raise InvalidParameter('Parameter "enabled" is invalid')
+        if not isinstance(autosend, bool):
+            raise InvalidParameter('Parameter "autosend" is invalid')
+        if autosend and not enabled:
+            # Auto-send only makes sense when reporting is enabled
+            autosend = False
+        self._update_config(
+            {
+                "osconfreportenabled": enabled,
+                "osconfreportautosend": autosend,
+            }
+        )
+        return {
+            "osconfreportenabled": enabled,
+            "osconfreportautosend": autosend,
+        }
+
+    def get_os_conf_report(self):
+        """
+        Return last OS conf leftover report (paths only).
+
+        Returns:
+            dict::
+
+                {
+                    enabled (bool),
+                    autosend (bool),
+                    report (dict|None): summary + text,
+                }
+        """
+        enabled = bool(self._get_config_field("osconfreportenabled"))
+        autosend = bool(self._get_config_field("osconfreportautosend"))
+        summary = self._get_config_field("osconfreport")
+        report = None
+        if isinstance(summary, dict):
+            report = dict(summary)
+            text = ""
+            path = summary.get("report_path") or DEFAULT_REPORT_PATH
+            try:
+                with open(path, "r", encoding="utf8") as handle:
+                    text = handle.read()
+            except OSError:
+                text = ""
+            report["text"] = text
+        return {
+            "enabled": enabled,
+            "autosend": autosend,
+            "report": report,
+        }
+
+    def generate_os_conf_report(self):
+        """
+        Manually (re)scan the filesystem and refresh the OS conf leftover report.
+        Requires reporting to be enabled.
+        """
+        if not self._get_config_field("osconfreportenabled"):
+            raise CommandInfo(
+                "OS conf reporting is disabled. Enable it in Options first."
+            )
+        from_version = None
+        summary = self._get_config_field("osconfreport")
+        if isinstance(summary, dict):
+            from_version = summary.get("from_version")
+        to_version = None
+        try:
+            to_version = get_os_identity().get("version")
+        except ValueError:
+            pass
+        report = self._maybe_build_os_conf_report(
+            from_version=from_version,
+            to_version=to_version,
+            allow_autosend=False,
+        )
+        if not report:
+            raise CommandError("Unable to generate OS conf report")
+        return self.get_os_conf_report()
+
+    def send_os_conf_report(self):
+        """
+        Send the last OS conf leftover report to Sentry (paths only, no file contents).
+        """
+        if not self._get_config_field("osconfreportenabled"):
+            raise CommandInfo(
+                "OS conf reporting is disabled. Enable it in Options first."
+            )
+        summary = self._get_config_field("osconfreport")
+        if not isinstance(summary, dict) or not summary.get("generated_at"):
+            raise CommandInfo("No OS conf report available. Run an OS update or refresh.")
+        path = summary.get("report_path") or DEFAULT_REPORT_PATH
+        text = ""
+        try:
+            with open(path, "r", encoding="utf8") as handle:
+                text = handle.read()
+        except OSError as error:
+            raise CommandError("OS conf report file is missing") from error
+        report = dict(summary)
+        report["text"] = text
+        self._send_os_conf_report_to_sentry(report)
+        return self.get_os_conf_report()
+
+    def _send_os_conf_report_to_sentry(self, report):
+        """Push path-only leftover inventory to Sentry via crash_report."""
+        if not self.crash_report or not self.crash_report.is_enabled():
+            raise CommandInfo("Crash report / Sentry is disabled on this device")
+        extra = sentry_extra_from_report(report)
+        message = "CleepOs upgrade conf leftovers (%s → %s, %s path(s))" % (
+            report.get("from_version") or "?",
+            report.get("to_version") or "?",
+            report.get("leftover_count") or 0,
+        )
+        self.crash_report.manual_report(message, extra=extra)
+        summary = self._get_config_field("osconfreport")
+        if isinstance(summary, dict):
+            summary = dict(summary)
+            summary["sent"] = True
+            summary["sent_at"] = int(time.time())
+            self._set_config_field("osconfreport", summary)
+        self.logger.info("OS conf report sent to Sentry (%s leftovers)", extra.get("leftover_count"))
 
     def _get_installed_modules_names(self):
         """

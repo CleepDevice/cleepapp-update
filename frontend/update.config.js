@@ -22,9 +22,144 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
         };
         self.osCheckSubtitle = 'No check performed yet';
         self.osInstallProgress = 'Updating OS...';
+        self.osConfReport = null;
+        self.osConfReportTitle = 'No OS conf report yet';
+        self.osConfReportSubtitle = 'Generated after a successful OS upgrade when the option is enabled';
         self.moduleLogs = [];
         self.moduleUpdates = [];
         self.cleepInstallProgress = 'Updating Cleep...';
+
+        self._refreshOsConfReportLabels = function() {
+            var report = self.osConfReport;
+            if (!report || !report.generated_at) {
+                self.osConfReportTitle = 'No OS conf report yet';
+                self.osConfReportSubtitle = 'Generated after a successful OS upgrade when the option is enabled';
+                return;
+            }
+            var count = report.leftover_count || 0;
+            self.osConfReportTitle = count + ' leftover path(s) — '
+                + (report.from_version || '?') + ' → ' + (report.to_version || '?');
+            self.osConfReportSubtitle = 'Generated '
+                + $filter('hrDatetime')(report.generated_at)
+                + (report.sent ? ' · sent to Sentry' : ' · not sent');
+        };
+
+        self._loadOsConfReport = function() {
+            if (!self.config.osconfreportenabled) {
+                self.osConfReport = null;
+                self._refreshOsConfReportLabels();
+                return;
+            }
+            return updateService.getOsConfReport()
+                .then(function(resp) {
+                    if (resp.error) {
+                        return;
+                    }
+                    self.osConfReport = (resp.data && resp.data.report) || null;
+                    self._refreshOsConfReportLabels();
+                });
+        };
+
+        self.setOsConfReportOptions = function(value, meta) {
+            var enabled = meta.field === 'enabled' ? value : !!self.config.osconfreportenabled;
+            var autosend = meta.field === 'autosend' ? value : !!self.config.osconfreportautosend;
+            if (meta.field === 'enabled' && !value) {
+                autosend = false;
+            }
+            updateService.setOsConfReportOptions(enabled, autosend)
+                .then(function(resp) {
+                    if (resp.error) {
+                        toast.error('Error saving option');
+                        return self.cleepService.reloadModuleConfig('update');
+                    }
+                    toast.success('Option saved');
+                    return self.cleepService.reloadModuleConfig('update');
+                })
+                .then(function() {
+                    return self._loadOsConfReport();
+                });
+        };
+
+        self.refreshOsConfReport = function() {
+            toast.loading('Scanning leftover conf paths...');
+            updateService.generateOsConfReport()
+                .then(function(resp) {
+                    if (resp.error) {
+                        return;
+                    }
+                    self.osConfReport = (resp.data && resp.data.report) || null;
+                    self._refreshOsConfReportLabels();
+                    toast.success('Report refreshed');
+                    return self.cleepService.reloadModuleConfig('update');
+                });
+        };
+
+        self.sendOsConfReport = function() {
+            toast.loading('Sending report to Sentry...');
+            updateService.sendOsConfReport()
+                .then(function(resp) {
+                    if (resp.error) {
+                        return;
+                    }
+                    self.osConfReport = (resp.data && resp.data.report) || self.osConfReport;
+                    self._refreshOsConfReportLabels();
+                    toast.success('Report sent to Sentry');
+                    return self.cleepService.reloadModuleConfig('update');
+                });
+        };
+
+        self.showOsConfReportDialog = function($event) {
+            $mdDialog.show({
+                controller: function($mdDialog, updateService, toastService) {
+                    var dlg = this;
+                    dlg.reportText = '';
+                    dlg.sending = false;
+                    dlg.logsBlockui = blockUI.instances.get('os-conf-report-blockui');
+                    dlg.closeDialog = function() {
+                        $mdDialog.hide();
+                    };
+                    dlg.sendReport = function() {
+                        dlg.sending = true;
+                        updateService.sendOsConfReport()
+                            .then(function(resp) {
+                                if (resp.error) {
+                                    return;
+                                }
+                                toastService.success('Report sent to Sentry');
+                                if (resp.data && resp.data.report) {
+                                    self.osConfReport = resp.data.report;
+                                    self._refreshOsConfReportLabels();
+                                }
+                            })
+                            .finally(function() {
+                                dlg.sending = false;
+                            });
+                    };
+                },
+                controllerAs: '$ctrl',
+                templateUrl: 'os-conf-report.dialog.html',
+                parent: angular.element(document.body),
+                targetEvent: $event,
+                clickOutsideToClose: true,
+                fullscreen: true,
+                onShowing: function(scope, element, options, controller) {
+                    controller.logsBlockui.start();
+                    updateService.getOsConfReport()
+                        .then(function(resp) {
+                            var report = resp.data && resp.data.report;
+                            controller.reportText = (report && report.text) || '';
+                            if (report) {
+                                self.osConfReport = report;
+                                self._refreshOsConfReportLabels();
+                            }
+                        })
+                        .finally(function() {
+                            controller.logsBlockui.stop();
+                        });
+                },
+            })
+            .then(function() {}, function() {});
+        };
 
         self._refreshOsCheckSubtitle = function() {
             var lastCheck = self.config.oslastcheck;
@@ -239,6 +374,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                         self.osUpdates = resp.data || self.osUpdates;
                     }
                     self._refreshOsCheckSubtitle();
+                    return self._loadOsConfReport();
                 });
 
             // refresh modules updates
@@ -330,6 +466,10 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 if (newVal && Object.keys(newVal).length) {
                     Object.assign(self.config, newVal);
                     self._refreshOsCheckSubtitle();
+                    if (newVal.osconfreport) {
+                        self.osConfReport = newVal.osconfreport;
+                        self._refreshOsConfReportLabels();
+                    }
                 }
             },
         );

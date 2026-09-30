@@ -21,6 +21,8 @@ log() {
 }
 
 phase_begin() {
+  echo
+  echo "======== PLAYBOOK PHASE: $1 (begin) ========"
   echo "PHASE $1 begin"
   log "phase $1: begin"
 }
@@ -28,11 +30,14 @@ phase_begin() {
 phase_end() {
   echo "PHASE $1 end"
   log "phase $1: end"
+  echo "======== PLAYBOOK PHASE: $1 (end) ========"
+  echo
 }
 
 phase_fail() {
   echo "PHASE $1 fail"
   log "phase $1: fail — $2"
+  echo "======== PLAYBOOK PHASE: $1 (FAIL) ========"
   exit 1
 }
 
@@ -80,8 +85,24 @@ phase_apt() {
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq || phase_fail apt "apt-get update failed"
   # Keep same suite; pull security/point updates.
+  apt_log=$(mktemp)
+  set -o pipefail
   apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" dist-upgrade \
-    || phase_fail apt "apt-get dist-upgrade failed"
+    2>&1 | tee "$apt_log" \
+    || { rm -f "$apt_log"; phase_fail apt "apt-get dist-upgrade failed"; }
+  set +o pipefail
+  # Parse classic apt summary: "X upgraded, Y newly installed, ..."
+  summary=$(grep -E '[0-9]+ upgraded,' "$apt_log" | tail -n1 || true)
+  if [ -z "$summary" ]; then
+    summary="(no apt summary line — check log above)"
+  fi
+  log "apt result: $summary"
+  mkdir -p /tmp/cleepos-playbook
+  printf '%s\n' "$summary" > /tmp/cleepos-playbook/apt-summary.txt
+  if echo "$summary" | grep -Eq '^0 upgraded, 0 newly installed, 0 to remove'; then
+    log "note: no packages changed — image already current vs apt mirrors; only cleepos_version will be stamped"
+  fi
+  rm -f "$apt_log"
   apt-get -y autoremove --purge -qq || true
   apt-get -y autoclean -qq || true
   phase_end apt

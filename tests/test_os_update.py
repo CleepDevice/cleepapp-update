@@ -18,6 +18,11 @@ from backend.os_catalog import (
     is_cleepos_newer,
     evaluate_os_update,
 )
+from backend.os_conf_report import (
+    build_os_conf_report,
+    find_leftover_paths,
+    sentry_extra_from_report,
+)
 
 
 class OsIdentityTests(unittest.TestCase):
@@ -144,6 +149,94 @@ class OsCatalogTests(unittest.TestCase):
             self.assertEqual(catalog["releases"], {})
         finally:
             os.unlink(path)
+
+
+class OsConfReportTests(unittest.TestCase):
+
+    def test_find_leftover_paths_and_build_report(self):
+        root = tempfile.mkdtemp()
+        try:
+            etc = os.path.join(root, "etc")
+            boot = os.path.join(root, "boot")
+            os.makedirs(etc)
+            os.makedirs(boot)
+            open(os.path.join(etc, "cleepos_version"), "w", encoding="utf8").write(
+                "bullseye20250831\n"
+            )
+            open(os.path.join(etc, "dhcpcd.conf"), "w", encoding="utf8").write("keep\n")
+            open(os.path.join(etc, "dhcpcd.conf.dpkg-dist"), "w", encoding="utf8").write(
+                "pkg\n"
+            )
+            open(os.path.join(etc, "secret.conf"), "w", encoding="utf8").write(
+                "password=supersecret\n"
+            )
+
+            leftovers = find_leftover_paths(roots=(etc, boot))
+            self.assertEqual(
+                leftovers,
+                [os.path.join(etc, "dhcpcd.conf.dpkg-dist")],
+            )
+
+            report_path = os.path.join(root, "report.txt")
+            # Patch module constants via build kwargs: scan uses fixed /etc — call find only above.
+            # build_os_conf_report scans real /etc; unit-test the serializer helpers instead.
+            report = {
+                "from_version": "bullseye20231205",
+                "to_version": "bullseye20250831",
+                "leftover_count": 1,
+                "leftover_paths": leftovers,
+                "apt_conf_actions": [
+                    "Installing new version of config file /etc/security/namespace.init ..."
+                ],
+                "high_interest": [
+                    {
+                        "path": "/etc/dhcpcd.conf",
+                        "exists": True,
+                        "leftovers": [os.path.join(etc, "dhcpcd.conf.dpkg-dist")],
+                    }
+                ],
+            }
+            extra = sentry_extra_from_report(report)
+            self.assertEqual(extra["leftover_count"], 1)
+            self.assertEqual(extra["leftover_paths"], leftovers)
+            joined = " ".join(str(v) for v in extra.values())
+            self.assertNotIn("supersecret", joined)
+            self.assertNotIn("password=", joined)
+        finally:
+            import shutil
+
+            shutil.rmtree(root, ignore_errors=True)
+
+    def test_build_os_conf_report_writes_file(self):
+        root = tempfile.mkdtemp()
+        try:
+            etc = os.path.join(root, "etc")
+            os.makedirs(etc)
+            version_path = os.path.join(etc, "cleepos_version")
+            with open(version_path, "w", encoding="utf8") as handle:
+                handle.write("bullseye20250831\n")
+            with open(
+                os.path.join(etc, "wpa_supplicant.conf.dpkg-dist"), "w", encoding="utf8"
+            ) as handle:
+                handle.write("psk=secretvalue\n")
+            report_path = os.path.join(root, "os-upgrade-conf-report.txt")
+            report = build_os_conf_report(
+                from_version="bullseye20231205",
+                to_version="bullseye20250831",
+                report_path=report_path,
+                scan_roots=(etc,),
+                cleepos_version_path=version_path,
+            )
+            self.assertTrue(os.path.isfile(report_path))
+            self.assertEqual(report["leftover_count"], 1)
+            self.assertIn("privacy: paths", report["text"])
+            self.assertIn("wpa_supplicant.conf.dpkg-dist", report["text"])
+            self.assertNotIn("secretvalue", report["text"])
+            self.assertNotIn("psk=", report["text"])
+        finally:
+            import shutil
+
+            shutil.rmtree(root, ignore_errors=True)
 
 
 if __name__ == "__main__":
