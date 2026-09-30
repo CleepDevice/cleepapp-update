@@ -7,7 +7,8 @@
 - Phase 0 OS updates: read `/etc/cleepos_version`, bundled `os-catalog.json`
 - RPC `get_os_info`, `get_os_updates`, `check_os_updates`
 - Soft gate: block Cleep update when catalog marks OS update as required first
-- OS updates tab (read-only): show CleepOs version and check for updates
+- OS updates tab: show CleepOs version, check for updates, apply minor OS playbook
+- RPC `update_os` with shared update lock, progress events, reboot after success
 
 ## [1.5.0] - 2026-09-28
 

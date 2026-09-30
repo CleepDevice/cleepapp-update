@@ -82,7 +82,36 @@
             ng-if="$ctrl.osUpdates.updatable"
             cl-type="info"
             cl-icon="information"
-            cl-note="OS update {{ $ctrl.osUpdates.version }} is available. Apply will come in a later release."
+            cl-note="OS update {{ $ctrl.osUpdates.version }} is available."
+        ></config-note>
+
+        <config-button
+            ng-if="$ctrl.osUpdates.updatable && !$ctrl.osUpdates.processing && !$ctrl.osUpdates.pending"
+            cl-title="Apply OS update to {{ $ctrl.osUpdates.version }}"
+            cl-subtitle="Device will reboot when the update completes"
+            cl-btn-label="Update OS" cl-btn-icon="update" cl-btn-style="md-accent md-raised"
+            cl-click="$ctrl.updateOs()"
+        ></config-button>
+
+        <config-progress
+            ng-if="$ctrl.osUpdates.processing"
+            cl-title="{{ $ctrl.osInstallProgress }}"
+            cl-model="$ctrl.updateService.osUpdateProgress"
+            cl-style="md-accent"
+        ></config-progress>
+
+        <config-note
+            ng-if="$ctrl.osUpdates.failed"
+            cl-type="warning"
+            cl-icon="alert"
+            cl-note="Last OS update failed. Check device logs for details."
+        ></config-note>
+
+        <config-note
+            ng-if="$ctrl.osUpdates.pending"
+            cl-type="info"
+            cl-icon="information"
+            cl-note="OS update applied. Device is rebooting..."
         ></config-note>
 
         <config-note

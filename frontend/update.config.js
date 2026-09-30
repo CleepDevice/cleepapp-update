@@ -21,6 +21,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
             cleep_too_old: false,
         };
         self.osCheckSubtitle = 'No check performed yet';
+        self.osInstallProgress = 'Updating OS...';
         self.moduleLogs = [];
         self.moduleUpdates = [];
         self.cleepInstallProgress = 'Updating Cleep...';
@@ -66,6 +67,27 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 })
                 .then(function() {
                     self._refreshOsCheckSubtitle();
+                });
+        };
+
+        self.updateOs = function() {
+            toast.loading('Starting OS update...');
+            self.osUpdates.processing = true;
+            self.osUpdates.failed = false;
+            updateService.osUpdateStatus = 1;
+            updateService.osUpdateProgress = 0;
+            self.osInstallProgress = 'Starting OS update...';
+            updateService.updateOs()
+                .then(function(resp) {
+                    if (resp.error) {
+                        self.osUpdates.processing = false;
+                        updateService.osUpdateStatus = 0;
+                    }
+                })
+                .catch(function() {
+                    self.osUpdates.processing = false;
+                    updateService.osUpdateStatus = 0;
+                    updateService.osUpdateProgress = 0;
                 });
         };
 
@@ -363,6 +385,58 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 }
             },
         );
+
+        $rootScope.$watch(
+            () => updateService.osUpdateStatus,
+            (newVal) => {
+                if (newVal === undefined || newVal === null || !self.osUpdates) {
+                    return;
+                }
+                switch (newVal) {
+                    case 1:
+                        self.osInstallProgress = self._osPhaseLabel(
+                            updateService.osUpdateProgress,
+                            updateService.osUpdatePhase
+                        );
+                        self.osUpdates.processing = true;
+                        break;
+                    case 2:
+                        self.osInstallProgress = 'OS update completed';
+                        self.osUpdates.processing = false;
+                        self.osUpdates.pending = true;
+                        self.osUpdates.failed = false;
+                        self.osUpdates.updatable = false;
+                        break;
+                    case 3:
+                        self.osInstallProgress = 'OS update failed';
+                        self.osUpdates.processing = false;
+                        self.osUpdates.failed = true;
+                        break;
+                    default:
+                        self.osInstallProgress = 'Updating OS...';
+                }
+            },
+        );
+
+        $rootScope.$watch(
+            () => updateService.osUpdateProgress,
+            (newVal) => {
+                if (updateService.osUpdateStatus === 1) {
+                    self.osInstallProgress = self._osPhaseLabel(
+                        newVal,
+                        updateService.osUpdatePhase
+                    );
+                }
+            },
+        );
+
+        self._osPhaseLabel = function(progress, phase) {
+            var label = phase ? ('Phase ' + phase) : 'Updating OS';
+            if (progress > 0) {
+                return label + ' (' + progress + '%)...';
+            }
+            return label + '...';
+        };
 
         self._cleepPhaseLabel = function(progress) {
             if (progress >= 66) {

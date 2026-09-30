@@ -31,9 +31,11 @@ from cleep.libs.internals.install import Install
 try:
     from .os_identity import get_os_identity
     from .os_catalog import load_os_catalog, evaluate_os_update
+    from .os_upgrade_runner import OsUpgradeRunner
 except ImportError:  # pragma: no cover - flat import in tests / module loader
     from os_identity import get_os_identity
     from os_catalog import load_os_catalog, evaluate_os_update
+    from os_upgrade_runner import OsUpgradeRunner
 
 
 class Update(CleepModule):
@@ -110,6 +112,9 @@ class Update(CleepModule):
         }
         self._os_updates = {
             "updatable": False,
+            "processing": False,
+            "pending": False,
+            "failed": False,
             "version": None,
             "current": None,
             "suite": None,
@@ -144,7 +149,9 @@ class Update(CleepModule):
         self.module_uninstall_event = self._get_event("update.module.uninstall")
         self.module_update_event = self._get_event("update.module.update")
         self.cleep_update_event = self._get_event("update.cleep.update")
+        self.os_update_event = self._get_event("update.os.update")
         self.cleep_need_restart_event = self._get_event("system.cleep.needrestart")
+        self.__os_runner = None
 
     def _configure(self):
         """
@@ -476,6 +483,9 @@ class Update(CleepModule):
             raise CommandError("Error occured during OS update check") from error
 
         self._set_config_field("oslastcheck", int(time.time()))
+        update["processing"] = self._os_updates.get("processing", False)
+        update["pending"] = self._os_updates.get("pending", False)
+        update["failed"] = self._os_updates.get("failed", False)
         self._os_updates = update
         self.logger.info(
             "CleepOs version status: latest %s - installed %s (suite %s, updatable=%s)",
@@ -497,6 +507,108 @@ class Update(CleepModule):
                 "A system update (CleepOs) is required before updating Cleep. "
                 "Please update CleepOs first."
             )
+
+    def update_os(self):
+        """
+        Apply CleepOs update using the embedded suite playbook (minor upgrades).
+        """
+        if not self._os_updates.get("updatable"):
+            raise CommandInfo(
+                "No OS update available, please launch OS update check first"
+            )
+        if self._os_updates.get("cleep_too_old"):
+            raise CommandInfo(
+                "Please update Cleep before applying this OS update"
+            )
+        if self._cleep_updates["processing"] or self._cleep_updates["pending"]:
+            raise CommandInfo("Cleep update is in progress. Please wait for end of it")
+        if self._os_updates.get("processing"):
+            raise CommandInfo("OS update is in progress. Please wait for end of it")
+        if len(self.__main_actions) != 0:
+            raise CommandInfo(
+                "Applications updates are in progress. Please wait for end of it"
+            )
+        if self._os_updates.get("processing"):
+            raise CommandInfo("OS update is already in progress")
+
+        target_version = self._os_updates.get("version")
+        if not target_version:
+            raise CommandError("OS update target version is missing")
+
+        self._acquire_update_lock()
+        try:
+            self.cleep_filesystem.enable_write(True, True)
+            self._os_updates.update(
+                {
+                    "failed": False,
+                    "pending": False,
+                    "processing": True,
+                }
+            )
+            self.__os_runner = OsUpgradeRunner(
+                target_version=target_version,
+                status_callback=self._update_os_callback,
+            )
+            self.__os_runner.start()
+        except Exception:
+            self._os_updates["processing"] = False
+            self._release_update_lock()
+            raise
+
+    def _update_os_callback(self, status):
+        """
+        Callback from OsUpgradeRunner.
+
+        Args:
+            status (dict): runner status
+        """
+        runner_status = status.get("status")
+        progress = status.get("progress") or 0
+        phase = status.get("phase")
+
+        self.os_update_event.send(
+            params={
+                "status": runner_status,
+                "progress": progress,
+                "phase": phase,
+            }
+        )
+
+        if runner_status < OsUpgradeRunner.STATUS_SUCCESS:
+            return
+
+        self._release_update_lock()
+        try:
+            self.cleep_filesystem.disable_write(True, True)
+        except Exception:
+            self.logger.warning(
+                "Unable to remount filesystem read-only after OS update",
+                exc_info=True,
+            )
+
+        if runner_status == OsUpgradeRunner.STATUS_SUCCESS:
+            self._os_updates.update(
+                {
+                    "processing": False,
+                    "pending": True,
+                    "failed": False,
+                    "updatable": False,
+                    "current": self._os_updates.get("version"),
+                }
+            )
+            self.logger.info("OS update succeeded — device reboot recommended")
+            resp = self.send_command("reboot_device", "system", {"delay": 15.0})
+            if resp.error:
+                self.logger.warning("Unable to trigger reboot after OS update")
+        else:
+            self._os_updates.update(
+                {
+                    "processing": False,
+                    "pending": False,
+                    "failed": True,
+                }
+            )
+            self.logger.error("OS update failed")
 
     def _get_installed_modules_names(self):
         """
@@ -1182,6 +1294,8 @@ class Update(CleepModule):
                 "Applications updates are in progress. Please wait for end of it"
             )
         self._assert_os_allows_cleep_update()
+        if self._os_updates.get("processing"):
+            raise CommandInfo("OS update is in progress. Please wait for end of it")
         self._check_cleep_update_disk_space()
 
         self._acquire_update_lock()

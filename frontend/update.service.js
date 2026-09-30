@@ -10,6 +10,13 @@ function($q, $rootScope, rpcService) {
     var self = this;
     self.cleepUpdateStatus = 0;
     self.cleepUpdateProgress = 0;
+    self.osUpdateStatus = 0;
+    self.osUpdateProgress = 0;
+    self.osUpdatePhase = null;
+
+    self.updateOs = function() {
+        return rpcService.sendCommand('update_os', 'update');
+    };
 
     self.getModulesUpdates = function() {
         return rpcService.sendCommand('get_modules_updates', 'update');
@@ -93,5 +100,15 @@ function($q, $rootScope, rpcService) {
         }
     });
 
-}]); 
+    $rootScope.$on('update.os.update', function(event, uuid, params) {
+        self.osUpdateStatus = params.status;
+        if (params.progress !== undefined && params.progress !== null) {
+            self.osUpdateProgress = params.progress;
+        }
+        if (params.phase !== undefined) {
+            self.osUpdatePhase = params.phase;
+        }
+    });
+
+}]);
 
