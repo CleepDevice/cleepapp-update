@@ -15,9 +15,59 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
         self.cleepUpdateEnabled = false;
         self.modulesUpdateEnabled = false;
         self.cleepUpdates = null;
+        self.osInfo = {};
+        self.osUpdates = {
+            updatable: false,
+            cleep_too_old: false,
+        };
+        self.osCheckSubtitle = 'No check performed yet';
         self.moduleLogs = [];
         self.moduleUpdates = [];
         self.cleepInstallProgress = 'Updating Cleep...';
+
+        self._refreshOsCheckSubtitle = function() {
+            var lastCheck = self.config.oslastcheck;
+            var lastCheckLabel = lastCheck
+                ? $filter('hrDatetime')(lastCheck)
+                : 'never';
+            if (self.osUpdates && self.osUpdates.updatable) {
+                self.osCheckSubtitle = 'Update available (last check ' + lastCheckLabel + ')';
+            } else if (self.osUpdates && self.osUpdates.cleep_too_old) {
+                self.osCheckSubtitle = 'Update blocked: Cleep too old (last check ' + lastCheckLabel + ')';
+            } else if (lastCheck) {
+                self.osCheckSubtitle = 'No update available (last check ' + lastCheckLabel + ')';
+            } else {
+                self.osCheckSubtitle = 'No check performed yet';
+            }
+        };
+
+        self.checkOsUpdates = function() {
+            toast.loading('Checking OS updates...');
+            updateService.checkOsUpdates()
+                .then(function(resp) {
+                    if (resp.error) {
+                        return;
+                    }
+                    self.osUpdates = resp.data || {};
+                    if (self.osUpdates.current) {
+                        self.osInfo = {
+                            version: self.osUpdates.current,
+                            suite: self.osUpdates.suite,
+                            build: self.osInfo.build,
+                        };
+                    }
+                    var message = self.osUpdates.updatable
+                        ? 'OS update available'
+                        : (self.osUpdates.cleep_too_old
+                            ? 'OS update requires a newer Cleep'
+                            : 'No OS update available');
+                    toast.info(message);
+                    return self.cleepService.reloadModuleConfig('update');
+                })
+                .then(function() {
+                    self._refreshOsCheckSubtitle();
+                });
+        };
 
         self.setAutomaticUpdate = function(value, meta) {
             const options = {
@@ -155,6 +205,20 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                     }
                 });
 
+            updateService.getOsInfo()
+                .then(function(resp) {
+                    if (!resp.error) {
+                        self.osInfo = resp.data || {};
+                    }
+                    return updateService.getOsUpdates();
+                })
+                .then(function(resp) {
+                    if (resp && !resp.error) {
+                        self.osUpdates = resp.data || self.osUpdates;
+                    }
+                    self._refreshOsCheckSubtitle();
+                });
+
             // refresh modules updates
             cleepService.refreshModulesUpdates();
 
@@ -243,6 +307,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
             (newVal) => {
                 if (newVal && Object.keys(newVal).length) {
                     Object.assign(self.config, newVal);
+                    self._refreshOsCheckSubtitle();
                 }
             },
         );

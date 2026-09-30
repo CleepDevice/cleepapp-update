@@ -4,6 +4,7 @@
     <md-nav-bar md-selected-nav-item="$ctrl.tabIndex" nav-bar-aria-label="Updates tabs">
         <md-nav-item md-nav-click="goto('modules')" name="modules">Applications updates</md-nav-item>
         <md-nav-item md-nav-click="goto('cleep')" name="cleep">Cleep updates</md-nav-item>
+        <md-nav-item md-nav-click="goto('os')" name="os">OS updates</md-nav-item>
         <md-nav-item md-nav-click="goto('logs')" name="logs">Apps update logs</md-nav-item>
         <md-nav-item md-nav-click="goto('options')" name="options">Options</md-nav-item>
     </md-nav-bar>
@@ -67,6 +68,29 @@
             cl-click="$ctrl.showLogsDialog('cleep', $event)"
             cl-btn-label="Show logs" cl-btn-icon="file-document-outline" cl-btn-style="{{ $ctrl.config.cleepupdatelogs.failed ? 'md-raised md-accent': 'md-raised md-primary' }}"
         ></config-button>
+	</div>
+
+    <div layout="column" layout-padding ng-if="$ctrl.tabIndex==='os'">
+        <config-button
+            cl-title="CleepOs {{ $ctrl.osInfo.version || 'unknown' }} ({{ $ctrl.osInfo.suite || '—' }})"
+            cl-subtitle="{{ $ctrl.osCheckSubtitle }}"
+            cl-btn-label="Check updates" cl-btn-icon="find-replace"
+            cl-click="$ctrl.checkOsUpdates()"
+        ></config-button>
+
+        <config-note
+            ng-if="$ctrl.osUpdates.updatable"
+            cl-type="info"
+            cl-icon="information"
+            cl-note="OS update {{ $ctrl.osUpdates.version }} is available. Apply will come in a later release."
+        ></config-note>
+
+        <config-note
+            ng-if="$ctrl.osUpdates.cleep_too_old"
+            cl-type="warning"
+            cl-icon="alert"
+            cl-note="OS update {{ $ctrl.osUpdates.version }} requires Cleep {{ $ctrl.osUpdates.min_cleep_version }} or newer. Update Cleep first."
+        ></config-note>
 	</div>
 
     <div layout="column" layout-padding ng-if="$ctrl.tabIndex==='options'">

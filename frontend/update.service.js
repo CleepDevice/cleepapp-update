@@ -19,6 +19,18 @@ function($q, $rootScope, rpcService) {
         return rpcService.sendCommand('get_cleep_updates', 'update');
     };
 
+    self.getOsInfo = function() {
+        return rpcService.sendCommand('get_os_info', 'update');
+    };
+
+    self.getOsUpdates = function() {
+        return rpcService.sendCommand('get_os_updates', 'update');
+    };
+
+    self.checkOsUpdates = function() {
+        return rpcService.sendCommand('check_os_updates', 'update');
+    };
+
     self.checkCleepUpdates = function() {
         return rpcService.sendCommand('check_cleep_updates', 'update');
     };
