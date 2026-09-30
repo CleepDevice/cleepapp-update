@@ -28,6 +28,13 @@ from cleep import __version__ as CLEEP_VERSION
 from cleep.libs.internals.installcleep import InstallCleep
 from cleep.libs.internals.install import Install
 
+try:
+    from .os_identity import get_os_identity
+    from .os_catalog import load_os_catalog, evaluate_os_update
+except ImportError:  # pragma: no cover - flat import in tests / module loader
+    from os_identity import get_os_identity
+    from os_catalog import load_os_catalog, evaluate_os_update
+
 
 class Update(CleepModule):
     """
@@ -35,7 +42,7 @@ class Update(CleepModule):
     """
 
     MODULE_AUTHOR = "Cleep"
-    MODULE_VERSION = "1.4.2"
+    MODULE_VERSION = "1.6.0"
     MODULE_DEPS = []
     MODULE_DESCRIPTION = "Applications and Cleep updater"
     MODULE_LONGDESCRIPTION = "Manage all Cleep applications and Cleep core updates."
@@ -54,6 +61,7 @@ class Update(CleepModule):
         "cleepversion": "0.0.0",
         "cleeplastcheck": None,
         "moduleslastcheck": None,
+        "oslastcheck": None,
     }
 
     CLEEP_GITHUB_OWNER = "CleepDevice"
@@ -99,6 +107,18 @@ class Update(CleepModule):
             "changelog": None,
             "packageurl": None,
             "checksumurl": None,
+        }
+        self._os_updates = {
+            "updatable": False,
+            "version": None,
+            "current": None,
+            "suite": None,
+            "changelog": None,
+            "playbook_url": None,
+            "playbook_sha256": None,
+            "min_cleep_version": None,
+            "blocks_cleep_update": False,
+            "cleep_too_old": False,
         }
         self._check_update_time = {
             "hour": int(random.uniform(0, 24)),
@@ -172,7 +192,7 @@ class Update(CleepModule):
             raise CommandError("Unable to acquire update lock") from error
 
         self.__lock_fd = lock_fd
-        self.logger.debug('Update lock acquired (%s)', self.UPDATE_LOCK_PATH)
+        self.logger.debug("Update lock acquired (%s)", self.UPDATE_LOCK_PATH)
 
     def _release_update_lock(self):
         """
@@ -396,6 +416,87 @@ class Update(CleepModule):
 
         """
         return self._cleep_updates
+
+    def get_os_info(self):
+        """
+        Return current CleepOs identity from /etc/cleepos_version.
+
+        Returns:
+            dict::
+
+                {
+                    version (str): e.g. bullseye20231205
+                    suite (str): e.g. bullseye
+                    build (str): YYYYMMDD
+                }
+        """
+        try:
+            return get_os_identity()
+        except ValueError as error:
+            raise CommandError(str(error)) from error
+
+    def get_os_updates(self):
+        """
+        Return last OS update check result (cached).
+
+        Returns:
+            dict: OS updates infos (see check_os_updates)
+        """
+        return self._os_updates
+
+    def check_os_updates(self):
+        """
+        Check for CleepOs updates using bundled os-catalog.json.
+
+        Returns:
+            dict::
+
+                {
+                    updatable (bool),
+                    version (str|None): latest available for suite,
+                    current (str),
+                    suite (str),
+                    changelog (str|None),
+                    playbook_url (str|None),
+                    playbook_sha256 (str|None),
+                    min_cleep_version (str|None),
+                    blocks_cleep_update (bool),
+                    cleep_too_old (bool)
+                }
+        """
+        try:
+            identity = get_os_identity()
+            catalog = load_os_catalog()
+            update = evaluate_os_update(identity, catalog, CLEEP_VERSION)
+        except ValueError as error:
+            raise CommandError("Unable to read current CleepOs release") from error
+        except Exception as error:
+            self.logger.exception("Error occured during OS updates checking:")
+            self.crash_report.report_exception()
+            raise CommandError("Error occured during OS update check") from error
+
+        self._set_config_field("oslastcheck", int(time.time()))
+        self._os_updates = update
+        self.logger.info(
+            "CleepOs version status: latest %s - installed %s (suite %s, updatable=%s)",
+            update.get("version") or update.get("current"),
+            update.get("current"),
+            update.get("suite"),
+            update.get("updatable"),
+        )
+        return self._os_updates
+
+    def _assert_os_allows_cleep_update(self):
+        """
+        Soft gate: block Cleep update when catalog marks OS update as required first.
+        """
+        if self._os_updates.get("updatable") and self._os_updates.get(
+            "blocks_cleep_update"
+        ):
+            raise CommandInfo(
+                "A system update (CleepOs) is required before updating Cleep. "
+                "Please update CleepOs first."
+            )
 
     def _get_installed_modules_names(self):
         """
@@ -1080,6 +1181,7 @@ class Update(CleepModule):
             raise CommandInfo(
                 "Applications updates are in progress. Please wait for end of it"
             )
+        self._assert_os_allows_cleep_update()
         self._check_cleep_update_disk_space()
 
         self._acquire_update_lock()
@@ -1101,7 +1203,9 @@ class Update(CleepModule):
             package_url = self._cleep_updates["packageurl"]
             checksum_url = self._cleep_updates["checksumurl"]
             self.logger.debug(
-                "Update Cleep: package_url=%s checksum_url=%s", package_url, checksum_url
+                "Update Cleep: package_url=%s checksum_url=%s",
+                package_url,
+                checksum_url,
             )
             update = InstallCleep(
                 self.cleep_filesystem, self.crash_report, self.task_factory
@@ -1622,9 +1726,7 @@ class Update(CleepModule):
 
         """
         self.logger.debug("Module install callback status: %s", status)
-        is_dependency = "extra" in status and status["extra"].get(
-            "isdependency", False
-        )
+        is_dependency = "extra" in status and status["extra"].get("isdependency", False)
 
         # handle install success
         if status["status"] == Install.STATUS_DONE:
