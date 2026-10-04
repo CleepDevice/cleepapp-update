@@ -1,0 +1,59 @@
+<md-dialog aria-label="OS dry-run preview" flex="80">
+    <form ng-cloak>
+        <md-toolbar>
+            <div class="md-toolbar-tools">
+                <h2>OS update dry-run preview</h2>
+                <span flex></span>
+                <md-button class="md-icon-button" ng-click="$ctrl.closeDialog()">
+                    <cl-icon cl-icon="close"></cl-icon>
+                </md-button>
+            </div>
+        </md-toolbar>
+
+        <md-dialog-content>
+            <div class="md-dialog-content" block-ui="os-dry-run-preview-blockui">
+                <p class="md-caption" style="margin-bottom: 12px;">
+                    Simulated with apt-get -s on this device. No packages were installed and
+                    /etc/cleepos_version was not changed. Leftover conf paths only appear after a real Apply.
+                </p>
+
+                <div ng-if="$ctrl.verdict" style="margin-bottom: 16px;">
+                    <div ng-if="$ctrl.verdict === 'ok'"
+                         style="padding: 10px 12px; border-left: 4px solid #2e7d32; background: rgba(46,125,50,0.08);">
+                        <strong>Verdict: OK</strong>
+                        <div class="md-caption">Dry-run looks safe enough to launch Apply.</div>
+                    </div>
+                    <div ng-if="$ctrl.verdict === 'ko'"
+                         style="padding: 10px 12px; border-left: 4px solid #c62828; background: rgba(198,40,40,0.08);">
+                        <strong>Verdict: KO</strong>
+                        <div class="md-caption">Do not Apply until the red-flag findings below are resolved.</div>
+                    </div>
+                </div>
+
+                <div ng-if="$ctrl.findings.length" style="margin-bottom: 16px;">
+                    <div class="md-subheader" style="margin: 0 0 8px 0;">Findings</div>
+                    <div ng-repeat="item in $ctrl.findings"
+                         style="margin-bottom: 6px; padding-left: 8px; border-left: 3px solid;"
+                         ng-style="{
+                            'border-left-color': item.severity === 'error' ? '#c62828' : (item.severity === 'warning' ? '#ef6c00' : '#546e7a')
+                         }">
+                        <span class="md-caption">
+                            <strong>[{{ item.severity | uppercase }}]</strong> {{ item.message }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="md-subheader" style="margin: 0 0 8px 0;" ng-if="$ctrl.previewText.length">Raw preview</div>
+                <span class="md-caption" ng-if="$ctrl.previewText.length>0" style="white-space: pre-wrap; font-family: monospace;">{{$ctrl.previewText}}</span>
+                <span class="md-caption" ng-if="!$ctrl.previewText.length">
+                    No dry-run preview available yet. Run Dry-run first.
+                </span>
+            </div>
+        </md-dialog-content>
+
+        <md-dialog-actions layout="row">
+            <span flex></span>
+            <md-button class="md-primary" ng-click="$ctrl.closeDialog()">Close</md-button>
+        </md-dialog-actions>
+    </form>
+</md-dialog>

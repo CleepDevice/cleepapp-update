@@ -4,12 +4,16 @@
 
 ### Added
 
-- Phase 0 OS updates: read `/etc/cleepos_version`, bundled `os-catalog.json`
-- RPC `get_os_info`, `get_os_updates`, `check_os_updates`
-- Soft gate: block Cleep update when catalog marks OS update as required first
-- OS updates tab: show CleepOs version, check for updates, apply minor OS playbook
-- RPC `update_os` with shared update lock, progress events, reboot after success
-- Allow sending OS upgrade report to help Cleep team improving OS upgrade
+- Implement OS update based on cleep-os playbooks and dry-run
+- Allow sending OS update report to Cleep team if enabled by user
+- General update/install improvements
+
+### Fixed
+
+- Applications updates list not refreshing after Check updates
+- App update/install/uninstall failure always clears `processing` state
+- Reject update/uninstall RPC while the same module is already processing
+- Deep-link `?tab=logs&app=<name>` opens that application's last update log dialog
 
 ## [1.5.0] - 2026-09-28
 

@@ -11,7 +11,7 @@ class UpdateOsUpdateEvent(Event):
 
     EVENT_NAME = "update.os.update"
     EVENT_PROPAGATE = False
-    EVENT_PARAMS = ["status", "progress", "phase"]
+    EVENT_PARAMS = ["status", "progress", "phase", "dry_run"]
 
     def __init__(self, params):
         """

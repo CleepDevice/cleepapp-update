@@ -13,9 +13,30 @@ function($q, $rootScope, rpcService) {
     self.osUpdateStatus = 0;
     self.osUpdateProgress = 0;
     self.osUpdatePhase = null;
+    self.osUpdateDryRun = false;
 
-    self.updateOs = function() {
-        return rpcService.sendCommand('update_os', 'update');
+    self.updateOs = function(dryRun) {
+        return rpcService.sendCommand('update_os', 'update', {
+            'dry_run': !!dryRun,
+        });
+    };
+
+    self.getOsDryRunPreview = function() {
+        return rpcService.sendCommand('get_os_dry_run_preview', 'update');
+    };
+
+    self.getOsUpgradeLogs = function(dryRun) {
+        return rpcService.sendCommand('get_os_upgrade_logs', 'update', {
+            'dry_run': !!dryRun,
+        });
+    };
+
+    self.requestOsReboot = function() {
+        return rpcService.sendCommand('request_os_reboot', 'update');
+    };
+
+    self.showOsRebootButton = function() {
+        return rpcService.sendCommand('show_os_reboot_button', 'update');
     };
 
     self.getModulesUpdates = function() {
@@ -121,6 +142,7 @@ function($q, $rootScope, rpcService) {
 
     $rootScope.$on('update.os.update', function(event, uuid, params) {
         self.osUpdateStatus = params.status;
+        self.osUpdateDryRun = !!params.dry_run;
         if (params.progress !== undefined && params.progress !== null) {
             self.osUpdateProgress = params.progress;
         }

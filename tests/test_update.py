@@ -162,6 +162,7 @@ class TestsUpdate(unittest.TestCase):
         self.module._set_config_field('modulesupdateenabled', True)
         self.module.check_cleep_updates = Mock()
         self.module.check_modules_updates = Mock()
+        self.module.check_os_updates = Mock()
         self.module.update_cleep = Mock()
         self.module.update_modules = Mock()
         event = {
@@ -176,6 +177,7 @@ class TestsUpdate(unittest.TestCase):
 
         self.assertTrue(self.module.check_cleep_updates.called)
         self.assertTrue(self.module.check_modules_updates.called)
+        self.assertTrue(self.module.check_os_updates.called)
         self.assertTrue(self.module.update_cleep.called)
         self.assertTrue(self.module.update_modules.called)
 
@@ -185,6 +187,7 @@ class TestsUpdate(unittest.TestCase):
         self.module._set_config_field('modulesupdateenabled', False)
         self.module.check_cleep_updates = Mock()
         self.module.check_modules_updates = Mock()
+        self.module.check_os_updates = Mock()
         self.module.update_cleep = Mock()
         self.module.update_modules = Mock()
         event = {
@@ -199,6 +202,7 @@ class TestsUpdate(unittest.TestCase):
 
         self.assertTrue(self.module.check_cleep_updates.called)
         self.assertTrue(self.module.check_modules_updates.called)
+        self.assertTrue(self.module.check_os_updates.called)
         self.assertFalse(self.module.update_cleep.called)
         self.assertFalse(self.module.update_modules.called)
 
@@ -208,6 +212,7 @@ class TestsUpdate(unittest.TestCase):
         self.module._set_config_field('modulesupdateenabled', True)
         self.module.check_cleep_updates = Mock()
         self.module.check_modules_updates = Mock()
+        self.module.check_os_updates = Mock()
         self.module.update_cleep = Mock()
         self.module.update_modules = Mock()
         event = {
@@ -222,8 +227,69 @@ class TestsUpdate(unittest.TestCase):
 
         self.assertTrue(self.module.check_cleep_updates.called)
         self.assertTrue(self.module.check_modules_updates.called)
+        self.assertTrue(self.module.check_os_updates.called)
         self.assertFalse(self.module.update_cleep.called)
         self.assertTrue(self.module.update_modules.called)
+
+    def test_discovery_os_dry_run_once_per_target(self):
+        self.init_session()
+        self.module.update_os = Mock()
+        update = {
+            'updatable': True,
+            'version': 'bullseye20990101',
+            'cleep_too_old': False,
+        }
+        self.module._maybe_trigger_discovery_os_dry_run(update)
+        self.assertTrue(self.module.update_os.called)
+        self.assertEqual(
+            self.module.update_os.call_args[1].get('dry_run'),
+            True,
+        )
+        self.module._set_config_field('osdiscovereddryrunfor', update['version'])
+        self.module.update_os.reset_mock()
+        self.module._maybe_trigger_discovery_os_dry_run(update)
+        self.assertFalse(self.module.update_os.called)
+
+    def test_autosend_os_dry_run_skips_disk_only_ko(self):
+        self.init_session()
+        self.module._set_config_field('osconfreportenabled', True)
+        self.module._set_config_field('osconfreportautosend', True)
+        self.module.crash_report.is_enabled = Mock(return_value=True)
+        self.module.crash_report.manual_report = Mock()
+        from backend.os_dry_run_analysis import analyze_os_dry_run
+
+        analysis = analyze_os_dry_run(
+            "After this operation, 150 MB of additional disk space will be used.\n",
+            free_bytes=20 * 1024 * 1024,
+        )
+        self.module._maybe_autosend_os_dry_run_report(
+            analysis=analysis,
+            runner_error=None,
+            from_version='v1',
+            to_version='v2',
+        )
+        self.module.crash_report.manual_report.assert_not_called()
+
+    def test_autosend_os_dry_run_sends_product_ko(self):
+        self.init_session()
+        self.module._set_config_field('osconfreportenabled', True)
+        self.module._set_config_field('osconfreportautosend', True)
+        self.module.crash_report.is_enabled = Mock(return_value=True)
+        self.module.crash_report.manual_report = Mock()
+        from backend.os_dry_run_analysis import analyze_os_dry_run
+
+        analysis = analyze_os_dry_run(
+            "Remv python3 [3.9.2]\n"
+            "After this operation, 1 MB of additional disk space will be used.\n",
+            free_bytes=500 * 1024 * 1024,
+        )
+        self.module._maybe_autosend_os_dry_run_report(
+            analysis=analysis,
+            runner_error=None,
+            from_version='v1',
+            to_version='v2',
+        )
+        self.module.crash_report.manual_report.assert_called_once()
 
     def test_get_modules_logs(self):
         self.init_session()
@@ -783,9 +849,9 @@ class TestsUpdate(unittest.TestCase):
         self.module._set_module_process = Mock()
 
         with patch.object(self.module, '_Update__main_actions', None):
-            # cannot pop a None object
+            # cannot pop a None object — no action to fail
             self.module._execute_main_action_task()
-            self.module._set_module_process.assert_called_with(failed=True)
+            self.assertFalse(self.module._set_module_process.called)
 
     def test_execute_main_action_exception_w_action_install(self):
         self.init_session()
@@ -808,7 +874,9 @@ class TestsUpdate(unittest.TestCase):
         with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
             with patch.object(self.module, '_Update__main_actions', [action_install]) as mock_main_actions:
                 self.module._execute_main_action_task()
-                self.module._set_module_process.assert_called_with(failed=True)
+                self.module._set_module_process.assert_called_with(
+                    failed=True, forced_module_name='mod1'
+                )
                 self.assertEqual(self.session.event_call_count('update.module.install'), 1)
                 self.assertEqual(self.session.event_call_count('update.module.uninstall'), 0)
                 self.assertEqual(self.session.event_call_count('update.module.update'), 0)
@@ -836,7 +904,9 @@ class TestsUpdate(unittest.TestCase):
         with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
             with patch.object(self.module, '_Update__main_actions', [action_update]) as mock_main_actions:
                 self.module._execute_main_action_task()
-                self.module._set_module_process.assert_called_with(failed=True)
+                self.module._set_module_process.assert_called_with(
+                    failed=True, forced_module_name='mod1'
+                )
                 self.assertEqual(self.session.event_call_count('update.module.install'), 0)
                 self.assertEqual(self.session.event_call_count('update.module.uninstall'), 0)
                 self.assertEqual(self.session.event_call_count('update.module.update'), 1)
@@ -863,7 +933,9 @@ class TestsUpdate(unittest.TestCase):
         with patch.object(self.module, '_Update__sub_actions', []) as mock_subactions:
             with patch.object(self.module, '_Update__main_actions', [action_uninstall]) as mock_main_actions:
                 self.module._execute_main_action_task()
-                self.module._set_module_process.assert_called_with(failed=True)
+                self.module._set_module_process.assert_called_with(
+                    failed=True, forced_module_name='mod1'
+                )
                 self.assertEqual(self.session.event_call_count('update.module.install'), 0)
                 self.assertEqual(self.session.event_call_count('update.module.uninstall'), 1)
                 self.assertEqual(self.session.event_call_count('update.module.update'), 0)
@@ -2474,7 +2546,9 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(self.session.event_call_count('update.module.install'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.install_module.called)
-        self.module._set_module_process.assert_called_once_with(failed=True)
+        self.module._set_module_process.assert_called_once_with(
+            failed=True, forced_module_name='mainmod'
+        )
         self.module._cleanup_module_package.assert_called_once_with('mainmod')
 
     @patch('backend.update.CleepConf')
@@ -2827,6 +2901,22 @@ class TestsUpdate(unittest.TestCase):
             self.module.uninstall_module('dummy')
         self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait for end of it')
 
+    def test_uninstall_module_already_processing(self):
+        self.init_session()
+        self.module._get_installed_modules_names = Mock(return_value=['dummy'])
+        self.module._modules_updates = {
+            'dummy': {
+                'name': 'dummy',
+                'updatable': False,
+                'processing': True,
+                'pending': False,
+            }
+        }
+
+        with self.assertRaises(CommandInfo) as cm:
+            self.module.uninstall_module('dummy')
+        self.assertIn('already in progress', str(cm.exception))
+
     def test_uninstall_module_check_params(self):
         self.init_session()
         infos_dummy = {
@@ -3066,7 +3156,9 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(self.session.event_call_count('update.module.uninstall'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.uninstall_module.called)
-        self.module._set_module_process.assert_called_once_with(failed=True)
+        self.module._set_module_process.assert_called_once_with(
+            failed=True, forced_module_name='dummy'
+        )
 
     @patch('backend.update.Install')
     def test_final_uninstall_module(self, mock_install):
@@ -3130,6 +3222,22 @@ class TestsUpdate(unittest.TestCase):
         with self.assertRaises(CommandInfo) as cm:
             self.module.update_module('dummy')
         self.assertEqual(str(cm.exception), 'Cleep update is in progress. Please wait for end of it')
+
+    def test_update_module_already_processing(self):
+        self.init_session()
+        self.module._get_installed_modules_names = Mock(return_value=['dummy'])
+        self.module._modules_updates = {
+            'dummy': {
+                'name': 'dummy',
+                'updatable': True,
+                'processing': True,
+                'pending': False,
+            }
+        }
+
+        with self.assertRaises(CommandInfo) as cm:
+            self.module.update_module('dummy')
+        self.assertIn('already in progress', str(cm.exception))
 
     def test_update_module_module_already_uptodate(self):
         self.init_session()
@@ -3363,7 +3471,32 @@ class TestsUpdate(unittest.TestCase):
         self.assertEqual(self.session.event_call_count('update.module.update'), 1)
         self.assertFalse(self.module._need_restart)
         self.assertFalse(mock_cleepconf.return_value.update_module.called)
-        self.module._set_module_process.assert_called_once_with(failed=True)
+        self.module._set_module_process.assert_called_once_with(
+            failed=True, forced_module_name='dummy'
+        )
+
+    @patch('backend.update.CleepConf')
+    def test_update_module_callback_error_clears_without_processing_name(self, mock_cleepconf):
+        """Failure must clear processing even if main-action queue name is gone."""
+        status = {
+            'status': Install.STATUS_ERROR,
+            'module': 'dummy',
+            'stdout': [],
+            'stderr': [],
+        }
+        self.init_session()
+        self.module._modules_updates['dummy'] = self.module._Update__get_module_update_data(
+            'dummy', '1.0.0', '1.1.0'
+        )
+        self.module._modules_updates['dummy']['processing'] = True
+        self.module._get_processing_module_name = Mock(return_value=None)
+        self.module._store_process_status = Mock()
+
+        self.module._Update__update_module_callback(status)
+
+        self.assertFalse(self.module._modules_updates['dummy']['processing'])
+        self.assertTrue(self.module._modules_updates['dummy']['update']['failed'])
+        self.assertEqual(self.module._modules_updates['dummy']['update']['progress'], 100)
 
     @patch('backend.update.Install')
     def test_final_update_module(self, mock_install):

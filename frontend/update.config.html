@@ -37,9 +37,22 @@
             cl-click="$ctrl.checkCleepUpdates()"
         ></config-button>
 
+        <config-note
+            ng-if="$ctrl.cleepUpdates.updatable && $ctrl.osUpdates.os_suite_too_old"
+            cl-type="warning"
+            cl-icon="alert"
+            cl-note="Cleep {{ $ctrl.cleepUpdates.version }} cannot be installed: this device runs CleepOs {{ $ctrl.osUpdates.suite }}, but {{ $ctrl.osUpdates.min_suite }} or newer is required. Perform a major OS upgrade / reflash first."
+        ></config-note>
+        <config-note
+            ng-if="$ctrl.cleepUpdates.updatable && $ctrl.osUpdates.blocks_cleep_update && !$ctrl.osUpdates.os_suite_too_old"
+            cl-type="warning"
+            cl-icon="alert"
+            cl-note="Cleep {{ $ctrl.cleepUpdates.version }} cannot be installed yet: update CleepOs first (OS updates tab)."
+        ></config-note>
+
         <config-button
             ng-if="$ctrl.cleepUpdates.updatable"
-            cl-disabled="$ctrl.cleepUpdates.processing || $ctrl.cleepUpdates.pending"
+            cl-disabled="$ctrl.cleepUpdates.processing || $ctrl.cleepUpdates.pending || $ctrl.osUpdates.blocks_cleep_update"
             cl-title="New Cleep version {{$ctrl.cleepUpdates.version}} is available"
             cl-btn-label="Update Cleep" cl-btn-icon="update" cl-btn-style="md-accent md-raised"
             cl-click="$ctrl.showCleepUpdateDialog($event)"
@@ -84,13 +97,42 @@
             cl-icon="information"
             cl-note="OS update {{ $ctrl.osUpdates.version }} is available."
         ></config-note>
+        <config-note
+            ng-if="$ctrl.osUpdates.os_suite_too_old"
+            cl-type="warning"
+            cl-icon="alert"
+            cl-note="This CleepOs suite ({{ $ctrl.osUpdates.suite }}) is below the minimum required ({{ $ctrl.osUpdates.min_suite }}). New Cleep installs are blocked until a major OS upgrade / reflash."
+        ></config-note>
+
+        <config-button
+            ng-if="$ctrl.osUpdates.updatable && !$ctrl.osUpdates.processing && !$ctrl.osUpdates.pending"
+            cl-title="Preview OS update (dry-run)"
+            cl-subtitle="Simulate apt on this device — no packages installed, no reboot"
+            cl-btn-label="Dry-run" cl-btn-icon="play-circle-outline"
+            cl-click="$ctrl.dryRunOs()"
+        ></config-button>
 
         <config-button
             ng-if="$ctrl.osUpdates.updatable && !$ctrl.osUpdates.processing && !$ctrl.osUpdates.pending"
             cl-title="Apply OS update to {{ $ctrl.osUpdates.version }}"
-            cl-subtitle="Device will reboot when the update completes"
+            cl-subtitle="A reboot button will appear in the top bar when the update completes"
             cl-btn-label="Update OS" cl-btn-icon="update" cl-btn-style="md-accent md-raised"
             cl-click="$ctrl.updateOs()"
+        ></config-button>
+
+        <config-button
+            ng-if="$ctrl.osDryRunPreview && $ctrl.osDryRunPreview.available && !$ctrl.osUpdates.processing"
+            cl-title="Last dry-run preview — {{ ($ctrl.osDryRunPreview.verdict || '?') | uppercase }}"
+            cl-subtitle="{{ $ctrl.osDryRunPreviewSubtitle() }}"
+            cl-btn-label="Show preview" cl-btn-icon="file-document-outline"
+            cl-click="$ctrl.showOsDryRunPreviewDialog($event)"
+        ></config-button>
+        <config-button
+            ng-if="($ctrl.osDryRunPreview && $ctrl.osDryRunPreview.available) || $ctrl.config.oslastdryrun"
+            cl-title="Last dry-run log"
+            cl-subtitle="{{ $ctrl.osDryRunLogSubtitle() }}"
+            cl-btn-label="Show log" cl-btn-icon="text-box-outline"
+            cl-click="$ctrl.showOsUpgradeLogDialog($event, true)"
         ></config-button>
 
         <config-progress
@@ -100,18 +142,28 @@
             cl-style="md-accent"
         ></config-progress>
 
+        <config-section
+            cl-title="Last OS apply attempt"
+            cl-icon="history"
+        ></config-section>
+        <config-button
+            cl-title="{{ $ctrl.osLastAttemptTitle || 'No OS apply attempt recorded yet' }}"
+            cl-subtitle="{{ $ctrl.osLastAttemptSubtitle || 'Saved in module config after each Apply' }}"
+            cl-btn-label="Show log" cl-btn-icon="file-document-outline"
+            cl-click="$ctrl.showOsUpgradeLogDialog($event, false)"
+        ></config-button>
         <config-note
-            ng-if="$ctrl.osUpdates.failed"
+            ng-if="$ctrl.osUpdates.failed || ($ctrl.config.oslastattempt && $ctrl.config.oslastattempt.state === 'failed' && !$ctrl.config.oslastattempt.dry_run)"
             cl-type="warning"
             cl-icon="alert"
-            cl-note="Last OS update failed. Check device logs for details."
+            cl-note="Last OS update failed{{ ($ctrl.osUpdates.error || $ctrl.config.oslastattempt.error) ? (': ' + ($ctrl.osUpdates.error || $ctrl.config.oslastattempt.error)) : '' }}."
         ></config-note>
 
         <config-note
-            ng-if="$ctrl.osUpdates.pending"
+            ng-if="$ctrl.osUpdates.pending || $ctrl.osUpdates.reboot_needed"
             cl-type="info"
             cl-icon="information"
-            cl-note="OS update applied. Device is rebooting..."
+            cl-note="OS update applied successfully. Use the reboot button in the top bar to finish loading the new packages."
         ></config-note>
 
         <config-note

@@ -25,6 +25,9 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
         self.osConfReport = null;
         self.osConfReportTitle = 'No OS conf report yet';
         self.osConfReportSubtitle = 'Generated after a successful OS upgrade when the option is enabled';
+        self.osDryRunPreview = null;
+        self.osLastAttemptTitle = '';
+        self.osLastAttemptSubtitle = '';
         self.moduleLogs = [];
         self.moduleUpdates = [];
         self.cleepInstallProgress = 'Updating Cleep...';
@@ -161,6 +164,97 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
             .then(function() {}, function() {});
         };
 
+        self._refreshOsLastAttemptLabels = function() {
+            var attempt = self.config.oslastattempt;
+            if (!attempt || !attempt.started_at || attempt.dry_run) {
+                self.osLastAttemptTitle = 'No OS apply attempt recorded yet';
+                self.osLastAttemptSubtitle = 'Apply will be saved here after it finishes';
+                return;
+            }
+            var when = attempt.finished_at || attempt.started_at;
+            var whenLabel = $filter('hrDatetime')(when);
+            var target = attempt.to_version || '?';
+            if (attempt.state === 'running') {
+                self.osLastAttemptTitle = 'Apply in progress (since ' + whenLabel + ')';
+                self.osLastAttemptSubtitle = 'Target ' + target;
+                return;
+            }
+            if (attempt.state === 'success') {
+                self.osLastAttemptTitle = 'Apply succeeded at ' + whenLabel;
+                self.osLastAttemptSubtitle = (attempt.from_version || '?') + ' → ' + target;
+                return;
+            }
+            self.osLastAttemptTitle = 'Apply failed at ' + whenLabel;
+            var detail = attempt.error || ('phase ' + (attempt.phase || '?'));
+            self.osLastAttemptSubtitle = detail;
+        };
+
+        self.osDryRunLogSubtitle = function() {
+            var attempt = (self.config && self.config.oslastdryrun) || null;
+            if (attempt && attempt.finished_at) {
+                return 'Saved at ' + $filter('hrDatetime')(attempt.finished_at);
+            }
+            if (attempt && attempt.started_at) {
+                return 'Started at ' + $filter('hrDatetime')(attempt.started_at);
+            }
+            return 'Separate file: /tmp/cleep/os-upgrade-dry-run.log';
+        };
+
+        self.requestOsReboot = function() {
+            toast.loading('Showing reboot button...');
+            updateService.showOsRebootButton()
+                .then(function(resp) {
+                    if (resp.error) {
+                        return;
+                    }
+                    toast.info('Use the reboot button in the top bar');
+                });
+        };
+
+        self.showOsUpgradeLogDialog = function($event, dryRun) {
+            var isDryRun = !!dryRun;
+            $mdDialog.show({
+                controller: function($mdDialog) {
+                    var dlg = this;
+                    dlg.logs = '';
+                    dlg.logPath = '';
+                    dlg.fromExcerpt = false;
+                    dlg.logsBlockui = blockUI.instances.get('logs-blockui');
+                    dlg.closeDialog = function() {
+                        $mdDialog.hide();
+                    };
+                },
+                controllerAs: '$ctrl',
+                templateUrl: 'logs.dialog.html',
+                parent: angular.element(document.body),
+                targetEvent: $event,
+                clickOutsideToClose: true,
+                fullscreen: true,
+                onShowing: function(scope, element, options, controller) {
+                    controller.logsBlockui.start();
+                    updateService.getOsUpgradeLogs(isDryRun)
+                        .then(function(resp) {
+                            if (resp.error) {
+                                controller.logs = resp.message || 'Unable to load OS upgrade log';
+                                return;
+                            }
+                            var data = resp.data || {};
+                            controller.logs = data.text || '';
+                            controller.logPath = data.path || '';
+                            controller.fromExcerpt = !!data.from_excerpt;
+                            if (data.from_excerpt) {
+                                controller.logs = '(Saved excerpt — log file no longer on device)\n\n'
+                                    + controller.logs;
+                            }
+                        })
+                        .finally(function() {
+                            controller.logsBlockui.stop();
+                        });
+                },
+            })
+            .then(function() {}, function() {});
+        };
+
         self._refreshOsCheckSubtitle = function() {
             var lastCheck = self.config.oslastcheck;
             var lastCheckLabel = lastCheck
@@ -182,6 +276,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
             updateService.checkOsUpdates()
                 .then(function(resp) {
                     if (resp.error) {
+                        toast.error(resp.message || 'OS update check failed');
                         return;
                     }
                     self.osUpdates = resp.data || {};
@@ -202,28 +297,124 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 })
                 .then(function() {
                     self._refreshOsCheckSubtitle();
+                })
+                .catch(function() {
+                    toast.error('OS update check failed');
                 });
         };
 
         self.updateOs = function() {
-            toast.loading('Starting OS update...');
+            toast.loading('Updating OS...');
             self.osUpdates.processing = true;
             self.osUpdates.failed = false;
+            self.osUpdates.dry_run = false;
             updateService.osUpdateStatus = 1;
             updateService.osUpdateProgress = 0;
-            self.osInstallProgress = 'Starting OS update...';
-            updateService.updateOs()
+            updateService.osUpdateDryRun = false;
+            self.osInstallProgress = 'Updating OS...';
+            updateService.updateOs(false)
                 .then(function(resp) {
                     if (resp.error) {
                         self.osUpdates.processing = false;
                         updateService.osUpdateStatus = 0;
+                        toast.error(resp.message || 'Unable to start OS update');
                     }
                 })
                 .catch(function() {
                     self.osUpdates.processing = false;
                     updateService.osUpdateStatus = 0;
                     updateService.osUpdateProgress = 0;
+                    toast.error('Unable to start OS update');
                 });
+        };
+
+        self.dryRunOs = function() {
+            toast.loading('Running OS dry-run...');
+            self.osUpdates.processing = true;
+            self.osUpdates.failed = false;
+            self.osUpdates.dry_run = true;
+            updateService.osUpdateStatus = 1;
+            updateService.osUpdateProgress = 0;
+            updateService.osUpdateDryRun = true;
+            self.osInstallProgress = 'Running OS dry-run...';
+            updateService.updateOs(true)
+                .then(function(resp) {
+                    if (resp.error) {
+                        self.osUpdates.processing = false;
+                        self.osUpdates.dry_run = false;
+                        updateService.osUpdateStatus = 0;
+                        updateService.osUpdateDryRun = false;
+                        toast.error(resp.message || 'Unable to start OS dry-run');
+                    }
+                })
+                .catch(function() {
+                    self.osUpdates.processing = false;
+                    self.osUpdates.dry_run = false;
+                    updateService.osUpdateStatus = 0;
+                    updateService.osUpdateProgress = 0;
+                    updateService.osUpdateDryRun = false;
+                    toast.error('Unable to start OS dry-run');
+                });
+        };
+
+        self._loadOsDryRunPreview = function() {
+            return updateService.getOsDryRunPreview()
+                .then(function(resp) {
+                    if (resp.error) {
+                        return null;
+                    }
+                    self.osDryRunPreview = (resp.data) || null;
+                    return self.osDryRunPreview;
+                });
+        };
+
+        self.osDryRunPreviewSubtitle = function() {
+            var preview = self.osDryRunPreview || {};
+            if (preview.summary) {
+                return preview.summary;
+            }
+            if (preview.target_version) {
+                return 'target ' + preview.target_version;
+            }
+            return 'Review findings before Apply';
+        };
+
+        self.showOsDryRunPreviewDialog = function($event) {
+            $mdDialog.show({
+                controller: function($mdDialog) {
+                    var dlg = this;
+                    dlg.previewText = '';
+                    dlg.verdict = null;
+                    dlg.findings = [];
+                    dlg.logsBlockui = blockUI.instances.get('os-dry-run-preview-blockui');
+                    dlg.closeDialog = function() {
+                        $mdDialog.hide();
+                    };
+                },
+                controllerAs: '$ctrl',
+                templateUrl: 'os-dry-run-preview.dialog.html',
+                parent: angular.element(document.body),
+                targetEvent: $event,
+                clickOutsideToClose: true,
+                fullscreen: true,
+                onShowing: function(scope, element, options, controller) {
+                    controller.logsBlockui.start();
+                    updateService.getOsDryRunPreview()
+                        .then(function(resp) {
+                            var preview = resp.data || {};
+                            controller.previewText = preview.text || preview.summary || '';
+                            controller.verdict = preview.verdict || null;
+                            controller.findings = preview.findings || [];
+                            if (preview.available) {
+                                self.osDryRunPreview = preview;
+                            }
+                        })
+                        .finally(function() {
+                            controller.logsBlockui.stop();
+                        });
+                },
+            })
+            .then(function() {}, function() {});
         };
 
         self.setAutomaticUpdate = function(value, meta) {
@@ -264,15 +455,16 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                     if (resp.error) {
                         return;
                     }
-                    
-                    cleepService.refreshModulesUpdates();
-                    if (resp.data.modulesupdates) {
-                        toast.success('There are applications updates available');
-                    } else {
-                        toast.info('No applications updates available');
-                    }
 
-                    return self.cleepService.reloadModuleConfig('update');
+                    return cleepService.refreshModulesUpdates()
+                        .then(function() {
+                            if (resp.data.modulesupdates) {
+                                toast.success('There are applications updates available');
+                            } else {
+                                toast.info('No applications updates available');
+                            }
+                            return self.cleepService.reloadModuleConfig('update');
+                        });
                 });
         };
 
@@ -349,9 +541,19 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 self.tabIndex = $location.search().tab;
             }
 
-            // load module config
+            // load module config (also carries osinfo/osupdates after reconnect)
             cleepService.getModuleConfig('update')
                 .then(function(config) {
+                    if (config) {
+                        if (config.osinfo) {
+                            self.osInfo = config.osinfo;
+                        }
+                        if (config.osupdates) {
+                            self.osUpdates = config.osupdates;
+                        }
+                        self._refreshOsCheckSubtitle();
+                        self._refreshOsLastAttemptLabels();
+                    }
                     return updateService.getCleepUpdates();
                 })
                 .then(function(resp) {
@@ -360,40 +562,69 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                     if (self.cleepUpdates.processing) {
                         updateService.cleepUpdateStatus = 1;
                     }
-                });
-
-            updateService.getOsInfo()
+                    // Fallback RPCs if config did not include OS fields (older backend)
+                    if (self.osInfo && self.osInfo.version) {
+                        self._loadOsConfReport();
+                        self._loadOsDryRunPreview();
+                        return null;
+                    }
+                    return updateService.getOsInfo();
+                })
                 .then(function(resp) {
+                    if (!resp) {
+                        return null;
+                    }
                     if (!resp.error) {
                         self.osInfo = resp.data || {};
                     }
                     return updateService.getOsUpdates();
                 })
                 .then(function(resp) {
-                    if (resp && !resp.error) {
+                    if (!resp) {
+                        return;
+                    }
+                    if (!resp.error) {
                         self.osUpdates = resp.data || self.osUpdates;
                     }
+                    if (self.osUpdates && self.osUpdates.processing) {
+                        var dryRun = !!self.osUpdates.dry_run;
+                        updateService.osUpdateStatus = self.osUpdates.status || 1;
+                        updateService.osUpdateProgress = self.osUpdates.progress || 0;
+                        updateService.osUpdatePhase = self.osUpdates.phase || null;
+                        updateService.osUpdateDryRun = dryRun;
+                        var label = self._osPhaseLabel(
+                            updateService.osUpdateProgress,
+                            updateService.osUpdatePhase
+                        );
+                        self.osInstallProgress = dryRun ? ('Dry-run: ' + label) : label;
+                    }
                     self._refreshOsCheckSubtitle();
-                    return self._loadOsConfReport();
+                    self._loadOsConfReport();
+                    self._loadOsDryRunPreview();
+                    self._refreshOsLastAttemptLabels();
                 });
 
             // refresh modules updates
             cleepService.refreshModulesUpdates();
 
-            // load modules logs
+            // load modules logs (deep-link ?tab=logs&app=<name> opens that app's log)
             updateService.getModulesLogs()
                 .then(function(resp) {
                     self.setModuleLogs(resp.data);
+                    var app = String($location.search().app || '').trim();
+                    if (self.tabIndex === 'logs' && app) {
+                        self.showLogsDialog(app);
+                    }
                 });
         };
 
         self.setModuleLogs = function (moduleLogs) {
-            self.moduleLogs.splice(0, self.moduleLogs.length);
-
-            for (const [moduleName, moduleLog] of Object.entries(moduleLogs)) {
+            // New array reference so config-list (`cl-items` one-way) re-renders.
+            const next = [];
+            for (const [moduleName, moduleLog] of Object.entries(moduleLogs || {})) {
                 const uninstalledStr = moduleLog.installed ? '' : 'Uninstalled - ';
                 const resultStr = moduleLog.failed ? 'failed' : 'succeed';
-                self.moduleLogs.push({
+                next.push({
                     title: moduleName,
                     subtitle: uninstalledStr + 'Last action ' + resultStr  + ' at ' + $filter('hrDatetime')(moduleLog.timestamp),
                     icon: moduleLog.installed ? 'chevron-right' : 'trash-can',
@@ -408,12 +639,13 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                     ],
                 });
             }
+            self.moduleLogs = next;
         };
 
         self.setModuleUpdates = function (moduleUpdates) {
-            self.moduleUpdates.splice(0, self.moduleUpdates.length);
-
-            for (const [moduleName, moduleUpdate] of Object.entries(moduleUpdates)) {
+            // New array reference so config-list (`cl-items` one-way) re-renders.
+            const next = [];
+            for (const [moduleName, moduleUpdate] of Object.entries(moduleUpdates || {})) {
                 const updatable = moduleUpdate.updatable;
                 const processing = moduleUpdate.processing;
                 const pending = moduleUpdate.pending;
@@ -430,7 +662,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                     subtitle = 'Update available: v' + moduleUpdate.update.version;
                 }
 
-                self.moduleUpdates.push({
+                next.push({
                     title: moduleName + ' v'+ moduleUpdate.version,
                     subtitle: subtitle,
                     clicks: [
@@ -449,6 +681,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                     ],
                 });
             }
+            self.moduleUpdates = next;
         };
 
         $rootScope.$watch(
@@ -465,10 +698,42 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
             (newVal) => {
                 if (newVal && Object.keys(newVal).length) {
                     Object.assign(self.config, newVal);
+                    // OS identity / updates come from get_module_config on reconnect
+                    if (newVal.osinfo) {
+                        self.osInfo = newVal.osinfo;
+                    }
+                    if (newVal.osupdates) {
+                        self.osUpdates = newVal.osupdates;
+                        if (self.osUpdates.processing) {
+                            var dryRun = !!self.osUpdates.dry_run;
+                            updateService.osUpdateStatus = self.osUpdates.status || 1;
+                            updateService.osUpdateProgress = self.osUpdates.progress || 0;
+                            updateService.osUpdatePhase = self.osUpdates.phase || null;
+                            updateService.osUpdateDryRun = dryRun;
+                            var label = self._osPhaseLabel(
+                                updateService.osUpdateProgress,
+                                updateService.osUpdatePhase
+                            );
+                            self.osInstallProgress = dryRun ? ('Dry-run: ' + label) : label;
+                        }
+                    }
                     self._refreshOsCheckSubtitle();
                     if (newVal.osconfreport) {
                         self.osConfReport = newVal.osconfreport;
                         self._refreshOsConfReportLabels();
+                    }
+                    if (newVal.oslastattempt || newVal.oslastdryrun !== undefined) {
+                        self._refreshOsLastAttemptLabels();
+                    }
+                    if (
+                        newVal.oslastattempt
+                        && newVal.oslastattempt.state === 'failed'
+                        && !newVal.oslastattempt.dry_run
+                        && self.osUpdates
+                    ) {
+                        self.osUpdates.failed = true;
+                        self.osUpdates.error = newVal.oslastattempt.error;
+                        self.osUpdates.log_path = newVal.oslastattempt.log_path;
                     }
                 }
             },
@@ -532,25 +797,67 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 if (newVal === undefined || newVal === null || !self.osUpdates) {
                     return;
                 }
+                var dryRun = !!updateService.osUpdateDryRun;
                 switch (newVal) {
                     case 1:
                         self.osInstallProgress = self._osPhaseLabel(
                             updateService.osUpdateProgress,
                             updateService.osUpdatePhase
                         );
+                        if (dryRun && self.osInstallProgress.indexOf('dry-run') < 0) {
+                            self.osInstallProgress = 'Dry-run: ' + self.osInstallProgress;
+                        }
                         self.osUpdates.processing = true;
+                        self.osUpdates.dry_run = dryRun;
                         break;
                     case 2:
-                        self.osInstallProgress = 'OS update completed';
                         self.osUpdates.processing = false;
-                        self.osUpdates.pending = true;
                         self.osUpdates.failed = false;
-                        self.osUpdates.updatable = false;
+                        self.osUpdates.dry_run = false;
+                        if (dryRun) {
+                            self.osInstallProgress = 'OS dry-run completed';
+                            self.osUpdates.pending = false;
+                            self._loadOsDryRunPreview()
+                                .then(function(preview) {
+                                    var verdict = (preview && preview.verdict) || null;
+                                    if (verdict === 'ko') {
+                                        toast.error('Dry-run verdict: KO — fix findings before Apply');
+                                    } else if (verdict === 'ok') {
+                                        toast.success('Dry-run verdict: OK — review preview then Apply');
+                                    } else {
+                                        toast.success('Dry-run completed — review the preview before Apply');
+                                    }
+                                    if (preview && preview.available) {
+                                        self.showOsDryRunPreviewDialog();
+                                    }
+                                });
+                        } else {
+                            self.osInstallProgress = 'OS update completed';
+                            self.osUpdates.pending = true;
+                            self.osUpdates.reboot_needed = true;
+                            self.osUpdates.updatable = false;
+                            toast.success('OS update completed — use the top-bar reboot button');
+                        }
+                        cleepService.reloadModuleConfig('update');
                         break;
                     case 3:
-                        self.osInstallProgress = 'OS update failed';
+                        self.osInstallProgress = dryRun ? 'OS dry-run failed' : 'OS update failed';
                         self.osUpdates.processing = false;
                         self.osUpdates.failed = true;
+                        self.osUpdates.dry_run = false;
+                        toast.error(
+                            dryRun
+                                ? 'OS dry-run failed — see device logs'
+                                : 'OS update failed — see /tmp/cleep/os-upgrade.log'
+                        );
+                        // Refresh cached fields (error / log_path) for the failure note
+                        updateService.getOsUpdates()
+                            .then(function(resp) {
+                                if (!resp.error && resp.data) {
+                                    self.osUpdates = resp.data;
+                                }
+                                return cleepService.reloadModuleConfig('update');
+                            });
                         break;
                     default:
                         self.osInstallProgress = 'Updating OS...';
@@ -562,10 +869,14 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
             () => updateService.osUpdateProgress,
             (newVal) => {
                 if (updateService.osUpdateStatus === 1) {
-                    self.osInstallProgress = self._osPhaseLabel(
+                    var label = self._osPhaseLabel(
                         newVal,
                         updateService.osUpdatePhase
                     );
+                    if (updateService.osUpdateDryRun) {
+                        label = 'Dry-run: ' + label;
+                    }
+                    self.osInstallProgress = label;
                 }
             },
         );
