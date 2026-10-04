@@ -4,11 +4,13 @@
 
 Update module for Cleep.
 
-This core application keeps your device up to date:
+This core application owns the full install/update/delete lifecycle:
 
-- **Applications** — check and install updates from the Cleep market
+- **Applications** — market catalog, install/uninstall/update (Modules + Market pages)
 - **Cleep** — upgrade the Cleep core package
 - **CleepOs** — apply minor system upgrades on the same Debian suite (for example bullseye → newer bullseye snapshot)
+
+Installed apps: `#!/module/update/applications` · Market: `#!/module/update/market`
 
 ## OS updates
 

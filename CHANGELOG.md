@@ -7,6 +7,7 @@
 - Implement OS update based on cleep-os playbooks and dry-run
 - Allow sending OS update report to Cleep team if enabled by user
 - General update/install improvements
+- Move install/update stuff from core to update app
 
 ### Fixed
 

@@ -14,8 +14,8 @@ from backend.updatemoduleuninstallevent import UpdateModuleUninstallEvent
 from backend.updatemoduleupdateevent import UpdateModuleUpdateEvent
 from cleep.exception import InvalidParameter, MissingParameter, CommandError, Unauthorized, CommandInfo
 from cleep.common import MessageResponse
-from cleep.libs.internals.installcleep import InstallCleep
-from cleep.libs.internals.install import Install
+from backend.install.installcleep import InstallCleep
+from backend.install.install import Install
 from unittest.mock import Mock, patch, MagicMock, call, PropertyMock, mock_open
 from cleep.libs.tests.common import get_log_level
 

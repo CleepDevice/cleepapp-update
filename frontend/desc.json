@@ -1,13 +1,46 @@
 {
     "icon": "update",
     "global": {
-        "js": ["update.service.js"],
+        "js": [
+            "update.service.js"
+        ],
         "html": [],
         "css": []
     },
     "config": {
-        "js": ["update.config.js"],
-        "html": ["update.config.html", "cleep-update.dialog.html", "logs.dialog.html", "os-conf-report.dialog.html", "os-dry-run-preview.dialog.html"]
+        "js": [
+            "update.config.js"
+        ],
+        "html": [
+            "update.config.html",
+            "cleep-update.dialog.html",
+            "logs.dialog.html",
+            "os-conf-report.dialog.html",
+            "os-dry-run-preview.dialog.html"
+        ]
+    },
+    "pages": {
+        "market": {
+            "core": true,
+            "html": [
+                "market.page.html",
+                "market-install.dialog.html",
+                "market-incompatible.dialog.html"
+            ],
+            "js": [
+                "market.page.js"
+            ]
+        },
+        "applications": {
+            "core": true,
+            "html": [
+                "applications.page.html",
+                "applications-update.dialog.html",
+                "applications-not-started.dialog.html"
+            ],
+            "js": [
+                "applications.page.js"
+            ]
+        }
     }
 }
-

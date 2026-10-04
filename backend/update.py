@@ -20,14 +20,23 @@ from cleep.exception import (
     CommandInfo,
 )
 from cleep.core import CleepModule
-from cleep.libs.internals.installmodule import PATH_INSTALL
-from cleep.libs.configs.appssources import AppsSources
 from cleep.libs.configs.cleepconf import CleepConf
-from cleep.libs.internals.cleepgithub import CleepGithub
-from cleep import __version__ as CLEEP_VERSION
-from cleep.libs.internals.installcleep import InstallCleep
-from cleep.libs.internals.install import Install
 from cleep.libs.internals.download import Download
+from cleep.common import CORE_MODULES
+from cleep import __version__ as CLEEP_VERSION
+
+try:
+    from .install.installmodule import PATH_INSTALL
+    from .install.appssources import AppsSources
+    from .install.cleepgithub import CleepGithub
+    from .install.installcleep import InstallCleep
+    from .install.install import Install
+except ImportError:  # pragma: no cover - flat import in tests / module loader
+    from install.installmodule import PATH_INSTALL
+    from install.appssources import AppsSources
+    from install.cleepgithub import CleepGithub
+    from install.installcleep import InstallCleep
+    from install.install import Install
 
 try:
     from .os_identity import get_os_identity
@@ -591,6 +600,57 @@ class Update(CleepModule):
 
         """
         return self._modules_updates
+
+    def get_market(self):
+        """
+        Return cached market catalog (does not force a remote refresh).
+
+        Returns:
+            dict: market content ``{ update (int), list (dict) }``
+        """
+        return self.apps_sources.get_market()
+
+    def get_installable_modules(self):
+        """
+        Return market applications that can be installed (or are libraries).
+
+        Returns:
+            dict: installable modules keyed by name (market metadata + runtime flags)
+        """
+        market = self.apps_sources.get_market()
+        resp = self.send_command("get_modules", "inventory", timeout=20)
+        installed = {} if resp.error or not resp.data else resp.data
+
+        modules_versions = {
+            name: mod.get("version", "0.0.0") for name, mod in installed.items()
+        }
+        modules_versions["cleep"] = CLEEP_VERSION
+
+        result = {}
+        for module_name, module_data in market.get("list", {}).items():
+            runtime = installed.get(module_name) or {}
+            is_installed = bool(runtime.get("installed"))
+            is_library = bool(runtime.get("library"))
+            # Keep libraries and not-installed apps in the installable catalog
+            if is_installed and not is_library:
+                continue
+            entry = copy.deepcopy(module_data)
+            compat = entry.get("compat", "")
+            entry.update(
+                {
+                    "name": module_name,
+                    "installed": is_installed,
+                    "library": is_library,
+                    "local": bool(runtime.get("local")),
+                    "core": module_name in CORE_MODULES,
+                    "compat": compat,
+                    "compatible": Tools.compare_compat_string(compat, modules_versions),
+                    "version": entry.get("version", "0.0.0"),
+                    "deps": entry.get("deps", []),
+                }
+            )
+            result[module_name] = entry
+        return result
 
     def get_cleep_updates(self):
         """
@@ -3169,6 +3229,50 @@ class Update(CleepModule):
                 self._cleanup_module_package(module_name)
             raise
 
+    def register_local_module(self, module_name):
+        """
+        Register a locally developed module already present on disk.
+
+        Used by the developer application after scaffolding a new app. Does not
+        download or unpack a package — only adds the module to CleepConf and
+        requests a Cleep restart.
+
+        Args:
+            module_name (str): module name
+
+        Returns:
+            bool: True if module was registered
+        """
+        if module_name is None or len(module_name) == 0:
+            raise MissingParameter('Parameter "module_name" is missing')
+        if self.cleep_conf.is_module_installed(module_name):
+            raise InvalidParameter(f'Module "{module_name}" is already installed')
+
+        try:
+            importlib.import_module(f"{self.PYTHON_CLEEP_IMPORT_PATH}{module_name}")
+        except ImportError as error:
+            raise InvalidParameter(
+                f'Module "{module_name}" was not found on disk'
+            ) from error
+
+        if not self.cleep_conf.install_module(module_name):
+            raise CommandError(f'Unable to register module "{module_name}"')
+
+        if module_name not in self._modules_updates:
+            self._modules_updates[module_name] = self.__get_module_update_data(
+                module_name, "0.0.0"
+            )
+        self._set_module_process(
+            progress=100, failed=False, pending=True, forced_module_name=module_name
+        )
+        self.module_install_event.send(
+            params={
+                "status": Install.STATUS_DONE,
+                "module": module_name,
+            }
+        )
+        self.cleep_need_restart_event.send()
+        return True
     def install_module(self, module_name, package=None, no_compatibility_check=False):
         """
         Install specified module.

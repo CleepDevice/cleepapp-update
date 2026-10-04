@@ -456,7 +456,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                         return;
                     }
 
-                    return cleepService.refreshModulesUpdates()
+                    return updateService.refreshModulesUpdates()
                         .then(function() {
                             if (resp.data.modulesupdates) {
                                 toast.success('There are applications updates available');
@@ -468,11 +468,11 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 });
         };
 
-        self.gotoModulesPage = function(moduleName) {
+        self.gotoApplicationsPage = function(moduleName) {
             if (!moduleName) {
                 return;
             }
-            $window.location.href = '#!/modules?app=' + moduleName;
+            $window.location.href = '#!/module/update/applications?app=' + moduleName;
         };
 
         self.closeDialog = function() {
@@ -605,7 +605,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                 });
 
             // refresh modules updates
-            cleepService.refreshModulesUpdates();
+            updateService.refreshModulesUpdates();
 
             // load modules logs (deep-link ?tab=logs&app=<name> opens that app's log)
             updateService.getModulesLogs()
@@ -676,7 +676,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
                                 ? 'md-accent md-raised'
                                 : '',
                             meta: { moduleName },
-                            click: self.gotoModulesPage,
+                            click: self.gotoApplicationsPage,
                         },
                     ],
                 });
@@ -685,7 +685,7 @@ function($rootScope, cleepService, updateService, $location, toast, $mdDialog, m
         };
 
         $rootScope.$watch(
-            () => cleepService.modulesUpdates,
+            () => updateService.modulesUpdates,
             (newVal) => {
                 if (newVal && Object.keys(newVal).length) {
                     self.setModuleUpdates(newVal);

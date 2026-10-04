@@ -1,6 +1,6 @@
 /**
  * Update service
- * Handle update application requests
+ * Owns market/installable catalog, modules update state, and update RPCs.
  */
 angular
 .module('Cleep')
@@ -14,6 +14,8 @@ function($q, $rootScope, rpcService) {
     self.osUpdateProgress = 0;
     self.osUpdatePhase = null;
     self.osUpdateDryRun = false;
+    self.modulesUpdates = {};
+    self.installableModules = {};
 
     self.updateOs = function(dryRun) {
         return rpcService.sendCommand('update_os', 'update', {
@@ -41,6 +43,53 @@ function($q, $rootScope, rpcService) {
 
     self.getModulesUpdates = function() {
         return rpcService.sendCommand('get_modules_updates', 'update');
+    };
+
+    self.refreshModulesUpdates = function() {
+        return self.getModulesUpdates()
+            .then(function(resp) {
+                if (!resp.error) {
+                    self.modulesUpdates = Object.assign({}, resp.data || {});
+                }
+                return self.modulesUpdates;
+            });
+    };
+
+    /**
+     * Apply a module install/update/uninstall event.
+     * Terminal statuses (DONE=2 / ERROR=3) re-fetch full state.
+     */
+    self.applyModulesUpdateEvent = function(params) {
+        if (!params || !params.module) {
+            return self.refreshModulesUpdates();
+        }
+        const status = Number(params.status);
+        if (status === 2 || status === 3) {
+            return self.refreshModulesUpdates();
+        }
+        const moduleName = params.module;
+        const current = self.modulesUpdates[moduleName] || {};
+        const next = Object.assign({}, current, params);
+        if (status === 1) {
+            next.processing = true;
+        }
+        self.modulesUpdates = Object.assign({}, self.modulesUpdates, {
+            [moduleName]: next,
+        });
+        return $q.resolve(self.modulesUpdates);
+    };
+
+    self.getInstallableModules = function(forceRefresh) {
+        if (Object.keys(self.installableModules).length > 0 && !forceRefresh) {
+            return $q.resolve(self.installableModules);
+        }
+        return rpcService.sendCommand('get_installable_modules', 'update')
+            .then(function(resp) {
+                if (!resp.error) {
+                    self.installableModules = Object.assign({}, resp.data || {});
+                }
+                return self.installableModules;
+            });
     };
 
     self.getCleepUpdates = function() {
@@ -110,8 +159,12 @@ function($q, $rootScope, rpcService) {
     self.uninstallModule = function(moduleName, force) {
         return rpcService.sendCommand('uninstall_module', 'update', {
             'module_name': moduleName,
-            'force': force,
+            'force': !!force,
         });
+    };
+
+    self.forceUninstallModule = function(moduleName) {
+        return self.uninstallModule(moduleName, true);
     };
 
     self.updateModule = function(moduleName) {
@@ -151,5 +204,16 @@ function($q, $rootScope, rpcService) {
         }
     });
 
-}]);
+    $rootScope.$on('update.module.install', function(event, uuid, params) {
+        self.applyModulesUpdateEvent(params);
+    });
 
+    $rootScope.$on('update.module.uninstall', function(event, uuid, params) {
+        self.applyModulesUpdateEvent(params);
+    });
+
+    $rootScope.$on('update.module.update', function(event, uuid, params) {
+        self.applyModulesUpdateEvent(params);
+    });
+
+}]);
