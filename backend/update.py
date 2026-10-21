@@ -26,13 +26,13 @@ from cleep.common import CORE_MODULES
 from cleep import __version__ as CLEEP_VERSION
 
 try:
-    from .install.installmodule import PATH_INSTALL
+    from .install.install_app import PATH_INSTALL
     from .install.appssources import AppsSources
     from .install.cleepgithub import CleepGithub
     from .install.installcleep import InstallCleep
     from .install.install import Install
 except ImportError:  # pragma: no cover - flat import in tests / module loader
-    from install.installmodule import PATH_INSTALL
+    from install.install_app import PATH_INSTALL
     from install.appssources import AppsSources
     from install.cleepgithub import CleepGithub
     from install.installcleep import InstallCleep
@@ -414,7 +414,9 @@ class Update(CleepModule):
         try:
             os_info = get_os_identity()
         except (ValueError, OSError):
-            self.logger.debug("Unable to read CleepOs identity for module config", exc_info=True)
+            self.logger.debug(
+                "Unable to read CleepOs identity for module config", exc_info=True
+            )
 
         config.update(
             {
@@ -1049,7 +1051,9 @@ class Update(CleepModule):
         now = int(time.time())
         if not log_path:
             log_path = (
-                OsUpgradeRunner.DRY_RUN_LOG_PATH if dry_run else OsUpgradeRunner.LOG_PATH
+                OsUpgradeRunner.DRY_RUN_LOG_PATH
+                if dry_run
+                else OsUpgradeRunner.LOG_PATH
             )
         record = {
             "state": state,
@@ -1062,7 +1066,9 @@ class Update(CleepModule):
             "log_path": log_path,
             "started_at": previous.get("started_at") or now,
             "finished_at": now if finished else None,
-            "reboot_needed": previous.get("reboot_needed", False) if not dry_run else False,
+            "reboot_needed": (
+                previous.get("reboot_needed", False) if not dry_run else False
+            ),
             "reboot_triggered": (
                 previous.get("reboot_triggered", False) if not dry_run else False
             ),
@@ -1226,9 +1232,7 @@ class Update(CleepModule):
         dry_run = bool(dry_run)
         field = self._os_attempt_config_field(dry_run)
         last = self._get_config_field(field) or {}
-        path = (
-            OsUpgradeRunner.DRY_RUN_LOG_PATH if dry_run else OsUpgradeRunner.LOG_PATH
-        )
+        path = OsUpgradeRunner.DRY_RUN_LOG_PATH if dry_run else OsUpgradeRunner.LOG_PATH
         allowed = (
             OsUpgradeRunner.LOG_PATH,
             OsUpgradeRunner.DRY_RUN_LOG_PATH,
@@ -1332,11 +1336,11 @@ class Update(CleepModule):
 
         display_text = text
         if analysis and text and "=== assessment ===" not in text:
-            display_text = (text.rstrip() + "\n\n" + format_analysis_section(analysis))
+            display_text = text.rstrip() + "\n\n" + format_analysis_section(analysis)
         elif analysis and not text and summary:
-            display_text = (
-                "=== apt summary ===\n%s\n\n%s"
-                % (summary, format_analysis_section(analysis))
+            display_text = "=== apt summary ===\n%s\n\n%s" % (
+                summary,
+                format_analysis_section(analysis),
             )
 
         cached = self._os_dry_run_preview or {}
@@ -2152,13 +2156,10 @@ class Update(CleepModule):
         resp = self.send_command("get_modules", "inventory", timeout=20)
         if resp.error:
             raise Exception("Unable to get modules list from inventory")
-        inventory_modules = resp.data
 
         # save modules
         modules = {}
-        installed_modules = {
-            k: v for (k, v) in inventory_modules.items() if v["installed"]
-        }
+        installed_modules = {k: v for (k, v) in resp.data.items() if v["installed"]}
         for module_name, module in installed_modules.items():
             modules[module_name] = self.__get_module_update_data(
                 module_name, module.get("version", "0.0.0")
@@ -3273,6 +3274,7 @@ class Update(CleepModule):
         )
         self.cleep_need_restart_event.send()
         return True
+
     def install_module(self, module_name, package=None, no_compatibility_check=False):
         """
         Install specified module.
@@ -3364,9 +3366,7 @@ class Update(CleepModule):
 
         elif status["status"] == Install.STATUS_ERROR:
             # set main action failed
-            self._set_module_process(
-                failed=True, forced_module_name=status["module"]
-            )
+            self._set_module_process(failed=True, forced_module_name=status["module"])
             self._store_process_status(status, success=False)
 
         # handle end of process
@@ -3588,9 +3588,7 @@ class Update(CleepModule):
 
         elif status["status"] == Install.STATUS_ERROR:
             # set main action failed
-            self._set_module_process(
-                failed=True, forced_module_name=status["module"]
-            )
+            self._set_module_process(failed=True, forced_module_name=status["module"])
             self._store_process_status(status, success=False)
 
         # handle end of process
@@ -3751,9 +3749,7 @@ class Update(CleepModule):
             self.logger.info('Module "%s" is already up to date', module_name)
             return False
         if self._modules_updates[module_name].get("processing"):
-            raise CommandInfo(
-                f'Module "{module_name}" update is already in progress'
-            )
+            raise CommandInfo(f'Module "{module_name}" update is already in progress')
 
         # postpone update
         self._acquire_update_lock()

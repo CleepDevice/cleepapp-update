@@ -1,9 +1,11 @@
 # Changelog
 
-## [1.6.0] - 2026-09-30
+## [Unreleased]
 
 ### Added
 
+- Declarative phase manifests `scripts/{pre,post}{inst,uninst}.json` (apt/pip/bin/chmod) only — no shell install scripts
+- Use `CleepModule.app_paths_for()` for APP_* dirs (single source of truth in core)
 - Implement OS update based on cleep-os playbooks and dry-run
 - Allow sending OS update report to Cleep team if enabled by user
 - General update/install improvements
@@ -15,11 +17,6 @@
 - App update/install/uninstall failure always clears `processing` state
 - Reject update/uninstall RPC while the same module is already processing
 - Deep-link `?tab=logs&app=<name>` opens that application's last update log dialog
-
-## [1.5.0] - 2026-09-28
-
-### Fixed
-
 - If Cleep update enabled, never update applications
 - Disabling auto update while updates were in progress will block later updates
 - Send event to UI to say action is terminated
@@ -34,6 +31,9 @@
 
 ### Changed
 
+- Drop dead `prescript`/`postscript` keys from install/uninstall status API (phase JSON only)
+- Capture apt/pip console stdout/stderr on phase failure into process status / failure log (and Sentry extra)
+- Rename `installmodule.py` → `install_app.py`, `install_manifest.py` → `install_app_manifest.py`
 - Add lock to avoid concurrency issues (for example simultaneous install and update)
 - Implement progress during cleep update
 - FS check before install

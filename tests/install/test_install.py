@@ -504,74 +504,20 @@ class InstallTests(unittest.TestCase):
         self.i._Install__callback_install_module({
             'module': 'dummy',
             'status': INSTALLMODULE_STATUS_INSTALLED,
-            'prescript': {
-                'returncode': 0,
-                'stdout': ['stdout-pre'],
-                'stderr': ['stderr-pre'],
-            },
-            'postscript': {
-                'returncode': 0,
-                'stdout': ['stdout-post'],
-                'stderr': ['stderr-post'],
-            },
             'updateprocess': False,
             'process': process,
+            'stdout': ['out-line'],
+            'stderr': ['err-line'],
         })
 
         self.assertEqual(self.i.status, Install.STATUS_DONE)
-        stdout = [
-            'Pre-install script stdout:', 'stdout-pre', 'Pre-install script return code: 0',
-            '',
-            'Post-install script stdout:', 'stdout-post', 'Post-install script return code: 0',
-        ]
-        stderr = [
-            'Pre-install script stderr:', 'stderr-pre',
-            '',
-            'Post-install script stderr:', 'stderr-post',
-        ]
-        self.assertListEqual(self.i.stdout, stdout)
-        self.assertListEqual(self.i.stderr, stderr)
+        self.assertListEqual(self.i.stdout, ['out-line'])
+        self.assertListEqual(self.i.stderr, ['err-line'])
         self.status_callback.assert_called_with({
             'module': 'dummy',
             'status': Install.STATUS_DONE,
-            'stdout': stdout,
-            'stderr': stderr,
-            'process': process,
-            'updateprocess': False,
-            'extra': None,
-        })
-
-    def test_callback_install_module_no_output(self):
-        self.init_lib()
-
-        process = ['process1', 'process2'],
-        self.i._Install__callback_install_module({
-            'module': 'dummy',
-            'status': INSTALLMODULE_STATUS_INSTALLED,
-            'prescript': {
-                'returncode': None,
-                'stdout': ['stdout-pre'],
-                'stderr': ['stderr-pre'],
-            },
-            'postscript': {
-                'returncode': None,
-                'stdout': ['stdout-post'],
-                'stderr': ['stderr-post'],
-            },
-            'updateprocess': False,
-            'process': process,
-        })
-
-        stdout = ['No pre-install script', 'No post-install script']
-        stderr = ['No pre-install script', 'No post-install script']
-        self.assertEqual(self.i.status, Install.STATUS_DONE)
-        self.assertListEqual(self.i.stdout, stdout)
-        self.assertListEqual(self.i.stderr, stderr)
-        self.status_callback.assert_called_with({
-            'module': 'dummy',
-            'status': Install.STATUS_DONE,
-            'stdout': stdout,
-            'stderr': stderr,
+            'stdout': ['out-line'],
+            'stderr': ['err-line'],
             'process': process,
             'updateprocess': False,
             'extra': None,
@@ -584,16 +530,6 @@ class InstallTests(unittest.TestCase):
         self.i._Install__callback_install_module({
             'module': 'dummy',
             'status': INSTALLMODULE_STATUS_IDLE,
-            'prescript': {
-                'returncode': 0,
-                'stdout': ['stdout-pre'],
-                'stderr': ['stderr-pre'],
-            },
-            'postscript': {
-                'returncode': 0,
-                'stdout': ['stdout-post'],
-                'stderr': ['stderr-post'],
-            },
             'updateprocess': False,
             'process': process,
         })
@@ -607,16 +543,6 @@ class InstallTests(unittest.TestCase):
         self.i._Install__callback_install_module({
             'module': 'dummy',
             'status': INSTALLMODULE_STATUS_INSTALLING,
-            'prescript': {
-                'returncode': 0,
-                'stdout': ['stdout-pre'],
-                'stderr': ['stderr-pre'],
-            },
-            'postscript': {
-                'returncode': 0,
-                'stdout': ['stdout-post'],
-                'stderr': ['stderr-post'],
-            },
             'updateprocess': False,
             'process': process,
         })
@@ -630,16 +556,6 @@ class InstallTests(unittest.TestCase):
         self.i._Install__callback_install_module({
             'module': 'dummy',
             'status': INSTALLMODULE_STATUS_ERROR_INTERNAL,
-            'prescript': {
-                'returncode': 0,
-                'stdout': ['stdout-pre'],
-                'stderr': ['stderr-pre'],
-            },
-            'postscript': {
-                'returncode': 0,
-                'stdout': ['stdout-post'],
-                'stderr': ['stderr-post'],
-            },
             'updateprocess': False,
             'process': process,
         })
@@ -759,73 +675,20 @@ class InstallTests(unittest.TestCase):
         self.i._Install__callback_uninstall_module({
             'module': 'dummy',
             'status': UNINSTALLMODULE_STATUS_UNINSTALLED,
-            'prescript': {
-                'returncode': 0,
-                'stdout': ['stdout-pre'],
-                'stderr': ['stderr-pre'],
-            },
-            'postscript': {
-                'returncode': 0,
-                'stdout': ['stdout-post'],
-                'stderr': ['stderr-post'],
-            },
             'updateprocess': False,
             'process': process,
+            'stdout': ['out-line'],
+            'stderr': ['err-line'],
         })
 
         self.assertEqual(self.i.status, Install.STATUS_DONE)
-        stdout = [
-            'Pre-uninstall script stdout:', 'stdout-pre', 'Pre-uninstall script return code: 0',
-            '',
-            'Post-uninstall script stdout:', 'stdout-post', 'Post-uninstall script return code: 0',
-        ]
-        stderr = [
-            'Pre-uninstall script stderr:', 'stderr-pre',
-            '',
-            'Post-uninstall script stderr:', 'stderr-post',
-        ]
-        self.assertListEqual(self.i.stdout, stdout)
-        self.assertListEqual(self.i.stderr, stderr)
+        self.assertListEqual(self.i.stdout, ['out-line'])
+        self.assertListEqual(self.i.stderr, ['err-line'])
         self.status_callback.assert_called_with({
             'module': 'dummy',
             'status': Install.STATUS_DONE,
-            'stdout': stdout,
-            'stderr': stderr,
-            'process': process,
-            'updateprocess': False,
-        })
-
-    def test_callback_uninstall_module_no_output(self):
-        self.init_lib()
-
-        process = ['process1', 'process2'],
-        self.i._Install__callback_uninstall_module({
-            'module': 'dummy',
-            'status': UNINSTALLMODULE_STATUS_UNINSTALLED,
-            'prescript': {
-                'returncode': None,
-                'stdout': ['stdout-pre'],
-                'stderr': ['stderr-pre'],
-            },
-            'postscript': {
-                'returncode': None,
-                'stdout': ['stdout-post'],
-                'stderr': ['stderr-post'],
-            },
-            'updateprocess': False,
-            'process': process,
-        })
-
-        stdout = ['No pre-uninstall script', 'No post-uninstall script']
-        stderr = ['No pre-uninstall script', 'No post-uninstall script']
-        self.assertEqual(self.i.status, Install.STATUS_DONE)
-        self.assertListEqual(self.i.stdout, stdout)
-        self.assertListEqual(self.i.stderr, stderr)
-        self.status_callback.assert_called_with({
-            'module': 'dummy',
-            'status': Install.STATUS_DONE,
-            'stdout': stdout,
-            'stderr': stderr,
+            'stdout': ['out-line'],
+            'stderr': ['err-line'],
             'process': process,
             'updateprocess': False,
         })
@@ -837,16 +700,6 @@ class InstallTests(unittest.TestCase):
         self.i._Install__callback_uninstall_module({
             'module': 'dummy',
             'status': UNINSTALLMODULE_STATUS_IDLE,
-            'prescript': {
-                'returncode': 0,
-                'stdout': ['stdout-pre'],
-                'stderr': ['stderr-pre'],
-            },
-            'postscript': {
-                'returncode': 0,
-                'stdout': ['stdout-post'],
-                'stderr': ['stderr-post'],
-            },
             'updateprocess': False,
             'process': process,
         })
@@ -860,16 +713,6 @@ class InstallTests(unittest.TestCase):
         self.i._Install__callback_uninstall_module({
             'module': 'dummy',
             'status': UNINSTALLMODULE_STATUS_UNINSTALLING,
-            'prescript': {
-                'returncode': 0,
-                'stdout': ['stdout-pre'],
-                'stderr': ['stderr-pre'],
-            },
-            'postscript': {
-                'returncode': 0,
-                'stdout': ['stdout-post'],
-                'stderr': ['stderr-post'],
-            },
             'updateprocess': False,
             'process': process,
         })
@@ -883,16 +726,6 @@ class InstallTests(unittest.TestCase):
         self.i._Install__callback_uninstall_module({
             'module': 'dummy',
             'status': UNINSTALLMODULE_STATUS_ERROR_INTERNAL,
-            'prescript': {
-                'returncode': 0,
-                'stdout': ['stdout-pre'],
-                'stderr': ['stderr-pre'],
-            },
-            'postscript': {
-                'returncode': 0,
-                'stdout': ['stdout-post'],
-                'stderr': ['stderr-post'],
-            },
             'updateprocess': False,
             'process': process,
         })
@@ -1070,109 +903,25 @@ class InstallTests(unittest.TestCase):
             'module': 'dummy',
             'status': UPDATEMODULE_STATUS_UPDATED,
             'uninstall': {
-                'prescript': {
-                    'returncode': 0,
-                    'stdout': ['uninst-stdout-pre'],
-                    'stderr': ['uninst-stderr-pre'],
-                },
-                'postscript': {
-                    'returncode': 0,
-                    'stdout': ['uninst-stdout-post'],
-                    'stderr': ['uninst-stderr-post'],
-                },
                 'process': process_uninst,
+                'stdout': ['u-out'],
+                'stderr': ['u-err'],
             },
             'install': {
-                'prescript': {
-                    'returncode': 0,
-                    'stdout': ['inst-stdout-pre'],
-                    'stderr': ['inst-stderr-pre'],
-                },
-                'postscript': {
-                    'returncode': 0,
-                    'stdout': ['inst-stdout-post'],
-                    'stderr': ['inst-stderr-post'],
-                },
                 'process': process_inst,
+                'stdout': ['i-out'],
+                'stderr': ['i-err'],
             },
         })
 
         self.assertEqual(self.i.status, Install.STATUS_DONE)
-        stdout = [
-            'Pre-uninstall script stdout:', 'uninst-stdout-pre', 'Pre-uninstall script return code: 0',
-            '',
-            'Post-uninstall script stdout:', 'uninst-stdout-post', 'Post-uninstall script return code: 0',
-            '',
-            'Pre-install script stdout:', 'inst-stdout-pre', 'Pre-install script return code: 0',
-            '',
-            'Post-install script stdout:', 'inst-stdout-post', 'Post-install script return code: 0',
-        ]
-        stderr = [
-            'Pre-uninstall script stderr:', 'uninst-stderr-pre',
-            '',
-            'Post-uninstall script stderr:', 'uninst-stderr-post',
-            '',
-            'Pre-install script stderr:', 'inst-stderr-pre',
-            '',
-            'Post-install script stderr:', 'inst-stderr-post',
-        ]
-        self.maxDiff = None
-        self.assertListEqual(self.i.stdout, stdout)
-        self.assertListEqual(self.i.stderr, stderr)
+        self.assertListEqual(self.i.stdout, ['u-out', 'i-out'])
+        self.assertListEqual(self.i.stderr, ['u-err', 'i-err'])
         self.status_callback.assert_called_with({
             'module': 'dummy',
             'status': Install.STATUS_DONE,
-            'stdout': stdout,
-            'stderr': stderr,
-            'process': ['Uninstall process:'] + process_uninst + ['', 'Install process:'] + process_inst,
-        })
-
-    def test_callback_update_module_no_output(self):
-        self.init_lib()
-
-        process_uninst = ['uninst1', 'uninst2']
-        process_inst = ['inst1', 'inst2']
-        self.i._Install__callback_update_module({
-            'module': 'dummy',
-            'status': UPDATEMODULE_STATUS_UPDATED,
-            'uninstall': {
-                'prescript': {
-                    'returncode': None,
-                    'stdout': ['uninst-stdout-pre'],
-                    'stderr': ['uninst-stderr-pre'],
-                },
-                'postscript': {
-                    'returncode': None,
-                    'stdout': ['uninst-stdout-post'],
-                    'stderr': ['uninst-stderr-post'],
-                },
-                'process': process_uninst,
-            },
-            'install': {
-                'prescript': {
-                    'returncode': None,
-                    'stdout': ['inst-stdout-pre'],
-                    'stderr': ['inst-stderr-pre'],
-                },
-                'postscript': {
-                    'returncode': None,
-                    'stdout': ['inst-stdout-post'],
-                    'stderr': ['inst-stderr-post'],
-                },
-                'process': process_inst,
-            },
-        })
-
-        stdout = ['No pre-uninstall script', 'No post-uninstall script', 'No pre-install script', 'No post-install script']
-        stderr = ['No pre-uninstall script', 'No post-uninstall script', 'No pre-install script', 'No post-install script']
-        self.assertEqual(self.i.status, Install.STATUS_DONE)
-        self.assertListEqual(self.i.stdout, stdout)
-        self.assertListEqual(self.i.stderr, stderr)
-        self.status_callback.assert_called_with({
-            'module': 'dummy',
-            'status': Install.STATUS_DONE,
-            'stdout': stdout,
-            'stderr': stderr,
+            'stdout': ['u-out', 'i-out'],
+            'stderr': ['u-err', 'i-err'],
             'process': ['Uninstall process:'] + process_uninst + ['', 'Install process:'] + process_inst,
         })
 
@@ -1185,29 +934,9 @@ class InstallTests(unittest.TestCase):
             'module': 'dummy',
             'status': UPDATEMODULE_STATUS_IDLE,
             'uninstall': {
-                'prescript': {
-                    'returncode': 0,
-                    'stdout': ['uninst-stdout-pre'],
-                    'stderr': ['uninst-stderr-pre'],
-                },
-                'postscript': {
-                    'returncode': 0,
-                    'stdout': ['uninst-stdout-post'],
-                    'stderr': ['uninst-stderr-post'],
-                },
                 'process': process_uninst,
             },
             'install': {
-                'prescript': {
-                    'returncode': 0,
-                    'stdout': ['inst-stdout-pre'],
-                    'stderr': ['inst-stderr-pre'],
-                },
-                'postscript': {
-                    'returncode': 0,
-                    'stdout': ['inst-stdout-post'],
-                    'stderr': ['inst-stderr-post'],
-                },
                 'process': process_inst,
             },
         })
@@ -1223,29 +952,9 @@ class InstallTests(unittest.TestCase):
             'module': 'dummy',
             'status': UPDATEMODULE_STATUS_UPDATING,
             'uninstall': {
-                'prescript': {
-                    'returncode': 0,
-                    'stdout': ['uninst-stdout-pre'],
-                    'stderr': ['uninst-stderr-pre'],
-                },
-                'postscript': {
-                    'returncode': 0,
-                    'stdout': ['uninst-stdout-post'],
-                    'stderr': ['uninst-stderr-post'],
-                },
                 'process': process_uninst,
             },
             'install': {
-                'prescript': {
-                    'returncode': 0,
-                    'stdout': ['inst-stdout-pre'],
-                    'stderr': ['inst-stderr-pre'],
-                },
-                'postscript': {
-                    'returncode': 0,
-                    'stdout': ['inst-stdout-post'],
-                    'stderr': ['inst-stderr-post'],
-                },
                 'process': process_inst,
             },
         })
@@ -1261,29 +970,9 @@ class InstallTests(unittest.TestCase):
             'module': 'dummy',
             'status': UPDATEMODULE_STATUS_ERROR,
             'uninstall': {
-                'prescript': {
-                    'returncode': 0,
-                    'stdout': ['uninst-stdout-pre'],
-                    'stderr': ['uninst-stderr-pre'],
-                },
-                'postscript': {
-                    'returncode': 0,
-                    'stdout': ['uninst-stdout-post'],
-                    'stderr': ['uninst-stderr-post'],
-                },
                 'process': process_uninst,
             },
             'install': {
-                'prescript': {
-                    'returncode': 0,
-                    'stdout': ['inst-stdout-pre'],
-                    'stderr': ['inst-stderr-pre'],
-                },
-                'postscript': {
-                    'returncode': 0,
-                    'stdout': ['inst-stdout-post'],
-                    'stderr': ['inst-stderr-post'],
-                },
                 'process': process_inst,
             },
         })
