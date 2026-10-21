@@ -5,12 +5,20 @@ import logging
 import os
 from gevent import sleep
 from cleep.libs.internals.console import EndlessConsole
-from .installmodule import (
-    InstallModule,
-    UninstallModule,
-    UpdateModule,
-)
-from .installdeb import InstallDeb
+try:
+    from .install_app import (
+        InstallModule,
+        UninstallModule,
+        UpdateModule,
+    )
+    from .installdeb import InstallDeb
+except ImportError:  # pragma: no cover - flat test / module-loader imports
+    from install_app import (
+        InstallModule,
+        UninstallModule,
+        UpdateModule,
+    )
+    from installdeb import InstallDeb
 from cleep.exception import MissingParameter, InvalidParameter
 
 __all__ = ["Install"]
@@ -388,10 +396,10 @@ class Install:
                 {
                     module (string): module name
                     status (int): module process status
-                    prescript (dict): {stderr, stdout, returncode}
-                    postscript (dict): {stderr, stdout, returncode}
                     updateprocess (bool): uninstall triggered by module update
                     process (list): process status
+                    stdout (list): console stdout from failed commands
+                    stderr (list): console stderr from failed commands
                 }
 
         """
@@ -406,41 +414,10 @@ class Install:
         else:
             self.status = self.STATUS_ERROR
 
-        # save stdout/stderr at end of process
+        # keep console output for process_failure / process_success logs
         if self.status in (self.STATUS_DONE, self.STATUS_ERROR):
-            # prescript
-            if status["prescript"]["returncode"] is not None:
-                self.stdout += (
-                    ["Pre-install script stdout:"]
-                    + status["prescript"]["stdout"]
-                    + [
-                        "Pre-install script return code: %s"
-                        % status["prescript"]["returncode"]
-                    ]
-                )
-                self.stderr += ["Pre-install script stderr:"] + status["prescript"][
-                    "stderr"
-                ]
-            else:
-                self.stdout += ["No pre-install script"]
-                self.stderr += ["No pre-install script"]
-
-            # postscript
-            if status["postscript"]["returncode"] is not None:
-                self.stdout += (
-                    ["", "Post-install script stdout:"]
-                    + status["postscript"]["stdout"]
-                    + [
-                        "Post-install script return code: %s"
-                        % status["postscript"]["returncode"]
-                    ]
-                )
-                self.stderr += ["", "Post-install script stderr:"] + status[
-                    "postscript"
-                ]["stderr"]
-            else:
-                self.stdout += ["No post-install script"]
-                self.stderr += ["No post-install script"]
+            self.stdout = list(status.get("stdout") or [])
+            self.stderr = list(status.get("stderr") or [])
 
         # send status
         if self.status_callback:
@@ -520,9 +497,10 @@ class Install:
                 {
                     module (string): module name
                     status (int): module process status
-                    prescript (dict): {stderr, stdout, returncode}
-                    postscript (dict): {stderr, stdout, returncode}
                     updateprocess (bool): uninstall triggered by module update
+                    process (list): process status
+                    stdout (list): console stdout from failed commands
+                    stderr (list): console stderr from failed commands
                 }
 
         """
@@ -536,41 +514,10 @@ class Install:
         else:
             self.status = self.STATUS_ERROR
 
-        # save stdout/stderr at end of process
+        # keep console output for process_failure / process_success logs
         if self.status in (self.STATUS_DONE, self.STATUS_ERROR):
-            # prescript
-            if status["prescript"]["returncode"] is not None:
-                self.stdout += (
-                    ["Pre-uninstall script stdout:"]
-                    + status["prescript"]["stdout"]
-                    + [
-                        "Pre-uninstall script return code: %s"
-                        % status["prescript"]["returncode"]
-                    ]
-                )
-                self.stderr += ["Pre-uninstall script stderr:"] + status["prescript"][
-                    "stderr"
-                ]
-            else:
-                self.stdout += ["No pre-uninstall script"]
-                self.stderr += ["No pre-uninstall script"]
-
-            # postscript
-            if status["postscript"]["returncode"] is not None:
-                self.stdout += (
-                    ["", "Post-uninstall script stdout:"]
-                    + status["postscript"]["stdout"]
-                    + [
-                        "Post-uninstall script return code: %s"
-                        % status["postscript"]["returncode"]
-                    ]
-                )
-                self.stderr += ["", "Post-uninstall script stderr:"] + status[
-                    "postscript"
-                ]["stderr"]
-            else:
-                self.stdout += ["No post-uninstall script"]
-                self.stderr += ["No post-uninstall script"]
+            self.stdout = list(status.get("stdout") or [])
+            self.stderr = list(status.get("stderr") or [])
 
         # send status
         if self.status_callback:
@@ -648,8 +595,8 @@ class Install:
                 {
                     module (string): module name
                     status (int): module process status
-                    uninstall (dict): {status, prescript, postscript}
-                    install (dict): {status, prescript, postscript}
+                    uninstall (dict): {status, process, stdout, stderr, ...}
+                    install (dict): {status, process, stdout, stderr, ...}
                 }
 
         """
@@ -663,83 +610,22 @@ class Install:
         else:
             self.status = self.STATUS_ERROR
 
-        # save install/uninstall status at end of process
+        # aggregate process / console logs at end of update
         process = ["No process output"]
         if self.status in (self.STATUS_DONE, self.STATUS_ERROR):
-            # uninstall prescript
-            if status["uninstall"]["prescript"]["returncode"] is not None:
-                self.stdout += (
-                    ["Pre-uninstall script stdout:"]
-                    + status["uninstall"]["prescript"]["stdout"]
-                    + [
-                        "Pre-uninstall script return code: %s"
-                        % status["uninstall"]["prescript"]["returncode"]
-                    ]
-                )
-                self.stderr += ["Pre-uninstall script stderr:"] + status["uninstall"][
-                    "prescript"
-                ]["stderr"]
-            else:
-                self.stdout += ["No pre-uninstall script"]
-                self.stderr += ["No pre-uninstall script"]
-
-            # uninstall postscript
-            if status["uninstall"]["postscript"]["returncode"] is not None:
-                self.stdout += (
-                    ["", "Post-uninstall script stdout:"]
-                    + status["uninstall"]["postscript"]["stdout"]
-                    + [
-                        "Post-uninstall script return code: %s"
-                        % status["uninstall"]["postscript"]["returncode"]
-                    ]
-                )
-                self.stderr += ["", "Post-uninstall script stderr:"] + status[
-                    "uninstall"
-                ]["postscript"]["stderr"]
-            else:
-                self.stdout += ["No post-uninstall script"]
-                self.stderr += ["No post-uninstall script"]
-
-            # install prescript
-            if status["install"]["prescript"]["returncode"] is not None:
-                self.stdout += (
-                    ["", "Pre-install script stdout:"]
-                    + status["install"]["prescript"]["stdout"]
-                    + [
-                        "Pre-install script return code: %s"
-                        % status["install"]["prescript"]["returncode"]
-                    ]
-                )
-                self.stderr += ["", "Pre-install script stderr:"] + status["install"][
-                    "prescript"
-                ]["stderr"]
-            else:
-                self.stdout += ["No pre-install script"]
-                self.stderr += ["No pre-install script"]
-
-            # install postscript
-            if status["install"]["postscript"]["returncode"] is not None:
-                self.stdout += (
-                    ["", "Post-install script stdout:"]
-                    + status["install"]["postscript"]["stdout"]
-                    + [
-                        "Post-install script return code: %s"
-                        % status["install"]["postscript"]["returncode"]
-                    ]
-                )
-                self.stderr += ["", "Post-install script stderr:"] + status["install"][
-                    "postscript"
-                ]["stderr"]
-            else:
-                self.stdout += ["No post-install script"]
-                self.stderr += ["No post-install script"]
-
-            # process
+            uninstall = status.get("uninstall") or {}
+            install = status.get("install") or {}
             process = (
                 ["Uninstall process:"]
-                + status["uninstall"]["process"]
+                + uninstall.get("process", [])
                 + ["", "Install process:"]
-                + status["install"]["process"]
+                + install.get("process", [])
+            )
+            self.stdout = list(uninstall.get("stdout") or []) + list(
+                install.get("stdout") or []
+            )
+            self.stderr = list(uninstall.get("stderr") or []) + list(
+                install.get("stderr") or []
             )
 
         # send status

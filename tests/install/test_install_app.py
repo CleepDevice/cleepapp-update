@@ -5,7 +5,7 @@ from cleep.libs.tests.lib import TestLib
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../backend/install')))
-from installmodule import InstallModule, UninstallModule, UpdateModule, Download, ProcessContext, PATH_FRONTEND
+from install_app import InstallModule, UninstallModule, UpdateModule, Download, ProcessContext, PATH_FRONTEND
 from installdeb import InstallDeb
 from cleep.exception import MissingParameter, InvalidParameter
 import unittest
@@ -104,108 +104,7 @@ class UninstallModuleTests(unittest.TestCase):
             "sha256": "f5723bae112c217f6b1be26445ce5ffda9ad7701276bcb1ea1ae9bc7232e1926"
         }
 
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_run_script_preuninst(self, console_mock, os_mock):
-        os_mock.path.join = os.path.join
-        os_mock.path.exists.return_value = True
-
-        self._init_context()
-        self._init_console_mock(console_mock)
-
-        self.assertTrue(self.u._run_script(self.c, 'preuninst.sh'))
-        status = self.u.get_status()
-        logging.debug('Status: %s' % status)
-        self.assertEqual(status['prescript']['returncode'], 0)
-        self.assertEqual(status['prescript']['stdout'], ['message on stdout'])
-        self.assertEqual(status['prescript']['stderr'], ['message on stderr'])
-        self.assertEqual(status['postscript']['returncode'], None)
-        self.assertEqual(status['postscript']['stdout'], [])
-        self.assertEqual(status['postscript']['stderr'], [])
-
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_run_script_postuninst(self, console_mock, os_mock):
-        os_mock.path.join = os.path.join
-        os_mock.path.exists.return_value = True
-
-        self._init_context()
-        self._init_console_mock(console_mock)
-
-        self.assertTrue(self.u._run_script(self.c, 'postuninst.sh'))
-        status = self.u.get_status()
-        logging.debug('Status: %s' % status)
-        self.assertEqual(status['prescript']['returncode'], None)
-        self.assertEqual(status['prescript']['stdout'], [])
-        self.assertEqual(status['prescript']['stderr'], [])
-        self.assertEqual(status['postscript']['returncode'], 0)
-        self.assertEqual(status['postscript']['stdout'], ['message on stdout'])
-        self.assertEqual(status['postscript']['stderr'], ['message on stderr'])
-
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_run_script_preuninst_killed(self, console_mock, os_mock):
-        os_mock.path.join = os.path.join
-        os_mock.path.exists.return_value = True
-
-        self._init_context()
-        self._init_console_mock(console_mock, killed=True)
-
-        self.assertFalse(self.u._run_script(self.c, 'preuninst.sh'))
-        status = self.u.get_status()
-        logging.debug('Status: %s' % status)
-
-        self.assertEqual(status['prescript']['returncode'], 130)
-        self.assertEqual(status['prescript']['stdout'], ['message on stdout'])
-        self.assertEqual(status['prescript']['stderr'], ['message on stderr'])
-        self.assertEqual(status['postscript']['returncode'], None)
-        self.assertEqual(status['postscript']['stdout'], [])
-        self.assertEqual(status['postscript']['stderr'], [])
-        self.assertTrue(self.crash_report.report_exception.called)
-
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_run_script_postuninst_killed(self, console_mock, os_mock):
-        os_mock.path.join = os.path.join
-        os_mock.path.exists.return_value = True
-
-        self._init_context()
-        self._init_console_mock(console_mock, killed=True)
-
-        self.assertFalse(self.u._run_script(self.c, 'postuninst.sh'))
-        status = self.u.get_status()
-        logging.debug('Status: %s' % status)
-        self.assertEqual(status['prescript']['returncode'], None)
-        self.assertEqual(status['prescript']['stdout'], [])
-        self.assertEqual(status['prescript']['stderr'], [])
-        self.assertEqual(status['postscript']['returncode'], 130)
-        self.assertEqual(status['postscript']['stdout'], ['message on stdout'])
-        self.assertEqual(status['postscript']['stderr'], ['message on stderr'])
-        self.assertTrue(self.crash_report.report_exception.called)
-
-    @patch('installmodule.os')
-    def test_run_script_no_script(self, os_mock):
-        os_mock.path.join = os.path.join
-        os_mock.path.exists.return_value = False
-
-        self._init_context()
-
-        self.assertTrue(self.u._run_script(self.c, 'preuninst.sh'))
-
-    @patch('installmodule.os')
-    def test_run_script_exception(self, os_mock):
-        os_mock.path.join.side_effect = Exception('Test exception')
-
-        self._init_context()
-
-        self.assertFalse(self.u._run_script(self.c, 'preuninst.sh'))
-        status = self.u.get_status()
-        logging.debug('Status: %s' % status)
-        self.assertEqual(len(status['process']), 1)
-        self.assertTrue(status['process'][0].find('Exception occured during "preuninst.sh" script execution of module "module"')>=0)
-        self.assertTrue(self.crash_report.report_exception.called)
-
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_remove_installed_files(self, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.dirname = os.path.dirname
@@ -225,7 +124,7 @@ class UninstallModuleTests(unittest.TestCase):
         self.assertEqual(self.cleep_filesystem.rm.call_count, 5)
         self.assertEqual(self.cleep_filesystem.rmdir.call_count, 2)
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_remove_installed_files_no_log_file(self, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.dirname = os.path.dirname
@@ -239,7 +138,7 @@ class UninstallModuleTests(unittest.TestCase):
         logging.debug('Status: %s' % status)
         self.assertEqual(status['process'][1], 'Install log file "/opt/cleep/install/module/module.log" for module "module" was not found')
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_remove_installed_files_no_log_file_force_uninstall(self, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.dirname = os.path.dirname
@@ -254,7 +153,7 @@ class UninstallModuleTests(unittest.TestCase):
         logging.debug('Status: %s' % status)
         self.assertEqual(status['process'][1], 'Install log file "/opt/cleep/install/module/module.log" for module "module" was not found')
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_remove_installed_files_exception(self, os_mock):
         os_mock.path.join.side_effect = Exception('Test exception')
         self._init_context()
@@ -263,7 +162,7 @@ class UninstallModuleTests(unittest.TestCase):
         self.assertEqual(self.cleep_filesystem.rm.call_count, 0)
         self.assertEqual(self.cleep_filesystem.rmdir.call_count, 0)
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_remove_installed_files_exception_force_uninstall(self, os_mock):
         os_mock.path.join.side_effect = Exception('Test exception')
         self._init_context(force_uninstall=True)
@@ -272,7 +171,7 @@ class UninstallModuleTests(unittest.TestCase):
         self.assertEqual(self.cleep_filesystem.rm.call_count, 0)
         self.assertEqual(self.cleep_filesystem.rmdir.call_count, 0)
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_remove_installed_files_rm_failed(self, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.dirname = os.path.dirname
@@ -293,7 +192,7 @@ class UninstallModuleTests(unittest.TestCase):
         logging.debug('Status: %s' % status)
         self.assertEqual(status['process'][1], 'Unable to remove file "/opt/cleep/html/js/modules/module/desc.json" during module "module" uninstallation')
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_remove_installed_files_file_doesnt_exist(self, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.dirname = os.path.dirname
@@ -315,7 +214,7 @@ class UninstallModuleTests(unittest.TestCase):
         self.assertEqual(status['process'][1], 'Unable to remove file "/opt/cleep/html/js/modules/module/desc.json" that does not exist during module "module" uninstallation')
         self.assertEqual(status['process'][2], 'Unable to remove file "/opt/cleep/html/js/modules/module/module.config.html" that does not exist during module "module" uninstallation')
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_remove_installed_files_file_doesnt_exist(self, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.dirname = os.path.dirname
@@ -337,8 +236,8 @@ class UninstallModuleTests(unittest.TestCase):
         self.assertEqual(status['process'][1], 'Unable to remove file "/opt/cleep/html/js/modules/module/desc.json" that does not exist during module "module" uninstallation')
         self.assertEqual(status['process'][2], 'Unable to remove file "/opt/cleep/html/js/modules/module/module.config.html" that does not exist during module "module" uninstallation')
 
-    @patch('installmodule.Tools')
-    @patch('installmodule.os')
+    @patch('install_app.Tools')
+    @patch('install_app.os')
     def test_remove_installed_files_core_library(self, os_mock, tools_mock):
         os_mock.path.join = os.path.join
         os_mock.path.dirname = os.path.dirname
@@ -362,7 +261,7 @@ class UninstallModuleTests(unittest.TestCase):
         self.assertEqual(status['process'][2], 'Trying to remove core library file "/opt/cleep/html/js/modules/module/desc.json" during module "module" uninstallation. Drop deletion.')
         self.assertEqual(status['process'][3], 'Trying to remove core library file "/opt/cleep/html/js/modules/module/module.config.html" during module "module" uninstallation. Drop deletion.')
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_remove_installed_files_clearing_path_failed(self, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.dirname = os.path.dirname
@@ -382,7 +281,7 @@ class UninstallModuleTests(unittest.TestCase):
         logging.debug('Status: %s' % status)
         self.assertEqual(status['process'][1], 'Unable to remove directory "python-cleep-path/modules/module" during module "module" uninstallation')
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_run(self, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.return_value = True
@@ -391,7 +290,7 @@ class UninstallModuleTests(unittest.TestCase):
             args[0].module_log = '/tmp/dummy.log'
             args[0].install_dir = '/tmp'
             return True
-        self.u._run_script = Mock(side_effect=[True, True])
+        self.u._run_phase_manifest = Mock(side_effect=[True, True])
         self.u._remove_installed_files = dummy_function
 
         self.u.run()
@@ -409,7 +308,7 @@ class UninstallModuleTests(unittest.TestCase):
         module_infos = self._get_module_infos()
         module_infos['local'] = True
         self._init_context(module_infos=module_infos)
-        self.u._run_script = Mock(side_effect=[True, True])
+        self.u._run_phase_manifest = Mock(side_effect=[True, True])
         self.u._remove_installed_files = Mock(return_value=True)
 
         self.u.run()
@@ -423,9 +322,9 @@ class UninstallModuleTests(unittest.TestCase):
         self.assertTrue(self.cleep_filesystem.disable_write.called)
         self.assertFalse(self.crash_report.report_exception.called)
 
-    def test_run_prescript_failed(self):
+    def test_run_preuninst_failed(self):
         self._init_context()
-        self.u._run_script = Mock(side_effect=[False, True])
+        self.u._run_phase_manifest = Mock(side_effect=[False, True])
         self.u._remove_installed_files = Mock(return_value=True)
 
         self.u.run()
@@ -441,7 +340,7 @@ class UninstallModuleTests(unittest.TestCase):
 
     def test_run_remove_installed_files_failed(self):
         self._init_context()
-        self.u._run_script = Mock(side_effect=[True, True])
+        self.u._run_phase_manifest = Mock(side_effect=[True, True])
         self.u._remove_installed_files = Mock(return_value=False)
 
         self.u.run()
@@ -455,9 +354,9 @@ class UninstallModuleTests(unittest.TestCase):
         self.assertTrue(self.cleep_filesystem.disable_write.called)
         self.assertFalse(self.crash_report.report_exception.called)
 
-    def test_run_postscript_failed(self):
+    def test_run_postuninst_failed(self):
         self._init_context()
-        self.u._run_script = Mock(side_effect=[True, False])
+        self.u._run_phase_manifest = Mock(side_effect=[True, False])
         self.u._remove_installed_files = Mock(return_value=True)
 
         self.u.run()
@@ -473,7 +372,7 @@ class UninstallModuleTests(unittest.TestCase):
 
     def test_run_exception(self):
         self._init_context()
-        self.u._run_script = Mock(side_effect=Exception('Test exception'))
+        self.u._run_phase_manifest = Mock(side_effect=Exception('Test exception'))
         self.u._remove_installed_files = Mock(return_value=True)
 
         self.u.run()
@@ -487,7 +386,7 @@ class UninstallModuleTests(unittest.TestCase):
         self.assertTrue(self.cleep_filesystem.disable_write.called)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_run_clean_exception(self, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.return_value = True
@@ -495,7 +394,7 @@ class UninstallModuleTests(unittest.TestCase):
         def dummy_function(*args, **kwargs):
             args[0].module_log = '/tmp/dummy.log'
             return True
-        self.u._run_script = Mock(side_effect=[True, True])
+        self.u._run_phase_manifest = Mock(side_effect=[True, True])
         self.u._remove_installed_files = dummy_function
 
         self.u.run()
@@ -842,7 +741,7 @@ class InstallModuleTests(unittest.TestCase):
             "sha256": "f5723bae112c217f6b1be26445ce5ffda9ad7701276bcb1ea1ae9bc7232e1926"
         }
 
-    @patch('installmodule.Download')
+    @patch('install_app.Download')
     def test_download_archive(self, download_mock):
         self._init_download_mock(download_mock, download_file_return_value='/tmp/dummy.zip')
         self._init_context()
@@ -851,7 +750,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertEqual(self.c.archive_path, '/tmp/dummy.zip')
         self.assertFalse(self.crash_report.report_exception.called)
 
-    @patch('installmodule.Download')
+    @patch('install_app.Download')
     def test_download_archive_failed_internal_error(self, download_mock):
         self._init_download_mock(download_mock, download_get_status_return_value=3)
         self._init_context()
@@ -864,7 +763,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][0].find('internal error')>=0)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.Download')
+    @patch('install_app.Download')
     def test_download_archive_failed_invalid_filesize(self, download_mock):
         self._init_download_mock(download_mock, download_get_status_return_value=4)
         self._init_context()
@@ -877,7 +776,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][0].find('invalid filesize')>=0)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.Download')
+    @patch('install_app.Download')
     def test_download_archive_failed_bad_checksum(self, download_mock):
         self._init_download_mock(download_mock, download_get_status_return_value=5)
         self._init_context()
@@ -890,7 +789,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][0].find('invalid checksum')>=0)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.Download')
+    @patch('install_app.Download')
     def test_download_archive_failed_unknown_error(self, download_mock):
         self._init_download_mock(download_mock, download_get_status_return_value=7)
         self._init_context()
@@ -903,7 +802,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][0].find('unknown error')>=0)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.Download')
+    @patch('install_app.Download')
     def test_download_archive_failed_exception(self, download_mock):
         self._init_download_mock(download_mock, download_file_side_effect=Exception('Test exception'))
         self._init_context()
@@ -916,7 +815,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][0].find('Exception occured during module "module" archive download')>=0)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.ZipFile')
+    @patch('install_app.ZipFile')
     def test_extract_archive(self, zip_mock):
         self._init_context()
         self.c.archive_path = '/tmp/dummy.zip'
@@ -926,7 +825,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue('extract_path' in dir(self.c))
         self.assertTrue(self.c.extract_path.startswith('/tmp'))
 
-    @patch('installmodule.ZipFile')
+    @patch('install_app.ZipFile')
     def test_extract_archive_exception(self, zip_mock):
         self._init_context()
         self.c.archive_path = '/tmp/dummy.zip'
@@ -943,19 +842,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][0].find('decompressing module "module" archive')>=0)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.os')
-    def test_backup_scripts(self, os_mock):
-        os_mock.path.join = os.path.join
-
-        self._init_context()
-        self.c.archive_path = '/tmp/dummy/zip'
-        self.c.extract_path = '/tmp/123456789'
-
-        self.assertTrue(self.i._backup_scripts(self.c))
-        self.cleep_filesystem.copy.assert_any_call('/tmp/123456789/scripts/preuninst.sh', '/opt/cleep/install/module/preuninst.sh')
-        self.cleep_filesystem.copy.assert_any_call('/tmp/123456789/scripts/postuninst.sh', '/opt/cleep/install/module/postuninst.sh')
-
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_backup_scripts_no_script(self, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.return_value = False
@@ -968,7 +855,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertFalse(self.cleep_filesystem.copy.called)
         self.assertFalse(self.crash_report.report_exception.called)
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_backup_scripts_exception(self, os_mock):
         os_mock.path.join.side_effect = Exception('Test exception')
 
@@ -983,122 +870,8 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][0].find('Exception saving module "module" scripts')>=0)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_run_script_preinst(self, console_mock, os_mock):
-        os_mock.path.join = os.path.join
-        os_mock.path.exists.return_value = True
-
-        self._init_context()
-        self._init_console_mock(console_mock)
-        self.c.archive_path = '/tmp/dummy/zip'
-        self.c.extract_path = '/tmp/123456789'
-
-        self.assertTrue(self.i._run_script(self.c, 'preinst.sh'))
-        status = self.i.get_status()
-        logging.debug('Status: %s' % status)
-        self.assertEqual(status['prescript']['returncode'], 0)
-        self.assertEqual(status['prescript']['stdout'], ['message on stdout'])
-        self.assertEqual(status['prescript']['stderr'], ['message on stderr'])
-        self.assertEqual(status['postscript']['returncode'], None)
-        self.assertEqual(status['postscript']['stdout'], [])
-        self.assertEqual(status['postscript']['stderr'], [])
-
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_run_script_postinst(self, console_mock, os_mock):
-        os_mock.path.join = os.path.join
-        os_mock.path.exists.return_value = True
-
-        self._init_context()
-        self._init_console_mock(console_mock)
-        self.c.archive_path = '/tmp/dummy/zip'
-        self.c.extract_path = '/tmp/123456789'
-
-        self.assertTrue(self.i._run_script(self.c, 'postinst.sh'))
-        status = self.i.get_status()
-        logging.debug('Status: %s' % status)
-        self.assertEqual(status['prescript']['returncode'], None)
-        self.assertEqual(status['prescript']['stdout'], [])
-        self.assertEqual(status['prescript']['stderr'], [])
-        self.assertEqual(status['postscript']['returncode'], 0)
-        self.assertEqual(status['postscript']['stdout'], ['message on stdout'])
-        self.assertEqual(status['postscript']['stderr'], ['message on stderr'])
-
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_run_script_preinst_killed(self, console_mock, os_mock):
-        os_mock.path.join = os.path.join
-        os_mock.path.exists.return_value = True
-
-        self._init_context()
-        self._init_console_mock(console_mock, killed=True)
-        self.c.archive_path = '/tmp/dummy/zip'
-        self.c.extract_path = '/tmp/123456789'
-
-        self.assertFalse(self.i._run_script(self.c, 'preinst.sh'))
-        status = self.i.get_status()
-        logging.debug('Status: %s' % status)
-        self.assertEqual(status['prescript']['returncode'], 130)
-        self.assertEqual(status['prescript']['stdout'], ['message on stdout'])
-        self.assertEqual(status['prescript']['stderr'], ['message on stderr'])
-        self.assertEqual(status['postscript']['returncode'], None)
-        self.assertEqual(status['postscript']['stdout'], [])
-        self.assertEqual(status['postscript']['stderr'], [])
-        self.assertTrue(self.crash_report.report_exception.called)
-
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_run_script_postinst_killed(self, console_mock, os_mock):
-        os_mock.path.join = os.path.join
-        os_mock.path.exists.return_value = True
-
-        self._init_context()
-        self._init_console_mock(console_mock, killed=True)
-        self.c.archive_path = '/tmp/dummy/zip'
-        self.c.extract_path = '/tmp/123456789'
-
-        self.assertFalse(self.i._run_script(self.c, 'postinst.sh'))
-
-        status = self.i.get_status()
-        logging.debug('Status: %s' % status)
-        self.assertEqual(status['prescript']['returncode'], None)
-        self.assertEqual(status['prescript']['stdout'], [])
-        self.assertEqual(status['prescript']['stderr'], [])
-        self.assertEqual(status['postscript']['returncode'], 130)
-        self.assertEqual(status['postscript']['stdout'], ['message on stdout'])
-        self.assertEqual(status['postscript']['stderr'], ['message on stderr'])
-        self.assertTrue(self.crash_report.report_exception.called)
-
-    @patch('installmodule.os')
-    def test_run_script_no_script(self, os_mock):
-        os_mock.path.join = os.path.join
-        os_mock.path.exists.return_value = False
-
-        self._init_context()
-        self.c.archive_path = '/tmp/dummy/zip'
-        self.c.extract_path = '/tmp/123456789'
-
-        self.assertTrue(self.i._run_script(self.c, 'preinst.sh'))
-
-    @patch('installmodule.os')
-    def test_run_script_exception(self, os_mock):
-        os_mock.path.join.side_effect = Exception('Test exception')
-
-        self._init_context()
-        self.c.archive_path = '/tmp/dummy/zip'
-        self.c.extract_path = '/tmp/123456789'
-
-        self.assertFalse(self.i._run_script(self.c, 'preinst.sh'))
-
-        status = self.i.get_status()
-        logging.debug('Status: %s' % status)
-        self.assertEqual(len(status['process']), 1)
-        self.assertTrue(status['process'][0].find('Exception occured during "preinst.sh" script execution of module "module"')>=0)
-        self.assertTrue(self.crash_report.report_exception.called)
-
-    @patch('installmodule.os')
-    @patch('installmodule.Tools')
+    @patch('install_app.os')
+    @patch('install_app.Tools')
     def test_copy_module_files(self, tools_mock, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.side_effect = [True, True, False, False]
@@ -1128,8 +901,8 @@ class InstallModuleTests(unittest.TestCase):
         self.cleep_filesystem.copy.assert_any_call(f'{self.c.extract_path}/asset/sound.wav', '/var/opt/cleep/modules/asset/module/sound.wav')
         self.cleep_filesystem.copy.assert_any_call(f'{self.c.extract_path}/bin/binary', '/var/opt/cleep/modules/bin/module/binary')
 
-    @patch('installmodule.os')
-    @patch('installmodule.Tools')
+    @patch('install_app.os')
+    @patch('install_app.Tools')
     def test_copy_module_files_overwrite_existing_files(self, tools_mock, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.side_effect = [True, True, True, True, True, True, True, True]
@@ -1150,8 +923,8 @@ class InstallModuleTests(unittest.TestCase):
         logging.debug('cleep_fs calls: %s' % self.cleep_filesystem.mock_calls)
         self.assertEqual(self.cleep_filesystem.copy.call_count, 8)
 
-    @patch('installmodule.os')
-    @patch('installmodule.Tools')
+    @patch('install_app.os')
+    @patch('install_app.Tools')
     def test_copy_module_files_dont_overwrite_core_libs(self, tools_mock, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.side_effect = [True, True, True, False]
@@ -1170,8 +943,8 @@ class InstallModuleTests(unittest.TestCase):
         logging.debug('cleep_fs calls: %s' % self.cleep_filesystem.mock_calls)
         self.assertEqual(self.cleep_filesystem.copy.call_count, 4)
 
-    @patch('installmodule.os')
-    @patch('installmodule.Tools')
+    @patch('install_app.os')
+    @patch('install_app.Tools')
     def test_copy_module_files_backend_file_copy_failed(self, tools_mock, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.side_effect = [True, True, False, False]
@@ -1195,8 +968,8 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][1].startswith('Exception occured during module'))
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.os')
-    @patch('installmodule.Tools')
+    @patch('install_app.os')
+    @patch('install_app.Tools')
     def test_copy_module_files_frontend_file_copy_failed(self, tools_mock, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.side_effect = [True, True, False, False]
@@ -1220,8 +993,8 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][1].startswith('Exception occured during module'))
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.os')
-    @patch('installmodule.Tools')
+    @patch('install_app.os')
+    @patch('install_app.Tools')
     def test_copy_module_files_asset_file_copy_failed(self, tools_mock, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.side_effect = [True, True, False, False]
@@ -1245,8 +1018,8 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][1].startswith('Exception occured during module'))
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.os')
-    @patch('installmodule.Tools')
+    @patch('install_app.os')
+    @patch('install_app.Tools')
     def test_copy_module_files_bin_file_copy_failed(self, tools_mock, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.side_effect = [True, True, False, False]
@@ -1270,8 +1043,8 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][1].startswith('Exception occured during module'))
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.os')
-    @patch('installmodule.Tools')
+    @patch('install_app.os')
+    @patch('install_app.Tools')
     def test_copy_module_files_drop_unwanted_files(self, tools_mock, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.side_effect = [True, True, False, False]
@@ -1291,8 +1064,8 @@ class InstallModuleTests(unittest.TestCase):
         logging.debug('cleep_fs calls: %s' % self.cleep_filesystem.mock_calls)
         self.assertEqual(self.cleep_filesystem.copy.call_count, 5) # 5 files in walk return value
 
-    @patch('installmodule.os')
-    @patch('installmodule.Tools')
+    @patch('install_app.os')
+    @patch('install_app.Tools')
     def test_copy_module_files_exception(self, tools_mock, os_mock):
         os_mock.path.join = os.path.join
         os_mock.path.exists.side_effect = [True, True, False, False]
@@ -1310,7 +1083,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(status['process'][0].startswith('Exception occured during module "module" files copy'))
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_rollback_install(self, os_mock):
         fd = Mock()
         fd.readlines.return_value = [
@@ -1331,7 +1104,7 @@ class InstallModuleTests(unittest.TestCase):
         self.assertEqual(self.cleep_filesystem.rmdir.call_count, 1)
         self.assertFalse(self.crash_report.report_exception.called)
 
-    @patch('installmodule.os')
+    @patch('install_app.os')
     def test_rollback_install_exception(self, os_mock):
         self._init_context(cleep_filesystem_open_side_effect=Exception('Test exception'))
         self.c.install_log = '/tmp/install.log'
@@ -1358,7 +1131,7 @@ class InstallModuleTests(unittest.TestCase):
             args[0].archive_path = '/tmp/dummy.zip'
             return True
         self.i._extract_archive = dummy_extract
-        self.i._run_script = Mock(side_effect=[True, True])
+        self.i._run_phase_manifest = Mock(side_effect=[True, True])
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=True)
 
@@ -1383,7 +1156,7 @@ class InstallModuleTests(unittest.TestCase):
             args[0].archive_path = '/tmp/dummy.zip'
             return True
         self.i._extract_archive = dummy_extract
-        self.i._run_script = Mock(side_effect=[True, True])
+        self.i._run_phase_manifest = Mock(side_effect=[True, True])
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=True)
 
@@ -1411,7 +1184,7 @@ class InstallModuleTests(unittest.TestCase):
             self.i.cancel()
             return True
         self.i._extract_archive = Mock(return_value=True)
-        self.i._run_script = dummy_cancel
+        self.i._run_phase_manifest = dummy_cancel
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=True)
 
@@ -1446,7 +1219,7 @@ class InstallModuleTests(unittest.TestCase):
             args[0].archive_path = '/tmp/dummy.zip'
             return True
         self.i._extract_archive = dummy_extract
-        self.i._run_script = Mock(side_effect=[True, True])
+        self.i._run_phase_manifest = Mock(side_effect=[True, True])
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=True)
         self.cleep_filesystem.close.side_effect = Exception('Test exception')
@@ -1467,7 +1240,7 @@ class InstallModuleTests(unittest.TestCase):
         self._init_context()
         self.i._download_archive = Mock(return_value=False)
         self.i._extract_archive = Mock(return_value=True)
-        self.i._run_script = Mock(side_effect=[True, True])
+        self.i._run_phase_manifest = Mock(side_effect=[True, True])
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=True)
         self.i._rollback_install = Mock()
@@ -1487,7 +1260,7 @@ class InstallModuleTests(unittest.TestCase):
         self._init_context()
         self.i._download_archive = Mock(return_value=True)
         self.i._extract_archive = Mock(return_value=False)
-        self.i._run_script = Mock(side_effect=[True, True])
+        self.i._run_phase_manifest = Mock(side_effect=[True, True])
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=True)
         self.i._rollback_install = Mock()
@@ -1507,7 +1280,7 @@ class InstallModuleTests(unittest.TestCase):
         self._init_context()
         self.i._download_archive = Mock(return_value=True)
         self.i._extract_archive = Mock(return_value=True)
-        self.i._run_script = Mock(side_effect=[False, True])
+        self.i._run_phase_manifest = Mock(side_effect=[False, True])
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=True)
         self.i._rollback_install = Mock()
@@ -1527,7 +1300,7 @@ class InstallModuleTests(unittest.TestCase):
         self._init_context()
         self.i._download_archive = Mock(return_value=True)
         self.i._extract_archive = Mock(return_value=True)
-        self.i._run_script = Mock(side_effect=[True, True])
+        self.i._run_phase_manifest = Mock(side_effect=[True, True])
         self.i._backup_scripts = Mock(return_value=False)
         self.i._copy_module_files = Mock(return_value=True)
         self.i._rollback_install = Mock()
@@ -1547,7 +1320,7 @@ class InstallModuleTests(unittest.TestCase):
         self._init_context()
         self.i._download_archive = Mock(return_value=True)
         self.i._extract_archive = Mock(return_value=True)
-        self.i._run_script = Mock(side_effect=[True, True])
+        self.i._run_phase_manifest = Mock(side_effect=[True, True])
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=False)
         self.i._rollback_install = Mock()
@@ -1567,7 +1340,7 @@ class InstallModuleTests(unittest.TestCase):
         self._init_context()
         self.i._download_archive = Mock(return_value=True)
         self.i._extract_archive = Mock(return_value=True)
-        self.i._run_script = Mock(side_effect=[True, False])
+        self.i._run_phase_manifest = Mock(side_effect=[True, False])
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=True)
         self.i._rollback_install = Mock()
@@ -1587,7 +1360,7 @@ class InstallModuleTests(unittest.TestCase):
         self._init_context(callback_side_effect=Exception('Test exception'))
         self.i._download_archive = Mock(return_value=True)
         self.i._extract_archive = Mock(return_value=True)
-        self.i._run_script = Mock(side_effect=[True, True])
+        self.i._run_phase_manifest = Mock(side_effect=[True, True])
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=True)
 
@@ -1608,7 +1381,7 @@ class InstallModuleTests(unittest.TestCase):
         self._init_context(module_infos=module_infos)
         self.i._download_archive = Mock(return_value=True)
         self.i._extract_archive = Mock(return_value=True)
-        self.i._run_script = Mock(side_effect=[True, True])
+        self.i._run_phase_manifest = Mock(side_effect=[True, True])
         self.i._backup_scripts = Mock(return_value=True)
         self.i._copy_module_files = Mock(return_value=True)
 
@@ -1622,74 +1395,11 @@ class InstallModuleTests(unittest.TestCase):
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         self.assertTrue(self.cleep_filesystem.disable_write.called)
 
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_execute_script_post_inst_success(self, console_mock, os_mock):
-        os_mock.path.dirname = os.path.dirname
-        os_mock.path.join = os.path.join
-        module_infos = self._get_module_infos()
-        self._init_context(module_infos=module_infos)
-        self._init_console_mock(console_mock)
-        script_path = '/script/path/run.sh'
-
-        res = self.i._execute_script(script_path)
-        logging.debug('res: %s', res)
-
-        console_mock.assert_called_with(
-            script_path,
-            AnyArg(),
-            AnyArg(),
-            {
-                "exec_dir": "/script/path",
-                "env": {
-                    "APP_STORAGE_PATH": AnyArg(),
-                    "APP_TMP_PATH": AnyArg(),
-                    "APP_ASSET_PATH": AnyArg(),
-                    "APP_BIN_PATH": AnyArg(),
-                },
-            }
-        )
-        console_mock.return_value.start.assert_called()
-        self.assertTrue(res)
-
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_execute_script_pre_inst_success(self, console_mock, os_mock):
-        os_mock.path.dirname = os.path.dirname
-        os_mock.path.join = os.path.join
-        module_infos = self._get_module_infos()
-        self._init_context(module_infos=module_infos)
-        self._init_console_mock(console_mock)
-        script_path = '/script/path/run.sh'
-        self.i._pre_script_execution = True
-
-        res = self.i._execute_script(script_path)
-        logging.debug('res: %s', res)
-
-        console_mock.return_value.start.assert_called()
-        self.assertTrue(res)
-
-    @patch('installmodule.os')
-    @patch('installmodule.EndlessConsole')
-    def test_execute_script_failure(self, console_mock, os_mock):
-        os_mock.path.dirname = os.path.dirname
-        os_mock.path.join = os.path.join
-        module_infos = self._get_module_infos()
-        self._init_context(module_infos=module_infos)
-        self._init_console_mock(console_mock, return_code=1)
-        script_path = '/script/path/run.sh'
-
-        res = self.i._execute_script(script_path)
-        logging.debug('res: %s', res)
-
-        console_mock.return_value.start.assert_called()
-        self.assertFalse(res)
-
     def test_create_app_directories_create_all_directories(self):
         module_infos = self._get_module_infos()
         self._init_context(module_infos=module_infos)
 
-        with patch('installmodule.os.path.exists') as os_path_exists_mock:
+        with patch('install_app.os.path.exists') as os_path_exists_mock:
             os_path_exists_mock.return_value = False
             res = self.i._create_app_directories('myapp')
 
@@ -1705,7 +1415,7 @@ class InstallModuleTests(unittest.TestCase):
         module_infos = self._get_module_infos()
         self._init_context(module_infos=module_infos)
 
-        with patch('installmodule.os.path.exists') as os_path_exists_mock:
+        with patch('install_app.os.path.exists') as os_path_exists_mock:
             os_path_exists_mock.side_effect = [False, True, False, True]
             res = self.i._create_app_directories('myapp')
 
@@ -1716,7 +1426,7 @@ class InstallModuleTests(unittest.TestCase):
         module_infos = self._get_module_infos()
         self._init_context(module_infos=module_infos)
 
-        with patch('installmodule.os.path.exists') as os_path_exists_mock:
+        with patch('install_app.os.path.exists') as os_path_exists_mock:
             os_path_exists_mock.return_value = False
             self.cleep_filesystem.mkdirs.return_value = False
             res = self.i._create_app_directories('myapp')
@@ -2012,8 +1722,8 @@ class UpdateModuleTests(unittest.TestCase):
             "sha256": "f5723bae112c217f6b1be26445ce5ffda9ad7701276bcb1ea1ae9bc7232e1926"
         }
 
-    @patch('installmodule.InstallModule')
-    @patch('installmodule.UninstallModule')
+    @patch('install_app.InstallModule')
+    @patch('install_app.UninstallModule')
     def test_run(self, uninstall_mock, install_mock):
         uninstall_status = {
             'status': 2,
@@ -2040,8 +1750,8 @@ class UpdateModuleTests(unittest.TestCase):
         self.assertEqual(status['install'], install_status)
         self.assertEqual(status['uninstall'], uninstall_status)
 
-    @patch('installmodule.InstallModule')
-    @patch('installmodule.UninstallModule')
+    @patch('install_app.InstallModule')
+    @patch('install_app.UninstallModule')
     def test_run_uninstall_failed(self, uninstall_mock, install_mock):
         uninstall_status = {
             'status': 3,
@@ -2066,8 +1776,8 @@ class UpdateModuleTests(unittest.TestCase):
         self.assertEqual(status['install'], install_status)
         self.assertEqual(status['uninstall'], uninstall_status)
 
-    @patch('installmodule.InstallModule')
-    @patch('installmodule.UninstallModule')
+    @patch('install_app.InstallModule')
+    @patch('install_app.UninstallModule')
     def test_run_install_failed(self, uninstall_mock, install_mock):
         uninstall_status = {
             'status': 2,
@@ -2092,8 +1802,8 @@ class UpdateModuleTests(unittest.TestCase):
         self.assertEqual(status['install'], install_status)
         self.assertEqual(status['uninstall'], uninstall_status)
 
-    @patch('installmodule.InstallModule')
-    @patch('installmodule.UninstallModule')
+    @patch('install_app.InstallModule')
+    @patch('install_app.UninstallModule')
     def test_run_exception(self, uninstall_mock, install_mock):
         uninstall_status = {
             'status': 2,
@@ -2118,8 +1828,8 @@ class UpdateModuleTests(unittest.TestCase):
         self.assertEqual(status['install'], install_status)
         self.assertEqual(status['uninstall'], uninstall_status)
 
-    @patch('installmodule.InstallModule')
-    @patch('installmodule.UninstallModule')
+    @patch('install_app.InstallModule')
+    @patch('install_app.UninstallModule')
     def test_run_callback_exception(self, uninstall_mock, install_mock):
         uninstall_status = {
             'status': 2,
@@ -2273,6 +1983,6 @@ class UpdateModuleFunctionalTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # coverage run --omit="*/lib/python*/*,*test_*.py" --concurrency=thread test_installmodule.py; coverage report -i -m
+    # coverage run --omit="*/lib/python*/*,*test_*.py" --concurrency=thread test_install_app.py; coverage report -i -m
     unittest.main()
 

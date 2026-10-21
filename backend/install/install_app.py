@@ -8,23 +8,58 @@
 import logging
 import os
 import inspect
+import stat
 from zipfile import ZipFile
 import threading
 import tempfile
-import stat
 from gevent import sleep
-from cleep.libs.internals.console import EndlessConsole
 from cleep.core import CleepModule
 from cleep.libs.internals.download import Download
 import cleep.libs.internals.tools as Tools
+
+try:
+    from .install_app_manifest import (
+        InstallManifest,
+        InstallManifestError,
+        MODE_INSTALL,
+        MODE_UNINSTALL,
+        PHASE_PREINST,
+        PHASE_POSTINST,
+        PHASE_PREUNINST,
+        PHASE_POSTUNINST,
+        UNINSTALL_PHASES,
+    )
+except ImportError:  # pragma: no cover - flat test / module-loader imports
+    try:
+        from install.install_app_manifest import (
+            InstallManifest,
+            InstallManifestError,
+            MODE_INSTALL,
+            MODE_UNINSTALL,
+            PHASE_PREINST,
+            PHASE_POSTINST,
+            PHASE_PREUNINST,
+            PHASE_POSTUNINST,
+            UNINSTALL_PHASES,
+        )
+    except ImportError:
+        from install_app_manifest import (
+            InstallManifest,
+            InstallManifestError,
+            MODE_INSTALL,
+            MODE_UNINSTALL,
+            PHASE_PREINST,
+            PHASE_POSTINST,
+            PHASE_PREUNINST,
+            PHASE_POSTUNINST,
+            UNINSTALL_PHASES,
+        )
 
 __all__ = ["UninstallModule", "InstallModule", "UpdateModule"]
 
 PATH_FRONTEND = "/opt/cleep/html"
 PATH_SCRIPTS = "/opt/cleep/scripts"
 PATH_INSTALL = "/opt/cleep/install"
-PATH_APP_ASSET = "/var/opt/cleep/modules/asset"
-PATH_APP_BIN = "/var/opt/cleep/modules/bin"
 PATH_APP_BACKEND = "/opt/cleep/"
 ARCHIVE_FRONTEND_DIR = "frontend/"
 ARCHIVE_BACKEND_DIR = "backend/"
@@ -98,118 +133,89 @@ class CommonProcess(threading.Thread):
         self.cleep_filesystem = cleep_filesystem
         self.crash_report = crash_report
         self.task_factory = task_factory
-        self._script_running = False
-        self._pre_script_execution = False
-        self._pre_script_status = {"returncode": None, "stdout": [], "stderr": []}
-        self._post_script_status = {"returncode": None, "stdout": [], "stderr": []}
         self._process_status = []
+        # Accumulated console output from failed external commands (apt/pip/...)
+        self._stdout = []
+        self._stderr = []
 
-    def _script_callback(self, stdout, stderr):
+    def _absorb_console_output(self, stdout=None, stderr=None):
         """
-        Get stdout/stderr from script execution
+        Keep console command output for process status / failure log.
 
         Args:
-            stdout (string): stdout line
-            stderr (string): stderr line
+            stdout (list): stdout lines
+            stderr (list): stderr lines
         """
-        self.logger.debug("Script callback: stdout=%s stderr=%s" % (stdout, stderr))
-        if self._pre_script_execution:
-            if stdout:
-                self._pre_script_status["stdout"].append(stdout)
-            if stderr:
-                self._pre_script_status["stderr"].append(stderr)
+        if stdout:
+            self._stdout.extend(stdout)
+        if stderr:
+            self._stderr.extend(stderr)
 
-        else:
-            if stdout:
-                self._post_script_status["stdout"].append(stdout)
-            if stderr:
-                self._post_script_status["stderr"].append(stderr)
-
-    def _script_terminated_callback(self, return_code, killed):
+    def _run_phase_manifest(self, context, phase, base_dir, in_scripts=True):
         """
-        Get infos when script is terminated
-
-        Note:
-            see http://www.tldp.org/LDP/abs/html/exitcodes.html for return codes
+        Run a declarative phase JSON if present (no-op when missing).
 
         Args:
-            return_code (int): script return code
-            killed (bool): True if script killed, False otherwise
-        """
-        self.logger.debug(
-            "Script terminated callback (return_code=%s killed=%s)"
-            % (return_code, killed)
-        )
-        if killed:
-            if self._pre_script_execution:
-                self._pre_script_status["returncode"] = 130
-            else:
-                self._post_script_status["returncode"] = 130
-        else:
-            if self._pre_script_execution:
-                self._pre_script_status["returncode"] = return_code
-            else:
-                self._post_script_status["returncode"] = return_code
-
-        # script execution terminated
-        self._script_running = False
-
-    def _execute_script(self, script_path):
-        """
-        Execute specified script
-
-        Args:
-            script_path (str): script path
+            context: process context
+            phase (str): preinst / postinst / preuninst / postuninst
+            base_dir (str): package extract root or PATH_INSTALL/<module>
+            in_scripts (bool): True for package ``scripts/``, False for backup dir
 
         Returns:
-            bool: True if script execution succeed, False otherwise
+            bool: True if succeed or nothing to run
         """
-        # init
-        os.chmod(script_path, stat.S_IEXEC)
-        exec_dir = os.path.dirname(script_path)
-        app_paths = {
-            "APP_STORAGE_PATH": os.path.join("/var/opt/cleep/modules/storage", self.module_name),
-            "APP_TMP_PATH": os.path.join('/tmp/cleep/modules', self.module_name),
-            "APP_ASSET_PATH": os.path.join('/var/opt/cleep/modules/asset/', self.module_name),
-            "APP_BIN_PATH": os.path.join('/var/opt/cleep/modules/bin/', self.module_name),
-        }
-
-        # exec
-        self._script_running = True
-        self.logger.debug("Executing %s script" % script_path)
-        console = EndlessConsole(
-            script_path,
-            self._script_callback,
-            self._script_terminated_callback,
-            {
-                "exec_dir": exec_dir,
-                "env": app_paths,
-            },
-        )
-        console.start()
-
-        # monitor end of script execution
-        while self._script_running:
-            # pause
-            sleep(0.25)
-
-        # check script result
-        self.logger.debug('Pre script exec? %s', self._pre_script_execution)
-        if self._pre_script_execution and self._pre_script_status["returncode"] == 0:
-            return True
-        if self._post_script_status["returncode"] == 0:
+        if not base_dir:
+            self.logger.debug("No base dir for %s.json, skip", phase)
             return True
 
-        self.logger.error(
-            "Script '%s' execution failed: stdout=%s stderr=%s",
-            script_path,
-            self._pre_script_status["stdout"] if self._pre_script_execution else self._post_script_status["stdout"],
-            self._pre_script_status["stderr"] if self._pre_script_execution else self._post_script_status["stderr"],
+        path = InstallManifest.phase_path(base_dir, phase, in_scripts=in_scripts)
+        if not os.path.exists(path):
+            self.logger.debug('No %s.json at "%s"', phase, path)
+            return True
+
+        self.logger.info(
+            'Running %s.json for module "%s" (%s)', phase, self.module_name, path
         )
-        return False
+        try:
+            data = InstallManifest.load(path)
+            mode = MODE_UNINSTALL if phase in UNINSTALL_PHASES else MODE_INSTALL
+            runner = InstallManifest(
+                self.module_name,
+                CleepModule.app_paths_for(self.module_name),
+                self.cleep_filesystem,
+                logger=self.logger,
+            )
+            runner.run(data, mode=mode)
+            return True
+        except InstallManifestError as exc:
+            self._absorb_console_output(exc.stdout, exc.stderr)
+            self._log_process_status(
+                context,
+                logging.ERROR,
+                '%s.json failed for module "%s": %s'
+                % (phase, self.module_name, exc),
+                force_crash_report=True,
+                stdout=exc.stdout,
+                stderr=exc.stderr,
+            )
+            return False
+        except Exception:
+            self._log_process_status(
+                context,
+                logging.NOTSET,
+                'Exception running %s.json for module "%s"'
+                % (phase, self.module_name),
+            )
+            return False
 
     def _log_process_status(
-        self, context, log_level, message, force_crash_report=False
+        self,
+        context,
+        log_level,
+        message,
+        force_crash_report=False,
+        stdout=None,
+        stderr=None,
     ):
         """
         Log exception to stdout and keep track of message in install log file
@@ -219,6 +225,8 @@ class CommonProcess(threading.Thread):
             log_level (int): logging level
             message (string): message to log
             force_crash_report (bool): send crash report if True (default False)
+            stdout (list): optional console stdout to attach to crash report
+            stderr (list): optional console stderr to attach to crash report
         """
         # logging
         if log_level == logging.NOTSET:
@@ -228,9 +236,12 @@ class CommonProcess(threading.Thread):
 
         # crash report
         if (log_level == logging.NOTSET or force_crash_report) and self.crash_report:
-            self.crash_report.report_exception(
-                extra={"message": message, "context": context.to_dict()}
-            )
+            extra = {"message": message, "context": context.to_dict()}
+            if stdout:
+                extra["stdout"] = stdout
+            if stderr:
+                extra["stderr"] = stderr
+            self.crash_report.report_exception(extra=extra)
 
         # save track of error in install process messages
         self._process_status.append(message)
@@ -269,7 +280,7 @@ class CommonProcess(threading.Thread):
 
     def _create_app_directories(self, module_name):
         """
-        Create all application directories as defined in core.py
+        Create all application directories (paths from CleepModule.app_paths_for).
 
         Args:
             module_name (str): module name
@@ -277,15 +288,8 @@ class CommonProcess(threading.Thread):
         Returns:
             bool: True if all directories created successfully, False otherwise
         """
-        directories = [
-            os.path.join('/var/opt/cleep/modules/storage', module_name),
-            os.path.join('/tmp/cleep/modules', module_name),
-            os.path.join('/var/opt/cleep/modules/asset/', module_name),
-            os.path.join('/var/opt/cleep/modules/bin/', module_name),
-        ]
         error = False
-
-        for directory in directories:
+        for directory in CleepModule.app_paths_for(module_name).values():
             if os.path.exists(directory):
                 continue
 
@@ -297,8 +301,9 @@ class CommonProcess(threading.Thread):
 
 class UninstallModule(CommonProcess):
     """
-    Uninstall module in background task
-    This class executes preuninstall script, removes all installed files and executes postuninstall script
+    Uninstall module in background task.
+
+    Runs preuninst.json, removes installed files, then postuninst.json.
     """
 
     STATUS_IDLE = 0
@@ -333,7 +338,9 @@ class UninstallModule(CommonProcess):
             crash_report (CrashReport): CrashReport instance
             task_factory (TaskFactory): TaskFactory instance
         """
-        CommonProcess.__init__(self, status_callback, cleep_filesystem, crash_report, task_factory)
+        CommonProcess.__init__(
+            self, status_callback, cleep_filesystem, crash_report, task_factory
+        )
 
         # members
         self.status = self.STATUS_IDLE
@@ -361,61 +368,21 @@ class UninstallModule(CommonProcess):
                 {
                     status (int): see STATUS_XXX for available codes
                     module (string): module name
-                    prescript (dict): preuninst status (returncode, stdout, stderr)
-                    postscript (dict): postuninst status (returncode, stdout, stderr)
                     updateprocess (bool): uninstall triggered by module update
                     process (list): process status
+                    stdout (list): console stdout from failed commands
+                    stderr (list): console stderr from failed commands
                 }
 
         """
         return {
             "module": self.module_name,
             "status": self.status,
-            "prescript": self._pre_script_status,
-            "postscript": self._post_script_status,
             "updateprocess": self.update_process,
             "process": self._process_status,
+            "stdout": self._stdout,
+            "stderr": self._stderr,
         }
-
-    def _run_script(self, context, script):
-        """
-        Execute specified script
-
-        Args:
-            context (Context): install context
-            script (string): script to execute (preinst.sh, postinst.sh, ...)
-
-        Returns:
-            bool: True if operation succeed
-        """
-        self.logger.debug('Running script "%s"' % script)
-        try:
-            self._pre_script_execution = script == "preuninst.sh"
-            path = os.path.join(os.path.join(PATH_INSTALL, self.module_name, script))
-            if os.path.exists(path):
-                self.logger.debug('Execute script %s', path)
-                if not self._execute_script(path):
-                    self._log_process_status(
-                        context,
-                        logging.ERROR,
-                        'Error occured during "%s" script execution of module "%s"'
-                        % (script, self.module_name),
-                        force_crash_report=True,
-                    )
-                    return False
-            else:
-                self.logger.debug('No script found at "%s"' % path)
-
-            return True
-
-        except Exception:
-            self._log_process_status(
-                context,
-                logging.NOTSET,
-                'Exception occured during "%s" script execution of module "%s"'
-                % (script, self.module_name),
-            )
-            return False
 
     def _remove_installed_files(self, context):
         """
@@ -541,9 +508,13 @@ class UninstallModule(CommonProcess):
                 # nothing to process for local modules, quit current process triggering no error
                 raise LocalModuleException()
 
-            # pre uninstallation script
+            install_dir = os.path.join(PATH_INSTALL, self.module_name)
+
+            # pre uninstallation manifest
             context.step = "preuninst"
-            if not self._run_script(context, "preuninst.sh"):
+            if not self._run_phase_manifest(
+                context, PHASE_PREUNINST, install_dir, in_scripts=False
+            ):
                 self.status = self.STATUS_ERROR_PREUNINST
                 raise ForcedException()
             self._step(context)
@@ -555,9 +526,11 @@ class UninstallModule(CommonProcess):
                 raise ForcedException()
             self._step(context)
 
-            # post uninstallation script
+            # post uninstallation manifest
             context.step = "postuninst"
-            if not self._run_script(context, "postuninst.sh"):
+            if not self._run_phase_manifest(
+                context, PHASE_POSTUNINST, install_dir, in_scripts=False
+            ):
                 self.status = self.STATUS_ERROR_POSTUNINST
                 raise ForcedException()
             self._step(context)
@@ -600,18 +573,13 @@ class UninstallModule(CommonProcess):
                 # clean install log file
                 if context.module_log and os.path.exists(context.module_log):
                     self.cleep_filesystem.rm(context.module_log)
-                if context.install_dir and os.path.exists(
-                    os.path.join(context.install_dir, "preuninst.sh")
-                ):
-                    self.cleep_filesystem.rm(
-                        os.path.join(context.install_dir, "preuninst.sh")
-                    )
-                if context.install_dir and os.path.exists(
-                    os.path.join(context.install_dir, "postuninst.sh")
-                ):
-                    self.cleep_filesystem.rm(
-                        os.path.join(context.install_dir, "postuninst.sh")
-                    )
+                if context.install_dir:
+                    for phase in (PHASE_PREUNINST, PHASE_POSTUNINST):
+                        manifest = InstallManifest.phase_path(
+                            context.install_dir, phase, in_scripts=False
+                        )
+                        if os.path.exists(manifest):
+                            self.cleep_filesystem.rm(manifest)
             except Exception:
                 self._log_process_status(
                     context,
@@ -673,7 +641,9 @@ class InstallModule(CommonProcess):
             crash_report (CrashReport): Crash report instance
             task_factory (TaskFactory): TaskFactory instance
         """
-        CommonProcess.__init__(self, status_callback, cleep_filesystem, crash_report, task_factory)
+        CommonProcess.__init__(
+            self, status_callback, cleep_filesystem, crash_report, task_factory
+        )
 
         # members
         self.update_process = update_process
@@ -729,20 +699,20 @@ class InstallModule(CommonProcess):
                 {
                     module (string): module name
                     status (int): see STATUS_XXX for available codes
-                    prescript (dict): preinst status (returncode, stdout, stderr)
-                    postscript (dict): postinst status (returncode, stdout, stderr)
                     updateprocess (bool): install triggered by module update
                     process (list): process status
+                    stdout (list): console stdout from failed commands
+                    stderr (list): console stderr from failed commands
                 }
 
         """
         return {
             "module": self.module_name,
             "status": self.status,
-            "prescript": self._pre_script_status,
-            "postscript": self._post_script_status,
             "updateprocess": self.update_process,
             "process": self._process_status,
+            "stdout": self._stdout,
+            "stderr": self._stderr,
         }
 
     def _download_archive(self, context):
@@ -833,7 +803,7 @@ class InstallModule(CommonProcess):
 
     def _backup_scripts(self, context):
         """
-        Backup uninstall scripts
+        Backup uninstall phase manifests for later uninstall.
 
         Args:
             context (Context): install context
@@ -841,26 +811,23 @@ class InstallModule(CommonProcess):
         Returns:
             bool: True if operation succeed
         """
-        self.logger.debug('Save module "%s" uninstall scripts', self.module_name)
+        self.logger.debug(
+            'Save module "%s" uninstall manifests', self.module_name
+        )
         try:
-            # preuninst
-            src_path = os.path.join(context.extract_path, SCRIPTS_DIR, "preuninst.sh")
-            dst_path = os.path.join(PATH_INSTALL, self.module_name, "preuninst.sh")
-            if os.path.exists(src_path):
-                self.logger.trace('Copying "%s" to "%s"' % (src_path, dst_path))
-                self.cleep_filesystem.copy(src_path, dst_path)
-            else:
-                self.logger.trace("Script preuninst.sh not found in archive")
-
-            # postuninst
-            src_path = os.path.join(context.extract_path, SCRIPTS_DIR, "postuninst.sh")
-            dst_path = os.path.join(PATH_INSTALL, self.module_name, "postuninst.sh")
-            if os.path.exists(src_path):
-                self.logger.trace('Copying "%s" to "%s"' % (src_path, dst_path))
-                self.cleep_filesystem.copy(src_path, dst_path)
-            else:
-                self.logger.trace("Script postuninst.sh not found in archive")
-
+            dst_dir = os.path.join(PATH_INSTALL, self.module_name)
+            for phase in (PHASE_PREUNINST, PHASE_POSTUNINST):
+                src_path = InstallManifest.phase_path(
+                    context.extract_path, phase, in_scripts=True
+                )
+                dst_path = InstallManifest.phase_path(
+                    dst_dir, phase, in_scripts=False
+                )
+                if os.path.exists(src_path):
+                    self.logger.trace('Copying "%s" to "%s"', src_path, dst_path)
+                    self.cleep_filesystem.copy(src_path, dst_path)
+                else:
+                    self.logger.trace("%s.json not found in archive", phase)
             return True
 
         except Exception:
@@ -868,45 +835,6 @@ class InstallModule(CommonProcess):
                 context,
                 logging.NOTSET,
                 'Exception saving module "%s" scripts:' % self.module_name,
-            )
-            return False
-
-    def _run_script(self, context, script):
-        """
-        Execute specified script
-
-        Args:
-            context (Context): install context
-            script (string): script to execute (preinst.sh, postinst.sh, ...)
-
-        Returns:
-            bool: True if operation succeed
-        """
-        self.logger.debug('Running script "%s"' % script)
-        try:
-            self._pre_script_execution = script == "preinst.sh"
-            path = os.path.join(context.extract_path, SCRIPTS_DIR, script)
-            if os.path.exists(path):
-                if not self._execute_script(path):
-                    self._log_process_status(
-                        context,
-                        logging.ERROR,
-                        'Error occured during "%s" script execution of module "%s"'
-                        % (script, self.module_name),
-                        force_crash_report=True,
-                    )
-                    return False
-            else:
-                self.logger.debug('No script found at "%s"' % path)
-
-            return True
-
-        except Exception:
-            self._log_process_status(
-                context,
-                logging.NOTSET,
-                'Exception occured during "%s" script execution of module "%s"'
-                % (script, self.module_name),
             )
             return False
 
@@ -974,7 +902,11 @@ class InstallModule(CommonProcess):
             str: copied filepath, None otherwise
         """
         src_path = os.path.join(context.extract_path, archive_file)
-        dst_path = os.path.join(PATH_APP_ASSET, self.module_name, archive_file.replace(ARCHIVE_ASSET_DIR, ""))
+        dst_path = os.path.join(
+            CleepModule.APP_ASSET_ROOT,
+            self.module_name,
+            archive_file.replace(ARCHIVE_ASSET_DIR, ""),
+        )
         self.logger.trace(f"Copy asset src={src_path} dst={dst_path}")
 
         # copy file
@@ -986,7 +918,7 @@ class InstallModule(CommonProcess):
                 f'Error copying asset file "{src_path}" to "{dst_path}" during module "{self.module_name}" installation',
                 force_crash_report=True,
             )
-            raise Exception('NotCopiedFile')
+            raise Exception("NotCopiedFile")
 
         return dst_path
 
@@ -1002,7 +934,11 @@ class InstallModule(CommonProcess):
             str: copied filepath, None otherwise
         """
         src_path = os.path.join(context.extract_path, archive_file)
-        dst_path = os.path.join(PATH_APP_BIN, self.module_name, archive_file.replace(ARCHIVE_BIN_DIR, ""))
+        dst_path = os.path.join(
+            CleepModule.APP_BIN_ROOT,
+            self.module_name,
+            archive_file.replace(ARCHIVE_BIN_DIR, ""),
+        )
         self.logger.trace(f"Copy bin src={src_path} dst={dst_path}")
 
         # copy file
@@ -1014,7 +950,15 @@ class InstallModule(CommonProcess):
                 f'Error copying bin file "{src_path}" to "{dst_path}" during module "{self.module_name}" installation',
                 force_crash_report=True,
             )
-            raise Exception('NotCopiedFile')
+            raise Exception("NotCopiedFile")
+
+        # Preserve executable bit from archive when present; otherwise leave as-is
+        try:
+            src_mode = os.stat(src_path).st_mode
+            if src_mode & stat.S_IXUSR:
+                os.chmod(dst_path, src_mode)
+        except OSError:
+            pass
 
         return dst_path
 
@@ -1030,7 +974,9 @@ class InstallModule(CommonProcess):
             str: copied filepath, None otherwise
         """
         src_path = os.path.join(context.extract_path, archive_file)
-        dst_path = os.path.join(PATH_FRONTEND, archive_file).replace(ARCHIVE_FRONTEND_DIR, "")
+        dst_path = os.path.join(PATH_FRONTEND, archive_file).replace(
+            ARCHIVE_FRONTEND_DIR, ""
+        )
         self.logger.trace(f"Copy frontend src={src_path} dst={dst_path}")
 
         # copy file
@@ -1042,7 +988,7 @@ class InstallModule(CommonProcess):
                 f'Error copying frontend file "{src_path}" to "{dst_path}" during module "{self.module_name}" installation',
                 force_crash_report=True,
             )
-            raise Exception('NotCopiedFile')
+            raise Exception("NotCopiedFile")
 
         return dst_path
 
@@ -1058,7 +1004,9 @@ class InstallModule(CommonProcess):
             str: copied filepath, None otherwise
         """
         src_path = os.path.join(context.extract_path, archive_file)
-        dst_path = os.path.join(PATH_APP_BACKEND, archive_file).replace(ARCHIVE_BACKEND_DIR, "")
+        dst_path = os.path.join(PATH_APP_BACKEND, archive_file).replace(
+            ARCHIVE_BACKEND_DIR, ""
+        )
         self.logger.trace(f"Copy backend src={src_path} dst={dst_path}")
 
         # check file overwritings
@@ -1068,7 +1016,7 @@ class InstallModule(CommonProcess):
                 self._log_process_status(
                     context,
                     logging.WARNING,
-                    f'File "{dst_path}" is a core lib and shouldn\'t be exists in module "{self.module_name}" package. File is dropped.'
+                    f'File "{dst_path}" is a core lib and shouldn\'t be exists in module "{self.module_name}" package. File is dropped.',
                 )
                 return
 
@@ -1076,7 +1024,7 @@ class InstallModule(CommonProcess):
             self._log_process_status(
                 context,
                 logging.WARNING,
-                f'Application "{self.module_name}" installation overwrites existing file "{dst_path}"'
+                f'Application "{self.module_name}" installation overwrites existing file "{dst_path}"',
             )
 
         # copy file
@@ -1088,7 +1036,7 @@ class InstallModule(CommonProcess):
                 f'Error copying backend file "{src_path}" to "{dst_path}" during module "{self.module_name}" installation',
                 force_crash_report=True,
             )
-            raise Exception('NotCopiedFile')
+            raise Exception("NotCopiedFile")
 
         return dst_path
 
@@ -1183,9 +1131,11 @@ class InstallModule(CommonProcess):
             # create application directories
             self._create_app_directories(self.module_name)
 
-            # pre installation script
+            # pre installation manifest
             context.step = "preinst"
-            if not self._run_script(context, "preinst.sh"):
+            if not self._run_phase_manifest(
+                context, PHASE_PREINST, context.extract_path, in_scripts=True
+            ):
                 self.status = self.STATUS_ERROR_PREINST
                 raise ForcedException()
             self._step(context)
@@ -1197,9 +1147,11 @@ class InstallModule(CommonProcess):
                 raise ForcedException()
             self._step(context, cancel=False)
 
-            # post installation script
+            # post installation manifest
             context.step = "postinst"
-            if not self._run_script(context, "postinst.sh"):
+            if not self._run_phase_manifest(
+                context, PHASE_POSTINST, context.extract_path, in_scripts=True
+            ):
                 self.status = self.STATUS_ERROR_POSTINST
                 raise ForcedException()
 
@@ -1275,7 +1227,6 @@ class InstallModule(CommonProcess):
             % (self.module_name, success, rollback),
         )
         self._step(context, cancel=False)
-
 
 
 class UpdateModule(threading.Thread):
@@ -1404,7 +1355,11 @@ class UpdateModule(threading.Thread):
         """
         try:
             # init
-            self.logger.info('Start module "%s" update to v%s', self.module_name, self.new_module_infos["version"])
+            self.logger.info(
+                'Start module "%s" update to v%s',
+                self.module_name,
+                self.new_module_infos["version"],
+            )
             self.status = self.STATUS_UPDATING
             uninstall = UninstallModule(
                 self.module_name,
