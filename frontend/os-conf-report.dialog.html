@@ -1,0 +1,38 @@
+<md-dialog aria-label="OS conf report" flex="80">
+    <form ng-cloak>
+        <md-toolbar>
+            <div class="md-toolbar-tools">
+                <h2>OS upgrade conf report</h2>
+                <span flex></span>
+                <md-button class="md-icon-button" ng-click="$ctrl.closeDialog()">
+                    <cl-icon cl-icon="close"></cl-icon>
+                </md-button>
+            </div>
+        </md-toolbar>
+
+        <md-dialog-content>
+            <div class="md-dialog-content" block-ui="os-conf-report-blockui">
+                <p class="md-caption" style="margin-bottom: 12px;">
+                    Paths and apt action lines only — no configuration file contents.
+                    Use this list to decide which files need a dedicated migration script later.
+                </p>
+                <span class="md-caption" ng-if="$ctrl.reportText.length>0" style="white-space: pre-wrap; font-family: monospace;">{{$ctrl.reportText}}</span>
+                <span class="md-caption" ng-if="!$ctrl.reportText.length">
+                    No report available yet.
+                </span>
+            </div>
+        </md-dialog-content>
+
+        <md-dialog-actions layout="row">
+            <span flex></span>
+            <md-button
+                class="md-raised"
+                ng-disabled="!$ctrl.reportText.length || $ctrl.sending"
+                ng-click="$ctrl.sendReport()"
+            >
+                Send to Sentry
+            </md-button>
+            <md-button class="md-primary" ng-click="$ctrl.closeDialog()">Close</md-button>
+        </md-dialog-actions>
+    </form>
+</md-dialog>

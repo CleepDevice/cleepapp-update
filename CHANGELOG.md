@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.6.0] - 2026-09-30
+
+### Added
+
+- Implement OS update based on cleep-os playbooks and dry-run
+- Allow sending OS update report to Cleep team if enabled by user
+- General update/install improvements
+- Move install/update stuff from core to update app
+
+### Fixed
+
+- Applications updates list not refreshing after Check updates
+- App update/install/uninstall failure always clears `processing` state
+- Reject update/uninstall RPC while the same module is already processing
+- Deep-link `?tab=logs&app=<name>` opens that application's last update log dialog
+
 ## [1.5.0] - 2026-09-28
 
 ### Fixed
