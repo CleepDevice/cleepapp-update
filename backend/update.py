@@ -25,57 +25,29 @@ from cleep.libs.internals.download import Download
 from cleep.common import CORE_MODULES
 from cleep import __version__ as CLEEP_VERSION
 
-try:
-    from .install.install_app import PATH_INSTALL
-    from .install.appssources import AppsSources
-    from .install.cleepgithub import CleepGithub
-    from .install.installcleep import InstallCleep
-    from .install.install import Install
-except ImportError:  # pragma: no cover - flat import in tests / module loader
-    from install.install_app import PATH_INSTALL
-    from install.appssources import AppsSources
-    from install.cleepgithub import CleepGithub
-    from install.installcleep import InstallCleep
-    from install.install import Install
-
-try:
-    from .os_identity import get_os_identity
-    from .os_catalog import (
-        evaluate_os_update,
-        ensure_os_playbook,
-        fetch_os_catalog,
-    )
-    from .os_upgrade_runner import OsUpgradeRunner
-    from .os_conf_report import (
-        DEFAULT_REPORT_PATH,
-        build_os_conf_report,
-        sentry_extra_from_report,
-    )
-    from .os_dry_run_analysis import (
-        analyze_os_dry_run,
-        dry_run_errors_reportable_to_sentry,
-        format_analysis_section,
-        sentry_extra_from_dry_run_analysis,
-    )
-except ImportError:  # pragma: no cover - flat import in tests / module loader
-    from os_identity import get_os_identity
-    from os_catalog import (
-        evaluate_os_update,
-        ensure_os_playbook,
-        fetch_os_catalog,
-    )
-    from os_upgrade_runner import OsUpgradeRunner
-    from os_conf_report import (
-        DEFAULT_REPORT_PATH,
-        build_os_conf_report,
-        sentry_extra_from_report,
-    )
-    from os_dry_run_analysis import (
-        analyze_os_dry_run,
-        dry_run_errors_reportable_to_sentry,
-        format_analysis_section,
-        sentry_extra_from_dry_run_analysis,
-    )
+from .install.install_app import PATH_INSTALL
+from .install.appssources import AppsSources
+from .install.cleepgithub import CleepGithub
+from .install.installcleep import InstallCleep
+from .install.install import Install
+from .os_identity import get_os_identity
+from .os_catalog import (
+    evaluate_os_update,
+    ensure_os_playbook,
+    fetch_os_catalog,
+)
+from .os_upgrade_runner import OsUpgradeRunner
+from .os_conf_report import (
+    DEFAULT_REPORT_PATH,
+    build_os_conf_report,
+    sentry_extra_from_report,
+)
+from .os_dry_run_analysis import (
+    analyze_os_dry_run,
+    dry_run_errors_reportable_to_sentry,
+    format_analysis_section,
+    sentry_extra_from_dry_run_analysis,
+)
 
 
 class Update(CleepModule):

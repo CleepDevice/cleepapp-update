@@ -32,10 +32,7 @@ import json
 import logging
 import os
 
-try:
-    from .os_identity import parse_cleepos_version
-except ImportError:  # pragma: no cover - flat import in tests / module loader
-    from os_identity import parse_cleepos_version
+from .os_identity import parse_cleepos_version
 
 __all__ = [
     "CACHE_CATALOG_PATH",

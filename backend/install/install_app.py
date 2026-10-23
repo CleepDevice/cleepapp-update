@@ -17,43 +17,17 @@ from cleep.core import CleepModule
 from cleep.libs.internals.download import Download
 import cleep.libs.internals.tools as Tools
 
-try:
-    from .install_app_manifest import (
-        InstallManifest,
-        InstallManifestError,
-        MODE_INSTALL,
-        MODE_UNINSTALL,
-        PHASE_PREINST,
-        PHASE_POSTINST,
-        PHASE_PREUNINST,
-        PHASE_POSTUNINST,
-        UNINSTALL_PHASES,
-    )
-except ImportError:  # pragma: no cover - flat test / module-loader imports
-    try:
-        from install.install_app_manifest import (
-            InstallManifest,
-            InstallManifestError,
-            MODE_INSTALL,
-            MODE_UNINSTALL,
-            PHASE_PREINST,
-            PHASE_POSTINST,
-            PHASE_PREUNINST,
-            PHASE_POSTUNINST,
-            UNINSTALL_PHASES,
-        )
-    except ImportError:
-        from install_app_manifest import (
-            InstallManifest,
-            InstallManifestError,
-            MODE_INSTALL,
-            MODE_UNINSTALL,
-            PHASE_PREINST,
-            PHASE_POSTINST,
-            PHASE_PREUNINST,
-            PHASE_POSTUNINST,
-            UNINSTALL_PHASES,
-        )
+from .install_app_manifest import (
+    InstallManifest,
+    InstallManifestError,
+    MODE_INSTALL,
+    MODE_UNINSTALL,
+    PHASE_PREINST,
+    PHASE_POSTINST,
+    PHASE_PREUNINST,
+    PHASE_POSTUNINST,
+    UNINSTALL_PHASES,
+)
 
 __all__ = ["UninstallModule", "InstallModule", "UpdateModule"]
 

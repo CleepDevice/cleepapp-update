@@ -3,9 +3,7 @@
 
 from cleep.libs.tests.lib import TestLib
 import os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../backend/install')))
-from modulesjson import ModulesJson
+from backend.install.modulesjson import ModulesJson
 from cleep.libs.internals.cleepfilesystem import CleepFilesystem
 from cleep.exception import MissingParameter, InvalidParameter, CommandError
 import unittest
@@ -136,8 +134,8 @@ class ModulesJsonTests(unittest.TestCase):
         os_path_exists_mock.return_value = False
         self.assertFalse(self.mj.exists())
 
-    @patch('modulesjson.requests')
-    @patch('modulesjson.CLEEP_VERSION', '0.0.666')
+    @patch('backend.install.modulesjson.requests')
+    @patch('backend.install.modulesjson.CLEEP_VERSION', '0.0.666')
     def test_get_remote_url_return_version_url(self, requests_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
@@ -149,8 +147,8 @@ class ModulesJsonTests(unittest.TestCase):
         url = self.mj._ModulesJson__get_remote_url()
         self.assertEqual(url, DEFAULT_SOURCE["remote_url_version"] % {'version': '0.0.666'})
 
-    @patch('modulesjson.requests')
-    @patch('modulesjson.CLEEP_VERSION', '0.0.666')
+    @patch('backend.install.modulesjson.requests')
+    @patch('backend.install.modulesjson.CLEEP_VERSION', '0.0.666')
     def test_get_remote_url_return_latest_url(self, requests_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 404
@@ -162,8 +160,8 @@ class ModulesJsonTests(unittest.TestCase):
         url = self.mj._ModulesJson__get_remote_url()
         self.assertEqual(url, DEFAULT_SOURCE["remote_url_latest"])
 
-    @patch('modulesjson.requests')
-    @patch('modulesjson.CLEEP_VERSION', '0.0.666')
+    @patch('backend.install.modulesjson.requests')
+    @patch('backend.install.modulesjson.CLEEP_VERSION', '0.0.666')
     def test_get_remote_url_exception_should_return_latest_url(self, requests_mock):
         requests_mock.urlopen.side_effect = Exception('Test exception')
         self._init_context(
@@ -173,8 +171,8 @@ class ModulesJsonTests(unittest.TestCase):
         url = self.mj._ModulesJson__get_remote_url()
         self.assertEqual(url, DEFAULT_SOURCE["remote_url_latest"])
 
-    @patch('modulesjson.requests')
-    @patch('modulesjson.CLEEP_VERSION', '0.0.666')
+    @patch('backend.install.modulesjson.requests')
+    @patch('backend.install.modulesjson.CLEEP_VERSION', '0.0.666')
     def test_get_remote_url_custom_source(self, requests_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
@@ -188,8 +186,8 @@ class ModulesJsonTests(unittest.TestCase):
 
         requests_mock.get.assert_called_with(CUSTOM_SOURCE['remote_url_version'])
 
-    @patch('modulesjson.requests')
-    @patch('modulesjson.CLEEP_VERSION', '0.0.666')
+    @patch('backend.install.modulesjson.requests')
+    @patch('backend.install.modulesjson.CLEEP_VERSION', '0.0.666')
     def test_get_remote_url_custom_source_should_return_latest_url(self, requests_mock):
         requests_mock.urlopen.side_effect = Exception('Test exception')
         self._init_context(
@@ -201,7 +199,7 @@ class ModulesJsonTests(unittest.TestCase):
 
         self.assertEqual(url, CUSTOM_SOURCE['remote_url_latest'])
 
-    @patch('modulesjson.Download')
+    @patch('backend.install.modulesjson.Download')
     @patch('os.path.exists')
     def test_update_with_no_file(self, os_path_exists_mock, download_mock):
         os_path_exists_mock.return_value = False
@@ -213,9 +211,9 @@ class ModulesJsonTests(unittest.TestCase):
         # update
         self.assertTrue(self.mj.update())
 
-    @patch('modulesjson.Download')
+    @patch('backend.install.modulesjson.Download')
     @patch('os.path.exists')
-    @patch('modulesjson.requests')
+    @patch('backend.install.modulesjson.requests')
     def test_update_without_changes(self, requests_mock, os_path_exists_mock, download_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
@@ -231,9 +229,9 @@ class ModulesJsonTests(unittest.TestCase):
         # update
         self.assertFalse(self.mj.update())
 
-    @patch('modulesjson.Download')
+    @patch('backend.install.modulesjson.Download')
     @patch('os.path.exists')
-    @patch('modulesjson.requests')
+    @patch('backend.install.modulesjson.requests')
     def test_update_with_different_timestamp(self, requests_mock, os_path_exists_mock, download_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
@@ -248,8 +246,8 @@ class ModulesJsonTests(unittest.TestCase):
         # update
         self.assertTrue(self.mj.update())
 
-    @patch('modulesjson.Download')
-    @patch('modulesjson.requests')
+    @patch('backend.install.modulesjson.Download')
+    @patch('backend.install.modulesjson.requests')
     def test_update_with_invalid_remote_content(self, requests_mock, download_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
@@ -263,8 +261,8 @@ class ModulesJsonTests(unittest.TestCase):
             self.mj.update()
         self.assertEqual(str(cm.exception), 'Remote "/tmp/sources/test.json" file has invalid format')
 
-    @patch('modulesjson.Download')
-    @patch('modulesjson.requests')
+    @patch('backend.install.modulesjson.Download')
+    @patch('backend.install.modulesjson.requests')
     def test_update_with_download_failure(self, requests_mock, download_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200

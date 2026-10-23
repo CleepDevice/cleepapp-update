@@ -3,9 +3,7 @@
 
 from cleep.libs.tests.lib import TestLib
 import os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../backend/install')))
-from install import Install
+from backend.install.install import Install
 from cleep.exception import MissingParameter, InvalidParameter
 import unittest
 import logging
@@ -65,11 +63,11 @@ mock_updatemodule.STATUS_UPDATING.__eq__ = lambda self, other: other == UPDATEMO
 mock_updatemodule.STATUS_UPDATED.__eq__ = lambda self, other: other == UPDATEMODULE_STATUS_UPDATED
 mock_updatemodule.STATUS_ERROR.__eq__ = lambda self, other: other == UPDATEMODULE_STATUS_ERROR
 
-@patch('install.EndlessConsole', mock_endlessconsole)
-@patch('install.InstallDeb', mock_installdeb)
-@patch('install.InstallModule', mock_installmodule)
-@patch('install.UninstallModule', mock_uninstallmodule)
-@patch('install.UpdateModule', mock_updatemodule)
+@patch('backend.install.install.EndlessConsole', mock_endlessconsole)
+@patch('backend.install.install.InstallDeb', mock_installdeb)
+@patch('backend.install.install.InstallModule', mock_installmodule)
+@patch('backend.install.install.UninstallModule', mock_uninstallmodule)
+@patch('backend.install.install.UpdateModule', mock_updatemodule)
 class InstallTests(unittest.TestCase):
 
     def setUp(self):
@@ -128,7 +126,7 @@ class InstallTests(unittest.TestCase):
         self.assertTrue(self.cleep_filesystem.disable_write.called)
         self.status_callback.assert_called_with({'status': ANY, 'stderr': ANY, 'stdout': ANY})
 
-    @patch('install.Install._Install__reset_status')
+    @patch('backend.install.install.Install._Install__reset_status')
     def test_refresh_system_packages_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
@@ -182,7 +180,7 @@ class InstallTests(unittest.TestCase):
             'status': ANY,
         })
 
-    @patch('install.Install._Install__reset_status')
+    @patch('backend.install.install.Install._Install__reset_status')
     def test_install_system_package_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
@@ -223,7 +221,7 @@ class InstallTests(unittest.TestCase):
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
-    @patch('install.Install._Install__reset_status')
+    @patch('backend.install.install.Install._Install__reset_status')
     def test_uninstall_system_package_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
@@ -336,7 +334,7 @@ class InstallTests(unittest.TestCase):
             'status': Install.STATUS_PROCESSING,
         })
 
-    @patch('install.Install._Install__reset_status')
+    @patch('backend.install.install.Install._Install__reset_status')
     def test_install_deb_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
@@ -386,8 +384,8 @@ class InstallTests(unittest.TestCase):
             'status': ANY,
         })
 
-    @patch('install.Install._Install__reset_status')
-    @patch('install.os.path.exists')
+    @patch('backend.install.install.Install._Install__reset_status')
+    @patch('backend.install.install.os.path.exists')
     def test_install_archive_no_blocking_zip(self, mock_ospathexists, mock_resetstatus):
         self.init_lib()
         mock_ospathexists.return_value = True
@@ -399,8 +397,8 @@ class InstallTests(unittest.TestCase):
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         self.assertTrue(mock_resetstatus.called)
 
-    @patch('install.Install._Install__reset_status')
-    @patch('install.os.path.exists')
+    @patch('backend.install.install.Install._Install__reset_status')
+    @patch('backend.install.install.os.path.exists')
     def test_install_archive_no_blocking_targz(self, mock_ospathexists, mock_resetstatus):
         self.init_lib()
         mock_ospathexists.return_value = True
@@ -412,8 +410,8 @@ class InstallTests(unittest.TestCase):
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         self.assertTrue(mock_resetstatus.called)
 
-    @patch('install.Install._Install__reset_status')
-    @patch('install.os.path.exists')
+    @patch('backend.install.install.Install._Install__reset_status')
+    @patch('backend.install.install.os.path.exists')
     def test_install_archive_blocking_zip(self, mock_ospathexists, mock_resetstatus):
         self.init_lib(blocking=True)
         t = Timer(0.4, self.end_callback)
@@ -427,7 +425,7 @@ class InstallTests(unittest.TestCase):
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         self.assertTrue(mock_resetstatus.called)
 
-    @patch('install.os.path.exists')
+    @patch('backend.install.install.os.path.exists')
     def test_install_archive_blocking_failed(self, mock_ospathexists):
         mock_ospathexists.return_value = True
         self.init_lib(blocking=True)
@@ -438,8 +436,8 @@ class InstallTests(unittest.TestCase):
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
 
-    @patch('install.Install._Install__reset_status')
-    @patch('install.os.path.exists')
+    @patch('backend.install.install.Install._Install__reset_status')
+    @patch('backend.install.install.os.path.exists')
     def test_install_archive_create_out_dir(self, mock_ospathexists, mock_resetstatus):
         self.init_lib()
         mock_ospathexists.side_effect = [True, False]
@@ -452,8 +450,8 @@ class InstallTests(unittest.TestCase):
         self.assertTrue(mock_resetstatus.called)
         self.cleep_filesystem.mkdir.assert_called_with('/tmp/dummy', recursive=True)
 
-    @patch('install.Install._Install__reset_status')
-    @patch('install.os.path.exists')
+    @patch('backend.install.install.Install._Install__reset_status')
+    @patch('backend.install.install.os.path.exists')
     def test_install_archive_unsupported_archive(self, mock_ospathexists, mock_resetstatus):
         self.init_lib()
         mock_ospathexists.side_effect = [True, False]
@@ -562,7 +560,7 @@ class InstallTests(unittest.TestCase):
 
         self.assertEqual(self.i.status, Install.STATUS_ERROR)
 
-    @patch('install.Install._Install__reset_status')
+    @patch('backend.install.install.Install._Install__reset_status')
     def test_install_module_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
@@ -732,7 +730,7 @@ class InstallTests(unittest.TestCase):
 
         self.assertEqual(self.i.status, Install.STATUS_ERROR)
 
-    @patch('install.Install._Install__reset_status')
+    @patch('backend.install.install.Install._Install__reset_status')
     def test_uninstall_module_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
@@ -814,7 +812,7 @@ class InstallTests(unittest.TestCase):
             self.i.uninstall_module('dummy', 123)
         self.assertEqual(str(cm.exception), 'Parameter "module_infos" is invalid')
 
-    @patch('install.Install._Install__reset_status')
+    @patch('backend.install.install.Install._Install__reset_status')
     def test_update_module_no_blocking(self, mock_resetstatus):
         self.init_lib()
 

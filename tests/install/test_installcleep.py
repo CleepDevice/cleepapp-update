@@ -3,9 +3,7 @@
 
 from cleep.libs.tests.lib import TestLib
 import os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../backend/install')))
-from installcleep import InstallCleep, Download, InstallDeb, EndlessConsole
+from backend.install.installcleep import InstallCleep, Download, InstallDeb, EndlessConsole
 from cleep.exception import MissingParameter, InvalidParameter
 import unittest
 import logging
@@ -160,8 +158,8 @@ class InstallCleepTests(unittest.TestCase):
         if endlessconsole_mock:
             endlessconsole_mock.return_value.start = Mock(side_effect=endlessconsole_side_effect)
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     def test_install(self, download_mock, installdeb_mock):
         self._init_context(download_mock=download_mock, installdeb_mock=installdeb_mock)
         self._create_archive()
@@ -182,8 +180,8 @@ class InstallCleepTests(unittest.TestCase):
         self.assertTrue('stdout' in status['deb'])
         self.assertTrue('returncode' in status['deb'])
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     def test_install_exception_during_callback(self, download_mock, installdeb_mock):
         self._init_context(download_mock=download_mock, installdeb_mock=installdeb_mock)
         self._create_archive(None, None)
@@ -200,8 +198,8 @@ class InstallCleepTests(unittest.TestCase):
         self.assertEqual(status['status'], i.STATUS_ERROR_INTERNAL)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     def test_download_checksum_failed(self, download_mock, installdeb_mock):
         self._init_context(download_mock=download_mock, installdeb_mock=installdeb_mock, download_content_return_value=(3, None))
         self._create_archive()
@@ -214,8 +212,8 @@ class InstallCleepTests(unittest.TestCase):
         logging.debug('Status=%s' % status)
         self.assertEqual(status['status'], i.STATUS_ERROR_DOWNLOAD_CHECKSUM)
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     def test_download_checksum_exception(self, download_mock, installdeb_mock):
         self._init_context(download_mock=download_mock, installdeb_mock=installdeb_mock, download_content_side_effect=Exception('Test'))
         self._create_archive()
@@ -229,8 +227,8 @@ class InstallCleepTests(unittest.TestCase):
         self.assertEqual(status['status'], i.STATUS_ERROR_DOWNLOAD_CHECKSUM)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     def test_download_archive_failed(self, download_mock, installdeb_mock):
         self._init_context(download_mock=download_mock, installdeb_mock=installdeb_mock, download_file_side_effect=Exception('test'))
         self._create_archive()
@@ -244,7 +242,7 @@ class InstallCleepTests(unittest.TestCase):
         self.assertEqual(status['status'], i.STATUS_ERROR_DOWNLOAD_PACKAGE)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.Download')
     def test_install_deb_invalid_deb_archive(self, download_mock):
         self._init_context(download_mock=download_mock)
         self._create_archive()
@@ -258,8 +256,8 @@ class InstallCleepTests(unittest.TestCase):
         self.assertEqual(status['status'], i.STATUS_ERROR_DEB)
         self.assertTrue(self.crash_report.manual_report.called)
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     # @unittest.skip('TODO: check why it is blocked')
     def test_install_deb_exception(self, download_mock, installdeb_mock):
         self._init_context(download_mock=download_mock, installdeb_mock=installdeb_mock, installdeb_install_side_effect=Exception('Test'))
@@ -274,8 +272,8 @@ class InstallCleepTests(unittest.TestCase):
         self.assertEqual(status['status'], i.STATUS_ERROR_DEB)
         self.assertTrue(self.crash_report.report_exception.called)
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     def test_install_deb_failed(self, download_mock, installdeb_mock):
         installdeb_get_status_return_value = {
             'status': 3, # STATUS_ERROR
@@ -293,8 +291,8 @@ class InstallCleepTests(unittest.TestCase):
         logging.debug('Status=%s' % status)
         self.assertEqual(status['status'], i.STATUS_ERROR_DEB)
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     def test_download_archive_internal_error(self, download_mock, installdeb_mock):
         # STATUS_ERROR
         download_file_return_value = (3, None)
@@ -309,8 +307,8 @@ class InstallCleepTests(unittest.TestCase):
         logging.debug('Status=%s' % status)
         self.assertEqual(status['status'], i.STATUS_ERROR_DOWNLOAD_PACKAGE)
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     def test_download_archive_invalid_checksum(self, download_mock, installdeb_mock):
         # STATUS_ERROR_BADCHECKSUM
         download_file_return_value = (5, None)
@@ -325,8 +323,8 @@ class InstallCleepTests(unittest.TestCase):
         logging.debug('Status=%s' % status)
         self.assertEqual(status['status'], i.STATUS_ERROR_DOWNLOAD_PACKAGE)
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     def test_download_archive_invalid_size(self, download_mock, installdeb_mock):
         # STATUS_ERROR_INVALIDSIZE
         download_file_return_value = (4, None)
@@ -341,8 +339,8 @@ class InstallCleepTests(unittest.TestCase):
         logging.debug('Status=%s' % status)
         self.assertEqual(status['status'], i.STATUS_ERROR_DOWNLOAD_PACKAGE)
 
-    @patch('installcleep.InstallDeb')
-    @patch('installcleep.Download')
+    @patch('backend.install.installcleep.InstallDeb')
+    @patch('backend.install.installcleep.Download')
     def test_download_archive_unmanaged_error(self, download_mock, installdeb_mock):
         # STATUS_CANCELED
         download_file_return_value = (7, None)

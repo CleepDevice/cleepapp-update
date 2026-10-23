@@ -8,7 +8,6 @@ import sys
 import tempfile
 import unittest
 
-sys.path.append("../")
 from backend.os_identity import (
     parse_cleepos_version,
     read_cleepos_version,

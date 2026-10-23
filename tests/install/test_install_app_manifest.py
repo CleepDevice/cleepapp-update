@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 import json
 import tempfile
 import unittest
@@ -10,12 +9,7 @@ import zipfile
 import logging
 from unittest.mock import Mock, patch
 
-sys.path.append(
-    os.path.abspath(
-        os.path.dirname(__file__).replace("tests/install", "backend/install")
-    )
-)
-from install_app_manifest import (
+from backend.install.install_app_manifest import (
     InstallManifest,
     InstallManifestError,
     MODE_INSTALL,
@@ -186,7 +180,7 @@ class InstallManifestTests(unittest.TestCase):
                 }
             )
 
-    @patch("install_app_manifest.Console")
+    @patch("backend.install.install_app_manifest.Console")
     def test_uninstall_apt_purge(self, console_cls):
         console = Mock()
         console_cls.return_value = console
@@ -203,7 +197,7 @@ class InstallManifestTests(unittest.TestCase):
         self.assertIn("apt-get purge", cmd)
         self.assertIn("python3-gst-1.0", cmd)
 
-    @patch("install_app_manifest.Console")
+    @patch("backend.install.install_app_manifest.Console")
     def test_apt_install_failure_keeps_console_output(self, console_cls):
         console = Mock()
         console_cls.return_value = console

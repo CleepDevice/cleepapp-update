@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../backend/install')))
-from installdeb import InstallDeb
+from backend.install.installdeb import InstallDeb
 from cleep.libs.tests.lib import TestLib
 from cleep.exception import MissingParameter, InvalidParameter
 import unittest

@@ -5,20 +5,12 @@ import logging
 import os
 from gevent import sleep
 from cleep.libs.internals.console import EndlessConsole
-try:
-    from .install_app import (
-        InstallModule,
-        UninstallModule,
-        UpdateModule,
-    )
-    from .installdeb import InstallDeb
-except ImportError:  # pragma: no cover - flat test / module-loader imports
-    from install_app import (
-        InstallModule,
-        UninstallModule,
-        UpdateModule,
-    )
-    from installdeb import InstallDeb
+from .install_app import (
+    InstallModule,
+    UninstallModule,
+    UpdateModule,
+)
+from .installdeb import InstallDeb
 from cleep.exception import MissingParameter, InvalidParameter
 
 __all__ = ["Install"]

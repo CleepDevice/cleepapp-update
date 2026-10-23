@@ -3,9 +3,7 @@
 
 from cleep.libs.tests.lib import TestLib
 import os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../backend/install')))
-from cleepgithub import CleepGithub
+from backend.install.cleepgithub import CleepGithub
 import unittest
 import logging
 import json

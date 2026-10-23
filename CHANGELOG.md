@@ -34,6 +34,7 @@
 - Drop dead `prescript`/`postscript` keys from install/uninstall status API (phase JSON only)
 - Capture apt/pip console stdout/stderr on phase failure into process status / failure log (and Sentry extra)
 - Rename `installmodule.py` → `install_app.py`, `install_manifest.py` → `install_app_manifest.py`
+- Tests: migrate from unittest to pytest
 - Add lock to avoid concurrency issues (for example simultaneous install and update)
 - Implement progress during cleep update
 - FS check before install

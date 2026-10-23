@@ -3,10 +3,8 @@
 from cleep.libs.tests import session
 import unittest
 import logging
-import sys
 import copy
 from threading import Event
-sys.path.append('../')
 from backend.update import Update
 from backend.updatecleepupdateevent import UpdateCleepUpdateEvent
 from backend.updatemoduleinstallevent import UpdateModuleInstallEvent

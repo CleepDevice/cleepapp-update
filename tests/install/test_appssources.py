@@ -3,9 +3,7 @@
 
 from cleep.libs.tests.lib import TestLib
 import os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../backend/install')))
-from appssources import AppsSources
+from backend.install.appssources import AppsSources
 from cleep.libs.internals.cleepfilesystem import CleepFilesystem
 from cleep.exception import MissingParameter, InvalidParameter, CommandError
 import unittest
@@ -111,7 +109,7 @@ class AppsSourcesTests(unittest.TestCase):
         cleep_filesystem.write_json.return_value = False
         task_factory = Mock()
 
-        with patch('appssources.logging') as logging_mock:
+        with patch('backend.install.appssources.logging') as logging_mock:
             logger_mock = Mock()
             logging_mock.getLogger.return_value = logger_mock
             
@@ -127,7 +125,7 @@ class AppsSourcesTests(unittest.TestCase):
         cleep_filesystem.read_json.return_value = INVALID_SOURCES1
         task_factory = Mock()
 
-        with patch('appssources.logging') as logging_mock:
+        with patch('backend.install.appssources.logging') as logging_mock:
             logger_mock = Mock()
             logging_mock.getLogger.return_value = logger_mock
             
@@ -143,7 +141,7 @@ class AppsSourcesTests(unittest.TestCase):
         cleep_filesystem.read_json.return_value = INVALID_SOURCES2
         task_factory = Mock()
 
-        with patch('appssources.logging') as logging_mock:
+        with patch('backend.install.appssources.logging') as logging_mock:
             logger_mock = Mock()
             logging_mock.getLogger.return_value = logger_mock
             
@@ -294,7 +292,7 @@ class AppsSourcesTests(unittest.TestCase):
         self.l.update_market.assert_called_with(force_update=False)
 
     @patch('os.path.exists')
-    @patch('appssources.ModulesJson')
+    @patch('backend.install.appssources.ModulesJson')
     def test_update_market_has_updates(self, modules_json_mock, os_path_exists_mock):
         modulesjson_mock = Mock()
         modules_json_mock.return_value = modulesjson_mock
@@ -310,7 +308,7 @@ class AppsSourcesTests(unittest.TestCase):
         self.assertEqual(modulesjson_mock.update.call_count, 2)
 
     @patch('os.path.exists')
-    @patch('appssources.ModulesJson')
+    @patch('backend.install.appssources.ModulesJson')
     def test_update_market_has_no_updates(self, modules_json_mock, os_path_exists_mock):
         modulesjson_mock = Mock()
         modules_json_mock.return_value = modulesjson_mock
@@ -328,7 +326,7 @@ class AppsSourcesTests(unittest.TestCase):
         self.assertEqual(modulesjson_mock.update.call_count, 4)
 
     @patch('os.path.exists')
-    @patch('appssources.ModulesJson')
+    @patch('backend.install.appssources.ModulesJson')
     def test_update_market_available_updates(self, modules_json_mock, os_path_exists_mock):
         modulesjson_mock = Mock()
         modules_json_mock.return_value = modulesjson_mock
@@ -347,7 +345,7 @@ class AppsSourcesTests(unittest.TestCase):
         self.assertEqual(modulesjson_mock.update.call_count, 4)
 
     @patch('os.path.exists')
-    @patch('appssources.ModulesJson')
+    @patch('backend.install.appssources.ModulesJson')
     def test_update_market_do_not_force_update(self, modules_json_mock, os_path_exists_mock):
         modulesjson_mock = Mock()
         modules_json_mock.return_value = modulesjson_mock
@@ -364,7 +362,7 @@ class AppsSourcesTests(unittest.TestCase):
         self.assertEqual(modulesjson_mock.update.call_count, 2)
 
     @patch('os.path.exists')
-    @patch('appssources.ModulesJson')
+    @patch('backend.install.appssources.ModulesJson')
     def test_update_market_update_failure(self, modules_json_mock, os_path_exists_mock):
         modulesjson_mock = Mock()
         modules_json_mock.return_value = modulesjson_mock
