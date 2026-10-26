@@ -7,6 +7,7 @@ from backend.install.install_app import InstallModule, UninstallModule, UpdateMo
 from backend.install.installdeb import InstallDeb
 from cleep.exception import MissingParameter, InvalidParameter
 import unittest
+import pytest
 import logging
 import time
 from unittest.mock import Mock, patch, MagicMock
@@ -411,6 +412,7 @@ class UninstallModuleTests(unittest.TestCase):
 
 
 
+@pytest.mark.functional
 class UninstallModuleFunctionalTests(unittest.TestCase):
 
     def setUp(self):
@@ -1435,6 +1437,7 @@ class InstallModuleTests(unittest.TestCase):
 
 
 
+@pytest.mark.functional
 class InstallModuleFunctionalTests(unittest.TestCase):
 
     def setUp(self):
@@ -1888,6 +1891,7 @@ class UpdateModuleTests(unittest.TestCase):
 
 
 
+@pytest.mark.functional
 class UpdateModuleFunctionalTests(unittest.TestCase):
 
     def setUp(self):

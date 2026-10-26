@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Mark install functional test classes with `@pytest.mark.functional` (opt-in via `modtests --functional` / `CLEEP_FUNCTIONAL_TESTS`)
+
 ### Added
 
 - Declarative phase manifests `scripts/{pre,post}{inst,uninst}.json` (apt/pip/bin/chmod) only — no shell install scripts

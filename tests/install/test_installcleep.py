@@ -6,6 +6,7 @@ import os
 from backend.install.installcleep import InstallCleep, Download, InstallDeb, EndlessConsole
 from cleep.exception import MissingParameter, InvalidParameter
 import unittest
+import pytest
 import logging
 import time
 from unittest.mock import Mock, patch
@@ -355,6 +356,7 @@ class InstallCleepTests(unittest.TestCase):
         logging.debug('Status=%s' % status)
         self.assertEqual(status['status'], i.STATUS_ERROR_DOWNLOAD_PACKAGE)
 
+@pytest.mark.functional
 class InstallCleepFunctionalTests(unittest.TestCase):
 
     def setUp(self):

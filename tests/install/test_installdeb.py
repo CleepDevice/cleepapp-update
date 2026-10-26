@@ -6,6 +6,7 @@ from backend.install.installdeb import InstallDeb
 from cleep.libs.tests.lib import TestLib
 from cleep.exception import MissingParameter, InvalidParameter
 import unittest
+import pytest
 import logging
 import time
 from unittest.mock import Mock, patch
@@ -264,6 +265,7 @@ class InstallDebTests(unittest.TestCase):
         self.assertEqual(status['status'], i.STATUS_TIMEOUT)
         self.assertIsNone(status['returncode'])
 
+@pytest.mark.functional
 class InstallDebFunctionalTests(unittest.TestCase):
 
     def setUp(self):
