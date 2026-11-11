@@ -10,6 +10,7 @@ from backend.updatecleepupdateevent import UpdateCleepUpdateEvent
 from backend.updatemoduleinstallevent import UpdateModuleInstallEvent
 from backend.updatemoduleuninstallevent import UpdateModuleUninstallEvent
 from backend.updatemoduleupdateevent import UpdateModuleUpdateEvent
+from backend.updatemodulefirmwareevent import UpdateModuleFirmwareEvent
 from cleep.exception import InvalidParameter, MissingParameter, CommandError, Unauthorized, CommandInfo
 from cleep.common import MessageResponse
 from backend.install.installcleep import InstallCleep
@@ -3603,7 +3604,127 @@ class TestUpdateModuleUpdateEvent(unittest.TestCase):
 
 
 
+class TestUpdateModuleFirmwareEvent(unittest.TestCase):
+
+    def setUp(self):
+        logging.basicConfig(level=logging.FATAL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        params = {
+            'internal_bus': Mock(),
+            'formatters_broker': Mock(),
+            'get_external_bus_name': None,
+        }
+        self.event = UpdateModuleFirmwareEvent(params)
+
+    def test_event_params(self):
+        self.assertTrue(self.event.EVENT_PROPAGATE)
+        self.assertCountEqual(self.event.EVENT_PARAMS, ['module', 'firmwares'])
+
+
+
+
+class TestsUpdateFirmwareEmit(unittest.TestCase):
+
+    def setUp(self):
+        logging.basicConfig(level=LOG_LEVEL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        self.session = session.TestSession(self)
+
+    def tearDown(self):
+        if getattr(self, 'module', None) is not None:
+            self.module._release_update_lock()
+        self.session.clean()
+        self.module = None
+
+    def init_session(self):
+        self.module = self.session.setup(Update, mock_on_start=False, mock_on_stop=False)
+        self.session.add_mock_command(
+            self.session.make_mock_command('get_modules', data=INVENTORY_GETMODULES)
+        )
+        self.session.start_module(self.module)
+
+    def test_emit_module_firmware_event_sends_payload(self):
+        self.init_session()
+        pairs = [
+            {
+                'id': 'demo_pico_w_v1.0.0',
+                'zip': '/var/opt/cleep/modules/firmwares/demo/demo_pico_w_v1.0.0.zip',
+                'manifest': '/var/opt/cleep/modules/firmwares/demo/demo_pico_w_v1.0.0.manifest',
+                'data': {
+                    'hash': 'sha256:' + ('a' * 64),
+                    'name': 'Demo Pico',
+                    'app': 'demo',
+                    'firmware_version': '1.0.0',
+                    'kind': 'native',
+                    'date': '2026-11-09',
+                    'targets': ['pico_w'],
+                    'requires_bootsel': True,
+                    'description': None,
+                },
+            }
+        ]
+        with patch(
+            'cleep.libs.internals.firmware_manifest.scan_firmwares_dir',
+            return_value=pairs,
+        ):
+            self.module._emit_module_firmware_event('demo')
+
+        self.session.assert_event_called_with(
+            'update.module.firmware',
+            {
+                'module': 'demo',
+                'firmwares': [
+                    {
+                        'id': 'demo_pico_w_v1.0.0',
+                        'hash': 'sha256:' + ('a' * 64),
+                        'name': 'Demo Pico',
+                        'app': 'demo',
+                        'firmware_version': '1.0.0',
+                        'kind': 'native',
+                        'date': '2026-11-09',
+                        'targets': ['pico_w'],
+                        'requires_bootsel': True,
+                        'description': None,
+                        'urls': {
+                            'zip': '/firmware/demo/demo_pico_w_v1.0.0.zip',
+                            'manifest': '/firmware/demo/demo_pico_w_v1.0.0.manifest',
+                        },
+                    }
+                ],
+            },
+        )
+
+    def test_emit_module_firmware_event_noop_when_empty(self):
+        self.init_session()
+        with patch(
+            'cleep.libs.internals.firmware_manifest.scan_firmwares_dir',
+            return_value=[],
+        ):
+            self.module._emit_module_firmware_event('demo')
+        self.assertEqual(self.session.event_call_count('update.module.firmware'), 0)
+
+    def test_install_module_callback_emits_firmware_on_success(self):
+        self.init_session()
+        self.module._emit_module_firmware_event = Mock()
+        self.module._store_process_status = Mock()
+        self.module._set_module_process = Mock()
+        self.module._cleanup_module_package = Mock()
+        self.module.cleep_conf.install_module = Mock()
+
+        self.module._Update__install_module_callback(
+            {
+                'process': [],
+                'stdout': [],
+                'stderr': [],
+                'status': Install.STATUS_DONE,
+                'module': 'demo',
+            }
+        )
+
+        self.module._emit_module_firmware_event.assert_called_once_with('demo')
+
+
+
+
 if __name__ == '__main__':
     # coverage run --include="**/backend/**/*.py" --concurrency=thread test_update.py; coverage report -m -i
     unittest.main()
-    
+

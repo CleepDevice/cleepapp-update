@@ -188,6 +188,7 @@ class Update(CleepModule):
         self.module_install_event = self._get_event("update.module.install")
         self.module_uninstall_event = self._get_event("update.module.uninstall")
         self.module_update_event = self._get_event("update.module.update")
+        self.module_firmware_event = self._get_event("update.module.firmware")
         self.cleep_update_event = self._get_event("update.cleep.update")
         self.os_update_event = self._get_event("update.os.update")
         self.cleep_need_restart_event = self._get_event("system.cleep.needrestart")
@@ -3007,6 +3008,69 @@ class Update(CleepModule):
                 fullpath,
             )
 
+    def _emit_module_firmware_event(self, module_name):
+        """
+        Broadcast installed Pico firmwares to peers (cleep-desktop) if any.
+
+        No-op when the firmwares directory is empty or the core contract is
+        unavailable (older Cleep). Desktop dedupes by firmware hash.
+
+        Args:
+            module_name (str): installed / updated application name
+        """
+        try:
+            from cleep.libs.internals.firmware_manifest import (
+                FirmwareManifestError,
+                scan_firmwares_dir,
+            )
+        except ImportError:
+            self.logger.debug(
+                'Skip firmware event for "%s": firmware_manifest unavailable',
+                module_name,
+            )
+            return
+
+        firmware_dir = os.path.join(CleepModule.APP_FIRMWARE_ROOT, module_name)
+        try:
+            pairs = scan_firmwares_dir(firmware_dir)
+        except FirmwareManifestError as error:
+            self.logger.warning(
+                'Skip firmware event for "%s": %s', module_name, error
+            )
+            return
+
+        if not pairs:
+            return
+
+        firmwares = []
+        for pair in pairs:
+            data = pair["data"]
+            firmware_id = pair["id"]
+            firmwares.append(
+                {
+                    "id": firmware_id,
+                    "hash": data["hash"],
+                    "name": data["name"],
+                    "app": data["app"],
+                    "firmware_version": data["firmware_version"],
+                    "kind": data["kind"],
+                    "date": data["date"],
+                    "targets": data.get("targets") or [],
+                    "requires_bootsel": data.get("requires_bootsel", True),
+                    "description": data.get("description"),
+                    "urls": {
+                        "zip": f"/firmware/{module_name}/{firmware_id}.zip",
+                        "manifest": (
+                            f"/firmware/{module_name}/{firmware_id}.manifest"
+                        ),
+                    },
+                }
+            )
+
+        self.module_firmware_event.send(
+            params={"module": module_name, "firmwares": firmwares}
+        )
+
     def __install_module_callback(self, status):
         """
         Module install callback
@@ -3036,6 +3100,9 @@ class Update(CleepModule):
             # update cleep.conf only for main module not dependencies
             if not is_dependency:
                 self.cleep_conf.install_module(status["module"])
+
+            # notify desktop once per successful install when firmwares exist
+            self._emit_module_firmware_event(status["module"])
 
         elif status["status"] == Install.STATUS_ERROR:
             # set main action failed (prefer main module over failing dependency)
@@ -3557,6 +3624,9 @@ class Update(CleepModule):
 
             # update cleep.conf adding module to updated ones
             self.cleep_conf.update_module(status["module"])
+
+            # re-notify desktop when update reinstalls firmwares (hash dedupe)
+            self._emit_module_firmware_event(status["module"])
 
         elif status["status"] == Install.STATUS_ERROR:
             # set main action failed

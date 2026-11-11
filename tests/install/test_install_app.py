@@ -880,6 +880,7 @@ class InstallModuleTests(unittest.TestCase):
             ('frontend/js/modules/module', [], ['desc.json', 'module.config.js', 'module.config.html']),
             ('asset', [], ['image.png', 'sound.wav']),
             ('bin', [], ['binary']),
+            ('firmwares', [], ['demo_pico_w_v1.0.0.zip', 'demo_pico_w_v1.0.0.manifest']),
         ]
         tools_mock.is_core_lib.return_value = False
 
@@ -890,7 +891,7 @@ class InstallModuleTests(unittest.TestCase):
 
         self.assertTrue(self.i._copy_module_files(self.c))
         logging.debug('cleep_fs calls: %s' % self.cleep_filesystem.mock_calls)
-        self.assertEqual(self.cleep_filesystem.copy.call_count, 8) # 5 files in walk return value
+        self.assertEqual(self.cleep_filesystem.copy.call_count, 10)
 
         self.cleep_filesystem.copy.assert_any_call(f'{self.c.extract_path}/backend/modules/module/module.py', '/opt/cleep/modules/module/module.py')
         self.cleep_filesystem.copy.assert_any_call(f'{self.c.extract_path}/backend/modules/module/__init__.py', '/opt/cleep/modules/module/__init__.py')
@@ -900,6 +901,14 @@ class InstallModuleTests(unittest.TestCase):
         self.cleep_filesystem.copy.assert_any_call(f'{self.c.extract_path}/asset/image.png', '/var/opt/cleep/modules/asset/module/image.png')
         self.cleep_filesystem.copy.assert_any_call(f'{self.c.extract_path}/asset/sound.wav', '/var/opt/cleep/modules/asset/module/sound.wav')
         self.cleep_filesystem.copy.assert_any_call(f'{self.c.extract_path}/bin/binary', '/var/opt/cleep/modules/bin/module/binary')
+        self.cleep_filesystem.copy.assert_any_call(
+            f'{self.c.extract_path}/firmwares/demo_pico_w_v1.0.0.zip',
+            '/var/opt/cleep/modules/firmwares/module/demo_pico_w_v1.0.0.zip',
+        )
+        self.cleep_filesystem.copy.assert_any_call(
+            f'{self.c.extract_path}/firmwares/demo_pico_w_v1.0.0.manifest',
+            '/var/opt/cleep/modules/firmwares/module/demo_pico_w_v1.0.0.manifest',
+        )
 
     @patch('backend.install.install_app.os')
     @patch('backend.install.install_app.Tools')
@@ -1040,6 +1049,31 @@ class InstallModuleTests(unittest.TestCase):
         logging.debug('Status: %s' % status)
         self.assertEqual(len(status['process']), 2)
         self.assertTrue(status['process'][0].startswith('Error copying bin file'))
+        self.assertTrue(status['process'][1].startswith('Exception occured during module'))
+        self.assertTrue(self.crash_report.report_exception.called)
+
+    @patch('backend.install.install_app.os')
+    @patch('backend.install.install_app.Tools')
+    def test_copy_module_files_firmware_file_copy_failed(self, tools_mock, os_mock):
+        os_mock.path.join = os.path.join
+        os_mock.path.exists.side_effect = [True, True, False, False]
+        os_mock.walk.return_value = [
+            ('backend/modules/module', [], ['module.py', '__init__.py']),
+            ('firmwares', [], ['demo_pico_w_v1.0.0.zip']),
+        ]
+        tools_mock.is_core_lib.return_value = False
+
+        self._init_context(cleep_filesystem_copy_side_effect=[True, True, False])
+        self.c.archive_path = '/tmp/dummy/zip'
+        self.c.extract_path = '/tmp/123456789'
+        self.c.install_log_fd = MagicMock()
+
+        self.assertFalse(self.i._copy_module_files(self.c))
+
+        status = self.i.get_status()
+        logging.debug('Status: %s' % status)
+        self.assertEqual(len(status['process']), 2)
+        self.assertTrue(status['process'][0].startswith('Error copying firmware file'))
         self.assertTrue(status['process'][1].startswith('Exception occured during module'))
         self.assertTrue(self.crash_report.report_exception.called)
 
@@ -1404,11 +1438,12 @@ class InstallModuleTests(unittest.TestCase):
             res = self.i._create_app_directories('myapp')
 
         self.assertTrue(res)
-        self.assertEqual(self.cleep_filesystem.mkdirs.call_count, 4)
+        self.assertEqual(self.cleep_filesystem.mkdirs.call_count, 5)
         logging.debug('os.path.exists calls: %s', os_path_exists_mock.mock_calls)
         os_path_exists_mock.assert_any_call('/var/opt/cleep/modules/storage/myapp')
         os_path_exists_mock.assert_any_call('/var/opt/cleep/modules/bin/myapp')
         os_path_exists_mock.assert_any_call('/var/opt/cleep/modules/asset/myapp')
+        os_path_exists_mock.assert_any_call('/var/opt/cleep/modules/firmwares/myapp')
         os_path_exists_mock.assert_any_call('/tmp/cleep/modules/myapp')
 
     def test_create_app_directories_create_missing_directories(self):
@@ -1416,11 +1451,11 @@ class InstallModuleTests(unittest.TestCase):
         self._init_context(module_infos=module_infos)
 
         with patch('backend.install.install_app.os.path.exists') as os_path_exists_mock:
-            os_path_exists_mock.side_effect = [False, True, False, True]
+            os_path_exists_mock.side_effect = [False, True, False, True, False]
             res = self.i._create_app_directories('myapp')
 
         self.assertTrue(res)
-        self.assertEqual(self.cleep_filesystem.mkdirs.call_count, 2)
+        self.assertEqual(self.cleep_filesystem.mkdirs.call_count, 3)
 
     def test_create_app_directories_mkdirs_failed(self):
         module_infos = self._get_module_infos()

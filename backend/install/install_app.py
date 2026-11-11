@@ -39,6 +39,7 @@ ARCHIVE_FRONTEND_DIR = "frontend/"
 ARCHIVE_BACKEND_DIR = "backend/"
 ARCHIVE_ASSET_DIR = "asset/"
 ARCHIVE_BIN_DIR = "bin/"
+ARCHIVE_FIRMWARE_DIR = "firmwares/"
 SCRIPTS_DIR = "scripts/"
 TESTS_DIR = "tests/"
 
@@ -846,6 +847,8 @@ class InstallModule(CommonProcess):
                     copied_filepath = self.__copy_asset_file(context, archive_file)
                 elif archive_file.startswith(ARCHIVE_BIN_DIR):
                     copied_filepath = self.__copy_bin_file(context, archive_file)
+                elif archive_file.startswith(ARCHIVE_FIRMWARE_DIR):
+                    copied_filepath = self.__copy_firmware_file(context, archive_file)
                 else:
                     self.logger.debug("Drop unhandled archive file: %s" % archive_file)
 
@@ -933,6 +936,37 @@ class InstallModule(CommonProcess):
                 os.chmod(dst_path, src_mode)
         except OSError:
             pass
+
+        return dst_path
+
+    def __copy_firmware_file(self, context, archive_file):
+        """
+        Copy Pico firmware package file (zip or sidecar .manifest).
+
+        Args:
+            context (Context): install context
+            archive_file (str): archive file
+
+        Returns:
+            str: copied filepath
+        """
+        src_path = os.path.join(context.extract_path, archive_file)
+        dst_path = os.path.join(
+            CleepModule.APP_FIRMWARE_ROOT,
+            self.module_name,
+            archive_file.replace(ARCHIVE_FIRMWARE_DIR, ""),
+        )
+        self.logger.trace(f"Copy firmware src={src_path} dst={dst_path}")
+
+        self.cleep_filesystem.mkdirs(os.path.dirname(dst_path))
+        if not self.cleep_filesystem.copy(src_path, dst_path):
+            self._log_process_status(
+                context,
+                logging.ERROR,
+                f'Error copying firmware file "{src_path}" to "{dst_path}" during module "{self.module_name}" installation',
+                force_crash_report=True,
+            )
+            raise Exception("NotCopiedFile")
 
         return dst_path
 

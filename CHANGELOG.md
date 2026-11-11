@@ -8,6 +8,7 @@
 
 ### Added
 
+- Install `firmwares/` zip+manifest pairs under `APP_FIRMWARE_PATH` and broadcast `update.module.firmware` (propagated) after successful install/update
 - Declarative phase manifests `scripts/{pre,post}{inst,uninst}.json` (apt/pip/bin/chmod) only — no shell install scripts
 - Use `CleepModule.app_paths_for()` for APP_* dirs (single source of truth in core)
 - Implement OS update based on cleep-os playbooks and dry-run
