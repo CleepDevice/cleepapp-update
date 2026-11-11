@@ -47,9 +47,7 @@ _DISK_FREED_RE = re.compile(
     r"After this operation,\s*([\d.]+)\s*(kB|KB|MB|GB)\s+disk space will be freed",
     re.IGNORECASE,
 )
-_SUMMARY_RE = re.compile(
-    r"(\d+)\s+upgraded,\s+(\d+)\s+newly installed,\s+(\d+)\s+to remove(?:,\s+(\d+)\s+not upgraded)?"
-)
+_SUMMARY_RE = re.compile(r"(\d+)\s+upgraded,\s+(\d+)\s+newly installed,\s+(\d+)\s+to remove(?:,\s+(\d+)\s+not upgraded)?")
 _NEED_ARCHIVES_RE = re.compile(
     r"Need to get\s+(.+?)\s+of archives",
     re.IGNORECASE,
@@ -241,8 +239,7 @@ def analyze_os_dry_run(text, *, free_bytes=None, path="/"):
                 "severity": "warning",
                 "code": "disk_delta_unknown",
                 "message": (
-                    'Apt did not report "After this operation, … disk space…" — '
-                    "cannot verify free space vs upgrade size"
+                    'Apt did not report "After this operation, … disk space…" — ' "cannot verify free space vs upgrade size"
                 ),
             }
         )
@@ -280,10 +277,7 @@ def analyze_os_dry_run(text, *, free_bytes=None, path="/"):
             {
                 "severity": "error",
                 "code": "critical_removal",
-                "message": (
-                    "Simulation would remove critical package(s): %s"
-                    % ", ".join(critical_removals[:12])
-                ),
+                "message": ("Simulation would remove critical package(s): %s" % ", ".join(critical_removals[:12])),
             }
         )
     elif counts and counts.get("to_remove", 0) >= 20:
@@ -291,25 +285,17 @@ def analyze_os_dry_run(text, *, free_bytes=None, path="/"):
             {
                 "severity": "warning",
                 "code": "many_removals",
-                "message": "Simulation removes %s packages — review Remv lines carefully"
-                % counts["to_remove"],
+                "message": "Simulation removes %s packages — review Remv lines carefully" % counts["to_remove"],
             }
         )
 
     if counts:
-        if (
-            counts["upgraded"] == 0
-            and counts["newly_installed"] == 0
-            and counts["to_remove"] == 0
-        ):
+        if counts["upgraded"] == 0 and counts["newly_installed"] == 0 and counts["to_remove"] == 0:
             findings.append(
                 {
                     "severity": "info",
                     "code": "no_package_changes",
-                    "message": (
-                        "No package changes vs apt mirrors — Apply would mostly stamp "
-                        "/etc/cleepos_version"
-                    ),
+                    "message": ("No package changes vs apt mirrors — Apply would mostly stamp " "/etc/cleepos_version"),
                 }
             )
         else:
@@ -380,10 +366,7 @@ def sentry_extra_from_dry_run_analysis(
         "verdict": (analysis or {}).get("verdict"),
         "runner_error": runner_error,
         "reportable_finding_codes": [item.get("code") for item in findings],
-        "reportable_findings": [
-            {"code": item.get("code"), "message": item.get("message")}
-            for item in findings[:20]
-        ],
+        "reportable_findings": [{"code": item.get("code"), "message": item.get("message")} for item in findings[:20]],
         "disk": (analysis or {}).get("disk"),
         "counts": (analysis or {}).get("counts"),
     }
@@ -412,11 +395,7 @@ def format_analysis_section(analysis):
         lines.append("(none)")
     else:
         for item in findings:
-            lines.append(
-                "[%s] %s" % ((item.get("severity") or "?").upper(), item.get("message"))
-            )
+            lines.append("[%s] %s" % ((item.get("severity") or "?").upper(), item.get("message")))
     lines.append("")
-    lines.append(
-        "Note: leftover .dpkg-* / .ucf-* files still cannot be predicted without a real Apply."
-    )
+    lines.append("Note: leftover .dpkg-* / .ucf-* files still cannot be predicted without a real Apply.")
     return "\n".join(lines) + "\n"

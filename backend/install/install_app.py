@@ -148,9 +148,7 @@ class CommonProcess(threading.Thread):
             self.logger.debug('No %s.json at "%s"', phase, path)
             return True
 
-        self.logger.info(
-            'Running %s.json for module "%s" (%s)', phase, self.module_name, path
-        )
+        self.logger.info('Running %s.json for module "%s" (%s)', phase, self.module_name, path)
         try:
             data = InstallManifest.load(path)
             mode = MODE_UNINSTALL if phase in UNINSTALL_PHASES else MODE_INSTALL
@@ -167,8 +165,7 @@ class CommonProcess(threading.Thread):
             self._log_process_status(
                 context,
                 logging.ERROR,
-                '%s.json failed for module "%s": %s'
-                % (phase, self.module_name, exc),
+                '%s.json failed for module "%s": %s' % (phase, self.module_name, exc),
                 force_crash_report=True,
                 stdout=exc.stdout,
                 stderr=exc.stderr,
@@ -178,8 +175,7 @@ class CommonProcess(threading.Thread):
             self._log_process_status(
                 context,
                 logging.NOTSET,
-                'Exception running %s.json for module "%s"'
-                % (phase, self.module_name),
+                'Exception running %s.json for module "%s"' % (phase, self.module_name),
             )
             return False
 
@@ -313,9 +309,7 @@ class UninstallModule(CommonProcess):
             crash_report (CrashReport): CrashReport instance
             task_factory (TaskFactory): TaskFactory instance
         """
-        CommonProcess.__init__(
-            self, status_callback, cleep_filesystem, crash_report, task_factory
-        )
+        CommonProcess.__init__(self, status_callback, cleep_filesystem, crash_report, task_factory)
 
         # members
         self.status = self.STATUS_IDLE
@@ -373,17 +367,14 @@ class UninstallModule(CommonProcess):
         try:
             # read install log file
             self._log_process_status(context, logging.INFO, "Remove installed files")
-            context.module_log = os.path.join(
-                PATH_INSTALL, self.module_name, "%s.log" % self.module_name
-            )
+            context.module_log = os.path.join(PATH_INSTALL, self.module_name, "%s.log" % self.module_name)
             context.install_dir = os.path.join(PATH_INSTALL, self.module_name)
             self.logger.debug('Open install log file "%s"' % context.module_log)
             if not os.path.exists(context.module_log):
                 self._log_process_status(
                     context,
                     logging.WARN,
-                    'Install log file "%s" for module "%s" was not found'
-                    % (context.module_log, self.module_name),
+                    'Install log file "%s" for module "%s" was not found' % (context.module_log, self.module_name),
                 )
                 return bool(context.force_uninstall)
             install_log_fd = self.cleep_filesystem.open(context.module_log, "r")
@@ -427,8 +418,7 @@ class UninstallModule(CommonProcess):
                     self._log_process_status(
                         context,
                         logging.ERROR,
-                        'Unable to remove file "%s" during module "%s" uninstallation'
-                        % (line, self.module_name),
+                        'Unable to remove file "%s" during module "%s" uninstallation' % (line, self.module_name),
                     )
 
                 # keep track of file path
@@ -443,8 +433,7 @@ class UninstallModule(CommonProcess):
                     self._log_process_status(
                         context,
                         logging.ERROR,
-                        'Unable to remove directory "%s" during module "%s" uninstallation'
-                        % (path, self.module_name),
+                        'Unable to remove directory "%s" during module "%s" uninstallation' % (path, self.module_name),
                     )
 
             return True
@@ -453,8 +442,7 @@ class UninstallModule(CommonProcess):
             self._log_process_status(
                 context,
                 logging.NOTSET,
-                'Exception occured removing files during "%s" module uninstallation'
-                % self.module_name,
+                'Exception occured removing files during "%s" module uninstallation' % self.module_name,
             )
             return bool(context.force_uninstall)
 
@@ -487,9 +475,7 @@ class UninstallModule(CommonProcess):
 
             # pre uninstallation manifest
             context.step = "preuninst"
-            if not self._run_phase_manifest(
-                context, PHASE_PREUNINST, install_dir, in_scripts=False
-            ):
+            if not self._run_phase_manifest(context, PHASE_PREUNINST, install_dir, in_scripts=False):
                 self.status = self.STATUS_ERROR_PREUNINST
                 raise ForcedException()
             self._step(context)
@@ -503,9 +489,7 @@ class UninstallModule(CommonProcess):
 
             # post uninstallation manifest
             context.step = "postuninst"
-            if not self._run_phase_manifest(
-                context, PHASE_POSTUNINST, install_dir, in_scripts=False
-            ):
+            if not self._run_phase_manifest(context, PHASE_POSTUNINST, install_dir, in_scripts=False):
                 self.status = self.STATUS_ERROR_POSTUNINST
                 raise ForcedException()
             self._step(context)
@@ -526,8 +510,7 @@ class UninstallModule(CommonProcess):
             self._log_process_status(
                 context,
                 logging.NOTSET,
-                'Exception occured during module "%s" uninstallation'
-                % self.module_name,
+                'Exception occured during module "%s" uninstallation' % self.module_name,
             )
             self.status = self.STATUS_ERROR_INTERNAL
 
@@ -550,17 +533,14 @@ class UninstallModule(CommonProcess):
                     self.cleep_filesystem.rm(context.module_log)
                 if context.install_dir:
                     for phase in (PHASE_PREUNINST, PHASE_POSTUNINST):
-                        manifest = InstallManifest.phase_path(
-                            context.install_dir, phase, in_scripts=False
-                        )
+                        manifest = InstallManifest.phase_path(context.install_dir, phase, in_scripts=False)
                         if os.path.exists(manifest):
                             self.cleep_filesystem.rm(manifest)
             except Exception:
                 self._log_process_status(
                     context,
                     logging.NOTSET,
-                    'Exception occured during "%s" uninstall cleaning'
-                    % self.module_name,
+                    'Exception occured during "%s" uninstall cleaning' % self.module_name,
                 )
 
             # disable write mode
@@ -571,8 +551,7 @@ class UninstallModule(CommonProcess):
         self._log_process_status(
             context,
             logging.INFO,
-            'Module "%s" uninstallation terminated (success:%s, force:%s)'
-            % (self.module_name, success, self.force_uninstall),
+            'Module "%s" uninstallation terminated (success:%s, force:%s)' % (self.module_name, success, self.force_uninstall),
         )
         self._step(context)
 
@@ -616,9 +595,7 @@ class InstallModule(CommonProcess):
             crash_report (CrashReport): Crash report instance
             task_factory (TaskFactory): TaskFactory instance
         """
-        CommonProcess.__init__(
-            self, status_callback, cleep_filesystem, crash_report, task_factory
-        )
+        CommonProcess.__init__(self, status_callback, cleep_filesystem, crash_report, task_factory)
 
         # members
         self.update_process = update_process
@@ -650,9 +627,7 @@ class InstallModule(CommonProcess):
         """
         Cancel installation
         """
-        self.logger.trace(
-            'Received module "%s" installation cancelation' % self.module_name
-        )
+        self.logger.trace('Received module "%s" installation cancelation' % self.module_name)
         self.running = False
 
     def is_installing(self):
@@ -711,29 +686,15 @@ class InstallModule(CommonProcess):
                 self.logger.trace("download_status: %s" % download_status)
 
                 if download_status == download.STATUS_ERROR:
-                    self.error = (
-                        'Error during "%s" download: internal error'
-                        % self.module_infos["download"]
-                    )
+                    self.error = 'Error during "%s" download: internal error' % self.module_infos["download"]
                 elif download_status == download.STATUS_ERROR_INVALIDSIZE:
-                    self.error = (
-                        'Error during "%s" download: invalid filesize'
-                        % self.module_infos["download"]
-                    )
+                    self.error = 'Error during "%s" download: invalid filesize' % self.module_infos["download"]
                 elif download_status == download.STATUS_ERROR_BADCHECKSUM:
-                    self.error = (
-                        'Error during "%s" download: invalid checksum'
-                        % self.module_infos["download"]
-                    )
+                    self.error = 'Error during "%s" download: invalid checksum' % self.module_infos["download"]
                 else:
-                    self.error = (
-                        'Error during "%s" download: unknown error'
-                        % self.module_infos["download"]
-                    )
+                    self.error = 'Error during "%s" download: unknown error' % self.module_infos["download"]
 
-                self._log_process_status(
-                    context, logging.ERROR, self.error, force_crash_report=True
-                )
+                self._log_process_status(context, logging.ERROR, self.error, force_crash_report=True)
 
                 return False
 
@@ -743,8 +704,7 @@ class InstallModule(CommonProcess):
             self._log_process_status(
                 context,
                 logging.NOTSET,
-                'Exception occured during module "%s" archive download "%s":'
-                % (self.module_name, self.module_infos["download"]),
+                'Exception occured during module "%s" archive download "%s":' % (self.module_name, self.module_infos["download"]),
             )
             return False
 
@@ -786,18 +746,12 @@ class InstallModule(CommonProcess):
         Returns:
             bool: True if operation succeed
         """
-        self.logger.debug(
-            'Save module "%s" uninstall manifests', self.module_name
-        )
+        self.logger.debug('Save module "%s" uninstall manifests', self.module_name)
         try:
             dst_dir = os.path.join(PATH_INSTALL, self.module_name)
             for phase in (PHASE_PREUNINST, PHASE_POSTUNINST):
-                src_path = InstallManifest.phase_path(
-                    context.extract_path, phase, in_scripts=True
-                )
-                dst_path = InstallManifest.phase_path(
-                    dst_dir, phase, in_scripts=False
-                )
+                src_path = InstallManifest.phase_path(context.extract_path, phase, in_scripts=True)
+                dst_path = InstallManifest.phase_path(dst_dir, phase, in_scripts=False)
                 if os.path.exists(src_path):
                     self.logger.trace('Copying "%s" to "%s"', src_path, dst_path)
                     self.cleep_filesystem.copy(src_path, dst_path)
@@ -982,9 +936,7 @@ class InstallModule(CommonProcess):
             str: copied filepath, None otherwise
         """
         src_path = os.path.join(context.extract_path, archive_file)
-        dst_path = os.path.join(PATH_FRONTEND, archive_file).replace(
-            ARCHIVE_FRONTEND_DIR, ""
-        )
+        dst_path = os.path.join(PATH_FRONTEND, archive_file).replace(ARCHIVE_FRONTEND_DIR, "")
         self.logger.trace(f"Copy frontend src={src_path} dst={dst_path}")
 
         # copy file
@@ -1012,9 +964,7 @@ class InstallModule(CommonProcess):
             str: copied filepath, None otherwise
         """
         src_path = os.path.join(context.extract_path, archive_file)
-        dst_path = os.path.join(PATH_APP_BACKEND, archive_file).replace(
-            ARCHIVE_BACKEND_DIR, ""
-        )
+        dst_path = os.path.join(PATH_APP_BACKEND, archive_file).replace(ARCHIVE_BACKEND_DIR, "")
         self.logger.trace(f"Copy backend src={src_path} dst={dst_path}")
 
         # check file overwritings
@@ -1059,9 +1009,7 @@ class InstallModule(CommonProcess):
                 fdesc = self.cleep_filesystem.open(context.install_log, "r")
                 lines = fdesc.readlines()
                 for line in lines:
-                    self.logger.trace(
-                        'Removing "%s" module "%s" file.' % (line, self.module_name)
-                    )
+                    self.logger.trace('Removing "%s" module "%s" file.' % (line, self.module_name))
                     self.cleep_filesystem.rm(line.strip())
 
                 # remove module install dir
@@ -1071,8 +1019,7 @@ class InstallModule(CommonProcess):
                 self._log_process_status(
                     context,
                     logging.NOTSET,
-                    'Exception ocurred during "%s" module installation rollback'
-                    % self.module_name,
+                    'Exception ocurred during "%s" module installation rollback' % self.module_name,
                 )
 
     def run(self):
@@ -1103,14 +1050,10 @@ class InstallModule(CommonProcess):
                 raise LocalModuleException()
 
             # init install
-            context.install_log = os.path.join(
-                PATH_INSTALL, self.module_name, "%s.log" % self.module_name
-            )
+            context.install_log = os.path.join(PATH_INSTALL, self.module_name, "%s.log" % self.module_name)
             self.logger.debug('Create install log file "%s"' % context.install_log)
             self.cleep_filesystem.mkdirs(os.path.join(PATH_INSTALL, self.module_name))
-            context.install_log_fd = self.cleep_filesystem.open(
-                context.install_log, "w"
-            )
+            context.install_log_fd = self.cleep_filesystem.open(context.install_log, "w")
             context.install_log_fd.flush()
 
             # download module package
@@ -1141,9 +1084,7 @@ class InstallModule(CommonProcess):
 
             # pre installation manifest
             context.step = "preinst"
-            if not self._run_phase_manifest(
-                context, PHASE_PREINST, context.extract_path, in_scripts=True
-            ):
+            if not self._run_phase_manifest(context, PHASE_PREINST, context.extract_path, in_scripts=True):
                 self.status = self.STATUS_ERROR_PREINST
                 raise ForcedException()
             self._step(context)
@@ -1157,9 +1098,7 @@ class InstallModule(CommonProcess):
 
             # post installation manifest
             context.step = "postinst"
-            if not self._run_phase_manifest(
-                context, PHASE_POSTINST, context.extract_path, in_scripts=True
-            ):
+            if not self._run_phase_manifest(context, PHASE_POSTINST, context.extract_path, in_scripts=True):
                 self.status = self.STATUS_ERROR_POSTINST
                 raise ForcedException()
 
@@ -1231,8 +1170,7 @@ class InstallModule(CommonProcess):
         self._log_process_status(
             context,
             logging.INFO,
-            'Module "%s" installation terminated (success:%s, rollback:%s)'
-            % (self.module_name, success, rollback),
+            'Module "%s" installation terminated (success:%s, rollback:%s)' % (self.module_name, success, rollback),
         )
         self._step(context, cancel=False)
 
@@ -1269,9 +1207,7 @@ class UpdateModule(threading.Thread):
             crash_report (CrashReport): Crash report instance
             task_factory (TaskFactory): TaskFactory instance
         """
-        threading.Thread.__init__(
-            self, daemon=True, name="updatemodule-%s" % module_name
-        )
+        threading.Thread.__init__(self, daemon=True, name="updatemodule-%s" % module_name)
 
         # logger
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -1329,16 +1265,8 @@ class UpdateModule(threading.Thread):
         Args:
             status (dict): status returned by install/uninstall
         """
-        message = (
-            "Update callback from uninstall: %s"
-            if self._is_uninstalling
-            else "Update callback from install: %s"
-        )
-        update = (
-            self.__uninstall_status.update
-            if self._is_uninstalling
-            else self.__install_status.update
-        )
+        message = "Update callback from uninstall: %s" if self._is_uninstalling else "Update callback from install: %s"
+        update = self.__uninstall_status.update if self._is_uninstalling else self.__install_status.update
 
         # callback from uninstall process
         self.logger.debug(message % status)
@@ -1401,8 +1329,7 @@ class UpdateModule(threading.Thread):
                 # uninstall failed
                 # TODO implement rollback reinstalling previous module version
                 self.logger.warning(
-                    'Error uninstalling "%s" module during update. Try to install new version anyway'
-                    % self.module_name
+                    'Error uninstalling "%s" module during update. Try to install new version anyway' % self.module_name
                 )
             self._step()
 
@@ -1415,10 +1342,7 @@ class UpdateModule(threading.Thread):
             if install.get_status()["status"] != install.STATUS_INSTALLED:
                 # install failed
                 # TODO implement rollback reinstalling previous module version
-                self.logger.error(
-                    'Error installing new "%s" module version during update'
-                    % self.module_name
-                )
+                self.logger.error('Error installing new "%s" module version during update' % self.module_name)
                 raise ForcedException()
             self._step()
 
@@ -1432,14 +1356,9 @@ class UpdateModule(threading.Thread):
         except Exception:
             # unexpected error
             self.status = self.STATUS_ERROR
-            self.logger.exception(
-                'Exception occured during "%s" module update' % self.module_name
-            )
+            self.logger.exception('Exception occured during "%s" module update' % self.module_name)
 
         # finalize update
         success = self.status == self.STATUS_UPDATED
-        self.logger.info(
-            'Module "%s" installation terminated (success:%s)'
-            % (self.module_name, success)
-        )
+        self.logger.info('Module "%s" installation terminated (success:%s)' % (self.module_name, success))
         self._step()

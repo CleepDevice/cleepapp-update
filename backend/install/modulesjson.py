@@ -113,19 +113,13 @@ class ModulesJson:
         # check
         source_filepath = self.get_source_filepath()
         if not os.path.exists(source_filepath):
-            raise Exception(
-                'File "%s" doesn\'t exist. Please update it first.' % source_filepath
-            )
+            raise Exception('File "%s" doesn\'t exist. Please update it first.' % source_filepath)
 
         # read content
         modules_json = self.cleep_filesystem.read_json(source_filepath, "utf8")
 
         # check content
-        if (
-            modules_json is None
-            or "list" not in modules_json
-            or "update" not in modules_json
-        ):
+        if modules_json is None or "list" not in modules_json or "update" not in modules_json:
             self.logger.error('Invalid "%s" file content', source_filepath)
             raise Exception('Invalid "%s" file content' % source_filepath)
 
@@ -174,14 +168,9 @@ class ModulesJson:
         download = Download(self.cleep_filesystem, self.task_factory)
         download_status, raw = download.download_content(self.__get_remote_url())
         if raw is None:
-            raise Exception(
-                'Download of "%s" failed (download status %s)'
-                % (source_filepath, download_status)
-            )
+            raise Exception('Download of "%s" failed (download status %s)' % (source_filepath, download_status))
         remote_modules_json = json.loads(raw)
-        self.logger.trace(
-            'Downloaded "%s": %s' % (source_filepath, remote_modules_json)
-        )
+        self.logger.trace('Downloaded "%s": %s' % (source_filepath, remote_modules_json))
 
         # check remote content
         if "list" not in remote_modules_json or "update" not in remote_modules_json:
@@ -201,10 +190,7 @@ class ModulesJson:
                 local_modules_json["update"] if local_modules_json else None,
             )
         )
-        if (
-            local_modules_json is None
-            or remote_modules_json["update"] > local_modules_json["update"]
-        ):
+        if local_modules_json is None or remote_modules_json["update"] > local_modules_json["update"]:
             # modules.json updated, save new file
             fd = self.cleep_filesystem.open(source_filepath, "w")
             fd.write(raw)
@@ -217,7 +203,5 @@ class ModulesJson:
             return True
 
         # no update from remote modules.json file
-        self.logger.info(
-            f"No difference between local and remote {source_filepath}. File not updated."
-        )
+        self.logger.info(f"No difference between local and remote {source_filepath}. File not updated.")
         return False

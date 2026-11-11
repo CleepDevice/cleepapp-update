@@ -14,11 +14,11 @@ from cleep.libs.tests.common import get_log_level
 LOG_LEVEL = get_log_level()
 
 
-INSTALLDEB_STATUS_IDLE = 0 
-INSTALLDEB_STATUS_RUNNING = 1 
-INSTALLDEB_STATUS_DONE = 2 
-INSTALLDEB_STATUS_ERROR = 3 
-INSTALLDEB_STATUS_KILLED = 4 
+INSTALLDEB_STATUS_IDLE = 0
+INSTALLDEB_STATUS_RUNNING = 1
+INSTALLDEB_STATUS_DONE = 2
+INSTALLDEB_STATUS_ERROR = 3
+INSTALLDEB_STATUS_KILLED = 4
 INSTALLDEB_STATUS_TIMEOUT = 5
 
 INSTALLMODULE_STATUS_IDLE = 0
@@ -63,16 +63,17 @@ mock_updatemodule.STATUS_UPDATING.__eq__ = lambda self, other: other == UPDATEMO
 mock_updatemodule.STATUS_UPDATED.__eq__ = lambda self, other: other == UPDATEMODULE_STATUS_UPDATED
 mock_updatemodule.STATUS_ERROR.__eq__ = lambda self, other: other == UPDATEMODULE_STATUS_ERROR
 
-@patch('backend.install.install.EndlessConsole', mock_endlessconsole)
-@patch('backend.install.install.InstallDeb', mock_installdeb)
-@patch('backend.install.install.InstallModule', mock_installmodule)
-@patch('backend.install.install.UninstallModule', mock_uninstallmodule)
-@patch('backend.install.install.UpdateModule', mock_updatemodule)
+
+@patch("backend.install.install.EndlessConsole", mock_endlessconsole)
+@patch("backend.install.install.InstallDeb", mock_installdeb)
+@patch("backend.install.install.InstallModule", mock_installmodule)
+@patch("backend.install.install.UninstallModule", mock_uninstallmodule)
+@patch("backend.install.install.UpdateModule", mock_updatemodule)
 class InstallTests(unittest.TestCase):
 
     def setUp(self):
         TestLib()
-        logging.basicConfig(level=LOG_LEVEL, format=u'%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s')
+        logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s %(name)s:%(lineno)d %(levelname)s : %(message)s")
 
     def tearDown(self):
         mock_endlessconsole.reset_mock()
@@ -97,7 +98,7 @@ class InstallTests(unittest.TestCase):
 
         status = self.i.get_status()
 
-        self.assertListEqual(sorted(list(status.keys())), sorted(['status', 'stdout', 'stderr']))
+        self.assertListEqual(sorted(list(status.keys())), sorted(["status", "stdout", "stderr"]))
 
     def test_end_callback(self):
         self.init_lib()
@@ -106,7 +107,7 @@ class InstallTests(unittest.TestCase):
 
         self.assertEqual(self.i.status, Install.STATUS_DONE)
         self.assertTrue(self.cleep_filesystem.disable_write.called)
-        self.status_callback.assert_called_with({'status': ANY, 'stderr': ANY, 'stdout': ANY})
+        self.status_callback.assert_called_with({"status": ANY, "stderr": ANY, "stdout": ANY})
 
     def test_end_callback_command_failed(self):
         self.init_lib()
@@ -115,7 +116,7 @@ class InstallTests(unittest.TestCase):
 
         self.assertEqual(self.i.status, Install.STATUS_ERROR)
         self.assertTrue(self.cleep_filesystem.disable_write.called)
-        self.status_callback.assert_called_with({'status': ANY, 'stderr': ANY, 'stdout': ANY})
+        self.status_callback.assert_called_with({"status": ANY, "stderr": ANY, "stdout": ANY})
 
     def test_end_callback_command_killed(self):
         self.init_lib()
@@ -124,16 +125,16 @@ class InstallTests(unittest.TestCase):
 
         self.assertEqual(self.i.status, Install.STATUS_ERROR)
         self.assertTrue(self.cleep_filesystem.disable_write.called)
-        self.status_callback.assert_called_with({'status': ANY, 'stderr': ANY, 'stdout': ANY})
+        self.status_callback.assert_called_with({"status": ANY, "stderr": ANY, "stdout": ANY})
 
-    @patch('backend.install.install.Install._Install__reset_status')
+    @patch("backend.install.install.Install._Install__reset_status")
     def test_refresh_system_packages_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
         self.assertTrue(self.i.refresh_system_packages())
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
-        mock_endlessconsole.assert_called_with('/usr/bin/apt-get update', ANY, ANY)
+        mock_endlessconsole.assert_called_with("/usr/bin/apt-get update", ANY, ANY)
         self.assertTrue(mock_endlessconsole.return_value.start.called)
         self.assertTrue(mock_resetstatus.called)
 
@@ -145,7 +146,7 @@ class InstallTests(unittest.TestCase):
         self.assertTrue(self.i.refresh_system_packages())
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
-        mock_endlessconsole.assert_called_with('/usr/bin/apt-get update', ANY, ANY)
+        mock_endlessconsole.assert_called_with("/usr/bin/apt-get update", ANY, ANY)
         self.assertTrue(mock_endlessconsole.return_value.start.called)
 
     def test_refresh_system_packages_blocking_failed(self):
@@ -156,7 +157,7 @@ class InstallTests(unittest.TestCase):
         self.assertFalse(self.i.refresh_system_packages())
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
-        mock_endlessconsole.assert_called_with('/usr/bin/apt-get update', ANY, ANY)
+        mock_endlessconsole.assert_called_with("/usr/bin/apt-get update", ANY, ANY)
         self.assertTrue(mock_endlessconsole.return_value.start.called)
 
     def test_refresh_system_packages_already_processing(self):
@@ -165,26 +166,28 @@ class InstallTests(unittest.TestCase):
 
         with self.assertRaises(Exception) as cm:
             self.i.refresh_system_packages()
-        self.assertEqual(str(cm.exception), 'Installer is already processing')
+        self.assertEqual(str(cm.exception), "Installer is already processing")
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
     def test_callback_package(self):
         self.init_lib()
 
-        self.i._Install__callback_package(stdout='out1', stderr='err1')
+        self.i._Install__callback_package(stdout="out1", stderr="err1")
 
-        self.status_callback.assert_called_with({
-            'stdout': ['out1'],
-            'stderr': ['err1'],
-            'status': ANY,
-        })
+        self.status_callback.assert_called_with(
+            {
+                "stdout": ["out1"],
+                "stderr": ["err1"],
+                "status": ANY,
+            }
+        )
 
-    @patch('backend.install.install.Install._Install__reset_status')
+    @patch("backend.install.install.Install._Install__reset_status")
     def test_install_system_package_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
-        self.assertTrue(self.i.install_system_package('dummy'))
+        self.assertTrue(self.i.install_system_package("dummy"))
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         mock_endlessconsole.assert_called_with('/usr/bin/apt-get install -y "dummy"', ANY, ANY)
@@ -196,7 +199,7 @@ class InstallTests(unittest.TestCase):
         t = Timer(0.4, self.end_callback)
         t.start()
 
-        self.assertTrue(self.i.install_system_package('dummy'))
+        self.assertTrue(self.i.install_system_package("dummy"))
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         mock_endlessconsole.assert_called_with('/usr/bin/apt-get install -y "dummy"', ANY, ANY)
@@ -207,7 +210,7 @@ class InstallTests(unittest.TestCase):
         t = Timer(0.4, self.end_callback, [Install.STATUS_ERROR])
         t.start()
 
-        self.assertFalse(self.i.install_system_package('dummy'))
+        self.assertFalse(self.i.install_system_package("dummy"))
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
 
@@ -216,16 +219,16 @@ class InstallTests(unittest.TestCase):
         self.i.status = Install.STATUS_PROCESSING
 
         with self.assertRaises(Exception) as cm:
-            self.i.install_system_package('dummy')
-        self.assertEqual(str(cm.exception), 'Installer is already processing')
+            self.i.install_system_package("dummy")
+        self.assertEqual(str(cm.exception), "Installer is already processing")
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
-    @patch('backend.install.install.Install._Install__reset_status')
+    @patch("backend.install.install.Install._Install__reset_status")
     def test_uninstall_system_package_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
-        self.assertTrue(self.i.uninstall_system_package('dummy'))
+        self.assertTrue(self.i.uninstall_system_package("dummy"))
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         mock_endlessconsole.assert_called_with('/usr/bin/apt-get remove -y "dummy"', ANY, ANY)
@@ -237,7 +240,7 @@ class InstallTests(unittest.TestCase):
         t = Timer(0.4, self.end_callback)
         t.start()
 
-        self.assertTrue(self.i.uninstall_system_package('dummy'))
+        self.assertTrue(self.i.uninstall_system_package("dummy"))
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         mock_endlessconsole.assert_called_with('/usr/bin/apt-get remove -y "dummy"', ANY, ANY)
@@ -248,7 +251,7 @@ class InstallTests(unittest.TestCase):
         t = Timer(0.4, self.end_callback, [Install.STATUS_ERROR])
         t.start()
 
-        self.assertFalse(self.i.uninstall_system_package('dummy'))
+        self.assertFalse(self.i.uninstall_system_package("dummy"))
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
 
@@ -257,15 +260,15 @@ class InstallTests(unittest.TestCase):
         self.i.status = Install.STATUS_PROCESSING
 
         with self.assertRaises(Exception) as cm:
-            self.i.uninstall_system_package('dummy')
-        self.assertEqual(str(cm.exception), 'Installer is already processing')
+            self.i.uninstall_system_package("dummy")
+        self.assertEqual(str(cm.exception), "Installer is already processing")
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
     def test_uninstall_system_package_purge(self):
         self.init_lib()
 
-        self.assertTrue(self.i.uninstall_system_package('dummy', purge=True))
+        self.assertTrue(self.i.uninstall_system_package("dummy", purge=True))
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         mock_endlessconsole.assert_called_with('/usr/bin/apt-get purge -y "dummy"', ANY, ANY)
@@ -273,75 +276,83 @@ class InstallTests(unittest.TestCase):
     def test_callback_deb_done(self):
         self.init_lib()
         status = {
-            'status': INSTALLDEB_STATUS_DONE,
-            'stdout': ['out1'],
-            'stderr': ['err1'],
+            "status": INSTALLDEB_STATUS_DONE,
+            "stdout": ["out1"],
+            "stderr": ["err1"],
         }
-        
+
         self.i._Install__callback_deb(status)
 
-        self.status_callback.assert_called_with({
-            'stdout': ['out1'],
-            'stderr': ['err1'],
-            'status': Install.STATUS_DONE,
-        })
+        self.status_callback.assert_called_with(
+            {
+                "stdout": ["out1"],
+                "stderr": ["err1"],
+                "status": Install.STATUS_DONE,
+            }
+        )
 
     def test_callback_deb_error(self):
         self.init_lib()
         status = {
-            'status': INSTALLDEB_STATUS_ERROR,
-            'stdout': ['out1'],
-            'stderr': ['err1'],
+            "status": INSTALLDEB_STATUS_ERROR,
+            "stdout": ["out1"],
+            "stderr": ["err1"],
         }
-        
+
         self.i._Install__callback_deb(status)
 
-        self.status_callback.assert_called_with({
-            'stdout': ['out1'],
-            'stderr': ['err1'],
-            'status': Install.STATUS_ERROR,
-        })
+        self.status_callback.assert_called_with(
+            {
+                "stdout": ["out1"],
+                "stderr": ["err1"],
+                "status": Install.STATUS_ERROR,
+            }
+        )
 
     def test_callback_deb_killed(self):
         self.init_lib()
         status = {
-            'status': INSTALLDEB_STATUS_KILLED,
-            'stdout': ['out1'],
-            'stderr': ['err1'],
+            "status": INSTALLDEB_STATUS_KILLED,
+            "stdout": ["out1"],
+            "stderr": ["err1"],
         }
-        
+
         self.i._Install__callback_deb(status)
 
-        self.status_callback.assert_called_with({
-            'stdout': ['out1'],
-            'stderr': ['err1'],
-            'status': Install.STATUS_ERROR,
-        })
+        self.status_callback.assert_called_with(
+            {
+                "stdout": ["out1"],
+                "stderr": ["err1"],
+                "status": Install.STATUS_ERROR,
+            }
+        )
 
     def test_callback_deb_running(self):
         self.init_lib()
         status = {
-            'status': INSTALLDEB_STATUS_RUNNING,
-            'stdout': ['out1'],
-            'stderr': ['err1'],
+            "status": INSTALLDEB_STATUS_RUNNING,
+            "stdout": ["out1"],
+            "stderr": ["err1"],
         }
-        
+
         self.i._Install__callback_deb(status)
 
-        self.status_callback.assert_called_with({
-            'stdout': ['out1'],
-            'stderr': ['err1'],
-            'status': Install.STATUS_PROCESSING,
-        })
+        self.status_callback.assert_called_with(
+            {
+                "stdout": ["out1"],
+                "stderr": ["err1"],
+                "status": Install.STATUS_PROCESSING,
+            }
+        )
 
-    @patch('backend.install.install.Install._Install__reset_status')
+    @patch("backend.install.install.Install._Install__reset_status")
     def test_install_deb_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
-        self.assertTrue(self.i.install_deb('dummy.deb'))
+        self.assertTrue(self.i.install_deb("dummy.deb"))
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
-        mock_installdeb.return_value.install.assert_called_with('dummy.deb', blocking=False, status_callback=ANY)
+        mock_installdeb.return_value.install.assert_called_with("dummy.deb", blocking=False, status_callback=ANY)
         self.assertTrue(mock_resetstatus.called)
 
     def test_install_deb_blocking(self):
@@ -349,17 +360,17 @@ class InstallTests(unittest.TestCase):
         t = Timer(0.4, self.end_callback)
         t.start()
 
-        self.assertTrue(self.i.install_deb('dummy.deb'))
+        self.assertTrue(self.i.install_deb("dummy.deb"))
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
-        mock_installdeb.return_value.install.assert_called_with('dummy.deb', blocking=False, status_callback=ANY)
+        mock_installdeb.return_value.install.assert_called_with("dummy.deb", blocking=False, status_callback=ANY)
 
     def test_install_deb_blocking_failed(self):
         self.init_lib(blocking=True)
         t = Timer(0.4, self.end_callback, [Install.STATUS_ERROR])
         t.start()
 
-        self.assertFalse(self.i.install_deb('dummy.deb'))
+        self.assertFalse(self.i.install_deb("dummy.deb"))
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
@@ -368,98 +379,100 @@ class InstallTests(unittest.TestCase):
         self.i.status = Install.STATUS_PROCESSING
 
         with self.assertRaises(Exception) as cm:
-            self.i.install_deb('dummy.deb')
-        self.assertEqual(str(cm.exception), 'Installer is already processing')
+            self.i.install_deb("dummy.deb")
+        self.assertEqual(str(cm.exception), "Installer is already processing")
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
     def test_callback_archive(self):
         self.init_lib()
 
-        self.i._Install__callback_archive(stdout='out1', stderr='err1')
+        self.i._Install__callback_archive(stdout="out1", stderr="err1")
 
-        self.status_callback.assert_called_with({
-            'stdout': ['out1'],
-            'stderr': ['err1'],
-            'status': ANY,
-        })
+        self.status_callback.assert_called_with(
+            {
+                "stdout": ["out1"],
+                "stderr": ["err1"],
+                "status": ANY,
+            }
+        )
 
-    @patch('backend.install.install.Install._Install__reset_status')
-    @patch('backend.install.install.os.path.exists')
+    @patch("backend.install.install.Install._Install__reset_status")
+    @patch("backend.install.install.os.path.exists")
     def test_install_archive_no_blocking_zip(self, mock_ospathexists, mock_resetstatus):
         self.init_lib()
         mock_ospathexists.return_value = True
 
-        self.i.install_archive('dummy.zip', '/tmp/dummy')
-        
+        self.i.install_archive("dummy.zip", "/tmp/dummy")
+
         mock_endlessconsole.assert_called_with('/usr/bin/unzip "dummy.zip" -d "/tmp/dummy"', ANY, ANY)
         self.assertTrue(mock_endlessconsole.return_value.start.called)
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         self.assertTrue(mock_resetstatus.called)
 
-    @patch('backend.install.install.Install._Install__reset_status')
-    @patch('backend.install.install.os.path.exists')
+    @patch("backend.install.install.Install._Install__reset_status")
+    @patch("backend.install.install.os.path.exists")
     def test_install_archive_no_blocking_targz(self, mock_ospathexists, mock_resetstatus):
         self.init_lib()
         mock_ospathexists.return_value = True
 
-        self.assertTrue(self.i.install_archive('dummy.tar.gz', '/tmp/dummy'))
-        
+        self.assertTrue(self.i.install_archive("dummy.tar.gz", "/tmp/dummy"))
+
         mock_endlessconsole.assert_called_with('/bin/tar xzf "dummy.tar.gz" -C "/tmp/dummy"', ANY, ANY)
         self.assertTrue(mock_endlessconsole.return_value.start.called)
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         self.assertTrue(mock_resetstatus.called)
 
-    @patch('backend.install.install.Install._Install__reset_status')
-    @patch('backend.install.install.os.path.exists')
+    @patch("backend.install.install.Install._Install__reset_status")
+    @patch("backend.install.install.os.path.exists")
     def test_install_archive_blocking_zip(self, mock_ospathexists, mock_resetstatus):
         self.init_lib(blocking=True)
         t = Timer(0.4, self.end_callback)
         t.start()
         mock_ospathexists.return_value = True
 
-        self.assertTrue(self.i.install_archive('dummy.zip', '/tmp/dummy'))
-        
+        self.assertTrue(self.i.install_archive("dummy.zip", "/tmp/dummy"))
+
         mock_endlessconsole.assert_called_with('/usr/bin/unzip "dummy.zip" -d "/tmp/dummy"', ANY, ANY)
         self.assertTrue(mock_endlessconsole.return_value.start.called)
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         self.assertTrue(mock_resetstatus.called)
 
-    @patch('backend.install.install.os.path.exists')
+    @patch("backend.install.install.os.path.exists")
     def test_install_archive_blocking_failed(self, mock_ospathexists):
         mock_ospathexists.return_value = True
         self.init_lib(blocking=True)
         t = Timer(0.4, self.end_callback, [Install.STATUS_ERROR])
         t.start()
 
-        self.assertFalse(self.i.install_archive('dummy.zip', '/tmp/dummy'))
+        self.assertFalse(self.i.install_archive("dummy.zip", "/tmp/dummy"))
 
         self.assertTrue(self.cleep_filesystem.enable_write.called)
 
-    @patch('backend.install.install.Install._Install__reset_status')
-    @patch('backend.install.install.os.path.exists')
+    @patch("backend.install.install.Install._Install__reset_status")
+    @patch("backend.install.install.os.path.exists")
     def test_install_archive_create_out_dir(self, mock_ospathexists, mock_resetstatus):
         self.init_lib()
         mock_ospathexists.side_effect = [True, False]
 
-        self.i.install_archive('dummy.tar.gz', '/tmp/dummy')
-        
+        self.i.install_archive("dummy.tar.gz", "/tmp/dummy")
+
         mock_endlessconsole.assert_called_with('/bin/tar xzf "dummy.tar.gz" -C "/tmp/dummy"', ANY, ANY)
         self.assertTrue(mock_endlessconsole.return_value.start.called)
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         self.assertTrue(mock_resetstatus.called)
-        self.cleep_filesystem.mkdir.assert_called_with('/tmp/dummy', recursive=True)
+        self.cleep_filesystem.mkdir.assert_called_with("/tmp/dummy", recursive=True)
 
-    @patch('backend.install.install.Install._Install__reset_status')
-    @patch('backend.install.install.os.path.exists')
+    @patch("backend.install.install.Install._Install__reset_status")
+    @patch("backend.install.install.os.path.exists")
     def test_install_archive_unsupported_archive(self, mock_ospathexists, mock_resetstatus):
         self.init_lib()
         mock_ospathexists.side_effect = [True, False]
 
         with self.assertRaises(Exception) as cm:
-            self.i.install_archive('dummy.rar', '/tmp/dummy')
-        self.assertEqual(str(cm.exception), 'File format not supported. Only zip and tar.gz supported.')
-        
+            self.i.install_archive("dummy.rar", "/tmp/dummy")
+        self.assertEqual(str(cm.exception), "File format not supported. Only zip and tar.gz supported.")
+
         self.assertFalse(mock_endlessconsole.called)
         self.assertFalse(self.cleep_filesystem.enable_write.called)
         self.assertTrue(mock_resetstatus.called)
@@ -468,21 +481,21 @@ class InstallTests(unittest.TestCase):
         self.init_lib()
 
         with self.assertRaises(Exception) as cm:
-            self.i.install_archive('', '/tmp/dummy')
+            self.i.install_archive("", "/tmp/dummy")
         self.assertEqual(str(cm.exception), 'Parameter "archive" is missing')
         with self.assertRaises(Exception) as cm:
-            self.i.install_archive(None, '/tmp/dummy')
+            self.i.install_archive(None, "/tmp/dummy")
         self.assertEqual(str(cm.exception), 'Parameter "archive" is missing')
 
         with self.assertRaises(Exception) as cm:
-            self.i.install_archive('dummy.zip', '')
+            self.i.install_archive("dummy.zip", "")
         self.assertEqual(str(cm.exception), 'Parameter "install_path" is missing')
         with self.assertRaises(Exception) as cm:
-            self.i.install_archive('dummy.zip', None)
+            self.i.install_archive("dummy.zip", None)
         self.assertEqual(str(cm.exception), 'Parameter "install_path" is missing')
 
         with self.assertRaises(Exception) as cm:
-            self.i.install_archive('dummy', '/tmp/dummy')
+            self.i.install_archive("dummy", "/tmp/dummy")
         self.assertEqual(str(cm.exception), 'Archive "dummy" does not exist')
 
     def test_install_archive_already_processing(self):
@@ -490,86 +503,96 @@ class InstallTests(unittest.TestCase):
         self.i.status = Install.STATUS_PROCESSING
 
         with self.assertRaises(Exception) as cm:
-            self.i.install_archive('dummy.zip', '/tmp/dummy')
-        self.assertEqual(str(cm.exception), 'Installer is already processing')
+            self.i.install_archive("dummy.zip", "/tmp/dummy")
+        self.assertEqual(str(cm.exception), "Installer is already processing")
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
     def test_callback_install_module_done(self):
         self.init_lib()
 
-        process = ['process1', 'process2'],
-        self.i._Install__callback_install_module({
-            'module': 'dummy',
-            'status': INSTALLMODULE_STATUS_INSTALLED,
-            'updateprocess': False,
-            'process': process,
-            'stdout': ['out-line'],
-            'stderr': ['err-line'],
-        })
+        process = (["process1", "process2"],)
+        self.i._Install__callback_install_module(
+            {
+                "module": "dummy",
+                "status": INSTALLMODULE_STATUS_INSTALLED,
+                "updateprocess": False,
+                "process": process,
+                "stdout": ["out-line"],
+                "stderr": ["err-line"],
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_DONE)
-        self.assertListEqual(self.i.stdout, ['out-line'])
-        self.assertListEqual(self.i.stderr, ['err-line'])
-        self.status_callback.assert_called_with({
-            'module': 'dummy',
-            'status': Install.STATUS_DONE,
-            'stdout': ['out-line'],
-            'stderr': ['err-line'],
-            'process': process,
-            'updateprocess': False,
-            'extra': None,
-        })
+        self.assertListEqual(self.i.stdout, ["out-line"])
+        self.assertListEqual(self.i.stderr, ["err-line"])
+        self.status_callback.assert_called_with(
+            {
+                "module": "dummy",
+                "status": Install.STATUS_DONE,
+                "stdout": ["out-line"],
+                "stderr": ["err-line"],
+                "process": process,
+                "updateprocess": False,
+                "extra": None,
+            }
+        )
 
     def test_callback_install_module_idle(self):
         self.init_lib()
 
-        process = ['process1', 'process2'],
-        self.i._Install__callback_install_module({
-            'module': 'dummy',
-            'status': INSTALLMODULE_STATUS_IDLE,
-            'updateprocess': False,
-            'process': process,
-        })
+        process = (["process1", "process2"],)
+        self.i._Install__callback_install_module(
+            {
+                "module": "dummy",
+                "status": INSTALLMODULE_STATUS_IDLE,
+                "updateprocess": False,
+                "process": process,
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_IDLE)
 
     def test_callback_install_module_installing(self):
         self.init_lib()
 
-        process = ['process1', 'process2'],
-        self.i._Install__callback_install_module({
-            'module': 'dummy',
-            'status': INSTALLMODULE_STATUS_INSTALLING,
-            'updateprocess': False,
-            'process': process,
-        })
+        process = (["process1", "process2"],)
+        self.i._Install__callback_install_module(
+            {
+                "module": "dummy",
+                "status": INSTALLMODULE_STATUS_INSTALLING,
+                "updateprocess": False,
+                "process": process,
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_PROCESSING)
 
     def test_callback_install_module_error_internal(self):
         self.init_lib()
 
-        process = ['process1', 'process2'],
-        self.i._Install__callback_install_module({
-            'module': 'dummy',
-            'status': INSTALLMODULE_STATUS_ERROR_INTERNAL,
-            'updateprocess': False,
-            'process': process,
-        })
+        process = (["process1", "process2"],)
+        self.i._Install__callback_install_module(
+            {
+                "module": "dummy",
+                "status": INSTALLMODULE_STATUS_ERROR_INTERNAL,
+                "updateprocess": False,
+                "process": process,
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_ERROR)
 
-    @patch('backend.install.install.Install._Install__reset_status')
+    @patch("backend.install.install.Install._Install__reset_status")
     def test_install_module_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
-        self.assertTrue(self.i.install_module('dummy', {'infos': 'data'}))
+        self.assertTrue(self.i.install_module("dummy", {"infos": "data"}))
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
         mock_installmodule.assert_called_with(
-            'dummy',
-            {'infos': 'data'},
+            "dummy",
+            {"infos": "data"},
             update_process=False,
             status_callback=ANY,
             cleep_filesystem=self.cleep_filesystem,
@@ -582,15 +605,15 @@ class InstallTests(unittest.TestCase):
     def test_install_module_blocking(self):
         self.init_lib(blocking=True)
         mock_installmodule.return_value.is_installing.side_effect = [True, False]
-        mock_installmodule.return_value.get_status.return_value = {'status': INSTALLMODULE_STATUS_INSTALLED}
+        mock_installmodule.return_value.get_status.return_value = {"status": INSTALLMODULE_STATUS_INSTALLED}
         t = Timer(0.4, self.end_callback)
         t.start()
 
-        self.assertTrue(self.i.install_module('dummy', {'infos': 'data'}))
+        self.assertTrue(self.i.install_module("dummy", {"infos": "data"}))
 
         mock_installmodule.assert_called_with(
-            'dummy',
-            {'infos': 'data'},
+            "dummy",
+            {"infos": "data"},
             update_process=False,
             status_callback=ANY,
             cleep_filesystem=self.cleep_filesystem,
@@ -603,15 +626,15 @@ class InstallTests(unittest.TestCase):
     def test_install_module_blocking_with_package(self):
         self.init_lib(blocking=True)
         mock_installmodule.return_value.is_installing.side_effect = [True, False]
-        mock_installmodule.return_value.get_status.return_value = {'status': INSTALLMODULE_STATUS_INSTALLED}
+        mock_installmodule.return_value.get_status.return_value = {"status": INSTALLMODULE_STATUS_INSTALLED}
         t = Timer(0.4, self.end_callback)
         t.start()
 
-        self.assertTrue(self.i.install_module('dummy', {'infos': 'data'}, extra={'package': 'archive.zip'}))
+        self.assertTrue(self.i.install_module("dummy", {"infos": "data"}, extra={"package": "archive.zip"}))
 
         mock_installmodule.assert_called_with(
-            'dummy',
-            {'infos': 'data'},
+            "dummy",
+            {"infos": "data"},
             update_process=False,
             status_callback=ANY,
             cleep_filesystem=self.cleep_filesystem,
@@ -620,18 +643,16 @@ class InstallTests(unittest.TestCase):
         )
         self.assertTrue(mock_installmodule.return_value.start.called)
         self.assertFalse(self.cleep_filesystem.enable_write.called)
-        mock_installmodule.return_value.set_package.assert_called_with('archive.zip')
+        mock_installmodule.return_value.set_package.assert_called_with("archive.zip")
 
     def test_install_module_blocking_failed(self):
         self.init_lib(blocking=True)
         mock_installmodule.return_value.is_installing.side_effect = [True, False]
-        mock_installmodule.return_value.get_status.return_value = {
-            'status': INSTALLMODULE_STATUS_ERROR_INTERNAL
-        }
+        mock_installmodule.return_value.get_status.return_value = {"status": INSTALLMODULE_STATUS_ERROR_INTERNAL}
         t = Timer(0.4, self.end_callback, [Install.STATUS_ERROR])
         t.start()
 
-        self.assertFalse(self.i.install_module('dummy', {'infos': 'data'}))
+        self.assertFalse(self.i.install_module("dummy", {"infos": "data"}))
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
@@ -640,8 +661,8 @@ class InstallTests(unittest.TestCase):
         self.i.status = Install.STATUS_PROCESSING
 
         with self.assertRaises(Exception) as cm:
-            self.i.install_module('dummy', {'infos': 'data'})
-        self.assertEqual(str(cm.exception), 'Installer is already processing')
+            self.i.install_module("dummy", {"infos": "data"})
+        self.assertEqual(str(cm.exception), "Installer is already processing")
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
@@ -649,97 +670,107 @@ class InstallTests(unittest.TestCase):
         self.init_lib()
 
         with self.assertRaises(MissingParameter) as cm:
-            self.i.install_module('', {'info': 'data'})
+            self.i.install_module("", {"info": "data"})
         self.assertEqual(str(cm.exception), 'Parameter "module_name" is missing')
         with self.assertRaises(MissingParameter) as cm:
-            self.i.install_module(None, {'info': 'data'})
+            self.i.install_module(None, {"info": "data"})
         self.assertEqual(str(cm.exception), 'Parameter "module_name" is missing')
 
         with self.assertRaises(MissingParameter) as cm:
-            self.i.install_module('dummy', None)
+            self.i.install_module("dummy", None)
         self.assertEqual(str(cm.exception), 'Parameter "module_infos" is missing')
         with self.assertRaises(InvalidParameter) as cm:
-            self.i.install_module('dummy', 123)
+            self.i.install_module("dummy", 123)
         self.assertEqual(str(cm.exception), 'Parameter "module_infos" is invalid')
 
         with self.assertRaises(InvalidParameter) as cm:
-            self.i.install_module('dummy', {'data': 'data'}, None)
+            self.i.install_module("dummy", {"data": "data"}, None)
         self.assertEqual(str(cm.exception), 'Parameter "extra" is invalid')
 
     def test_callback_uninstall_module_done(self):
         self.init_lib()
 
-        process = ['process1', 'process2'],
-        self.i._Install__callback_uninstall_module({
-            'module': 'dummy',
-            'status': UNINSTALLMODULE_STATUS_UNINSTALLED,
-            'updateprocess': False,
-            'process': process,
-            'stdout': ['out-line'],
-            'stderr': ['err-line'],
-        })
+        process = (["process1", "process2"],)
+        self.i._Install__callback_uninstall_module(
+            {
+                "module": "dummy",
+                "status": UNINSTALLMODULE_STATUS_UNINSTALLED,
+                "updateprocess": False,
+                "process": process,
+                "stdout": ["out-line"],
+                "stderr": ["err-line"],
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_DONE)
-        self.assertListEqual(self.i.stdout, ['out-line'])
-        self.assertListEqual(self.i.stderr, ['err-line'])
-        self.status_callback.assert_called_with({
-            'module': 'dummy',
-            'status': Install.STATUS_DONE,
-            'stdout': ['out-line'],
-            'stderr': ['err-line'],
-            'process': process,
-            'updateprocess': False,
-        })
+        self.assertListEqual(self.i.stdout, ["out-line"])
+        self.assertListEqual(self.i.stderr, ["err-line"])
+        self.status_callback.assert_called_with(
+            {
+                "module": "dummy",
+                "status": Install.STATUS_DONE,
+                "stdout": ["out-line"],
+                "stderr": ["err-line"],
+                "process": process,
+                "updateprocess": False,
+            }
+        )
 
     def test_callback_uninstall_module_idle(self):
         self.init_lib()
 
-        process = ['process1', 'process2'],
-        self.i._Install__callback_uninstall_module({
-            'module': 'dummy',
-            'status': UNINSTALLMODULE_STATUS_IDLE,
-            'updateprocess': False,
-            'process': process,
-        })
+        process = (["process1", "process2"],)
+        self.i._Install__callback_uninstall_module(
+            {
+                "module": "dummy",
+                "status": UNINSTALLMODULE_STATUS_IDLE,
+                "updateprocess": False,
+                "process": process,
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_IDLE)
 
     def test_callback_uninstall_module_uninstalling(self):
         self.init_lib()
 
-        process = ['process1', 'process2'],
-        self.i._Install__callback_uninstall_module({
-            'module': 'dummy',
-            'status': UNINSTALLMODULE_STATUS_UNINSTALLING,
-            'updateprocess': False,
-            'process': process,
-        })
+        process = (["process1", "process2"],)
+        self.i._Install__callback_uninstall_module(
+            {
+                "module": "dummy",
+                "status": UNINSTALLMODULE_STATUS_UNINSTALLING,
+                "updateprocess": False,
+                "process": process,
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_PROCESSING)
 
     def test_callback_uninstall_module_error_internal(self):
         self.init_lib()
 
-        process = ['process1', 'process2'],
-        self.i._Install__callback_uninstall_module({
-            'module': 'dummy',
-            'status': UNINSTALLMODULE_STATUS_ERROR_INTERNAL,
-            'updateprocess': False,
-            'process': process,
-        })
+        process = (["process1", "process2"],)
+        self.i._Install__callback_uninstall_module(
+            {
+                "module": "dummy",
+                "status": UNINSTALLMODULE_STATUS_ERROR_INTERNAL,
+                "updateprocess": False,
+                "process": process,
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_ERROR)
 
-    @patch('backend.install.install.Install._Install__reset_status')
+    @patch("backend.install.install.Install._Install__reset_status")
     def test_uninstall_module_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
-        self.assertTrue(self.i.uninstall_module('dummy', {'infos': 'data'}))
+        self.assertTrue(self.i.uninstall_module("dummy", {"infos": "data"}))
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
         mock_uninstallmodule.assert_called_with(
-            'dummy',
-            {'infos': 'data'},
+            "dummy",
+            {"infos": "data"},
             update_process=False,
             force_uninstall=False,
             status_callback=ANY,
@@ -753,15 +784,15 @@ class InstallTests(unittest.TestCase):
     def test_uninstall_module_blocking(self):
         self.init_lib(blocking=True)
         mock_uninstallmodule.return_value.is_uninstalling.side_effect = [True, False]
-        mock_uninstallmodule.return_value.get_status.return_value = {'status': UNINSTALLMODULE_STATUS_UNINSTALLED}
+        mock_uninstallmodule.return_value.get_status.return_value = {"status": UNINSTALLMODULE_STATUS_UNINSTALLED}
         t = Timer(0.4, self.end_callback)
         t.start()
 
-        self.assertTrue(self.i.uninstall_module('dummy', {'infos': 'data'}))
+        self.assertTrue(self.i.uninstall_module("dummy", {"infos": "data"}))
 
         mock_uninstallmodule.assert_called_with(
-            'dummy',
-            {'infos': 'data'},
+            "dummy",
+            {"infos": "data"},
             update_process=False,
             force_uninstall=False,
             status_callback=ANY,
@@ -775,13 +806,11 @@ class InstallTests(unittest.TestCase):
     def test_uninstall_module_blocking_failed(self):
         self.init_lib(blocking=True)
         mock_uninstallmodule.return_value.is_uninstalling.side_effect = [True, False]
-        mock_uninstallmodule.return_value.get_status.return_value = {
-            'status': UNINSTALLMODULE_STATUS_ERROR_INTERNAL
-        }
+        mock_uninstallmodule.return_value.get_status.return_value = {"status": UNINSTALLMODULE_STATUS_ERROR_INTERNAL}
         t = Timer(0.4, self.end_callback, [Install.STATUS_ERROR])
         t.start()
 
-        self.assertFalse(self.i.uninstall_module('dummy', {'infos': 'data'}))
+        self.assertFalse(self.i.uninstall_module("dummy", {"infos": "data"}))
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
@@ -790,8 +819,8 @@ class InstallTests(unittest.TestCase):
         self.i.status = Install.STATUS_PROCESSING
 
         with self.assertRaises(Exception) as cm:
-            self.i.uninstall_module('dummy', {'infos': 'data'})
-        self.assertEqual(str(cm.exception), 'Installer is already processing')
+            self.i.uninstall_module("dummy", {"infos": "data"})
+        self.assertEqual(str(cm.exception), "Installer is already processing")
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
@@ -799,29 +828,29 @@ class InstallTests(unittest.TestCase):
         self.init_lib()
 
         with self.assertRaises(MissingParameter) as cm:
-            self.i.uninstall_module('', {'info': 'data'})
+            self.i.uninstall_module("", {"info": "data"})
         self.assertEqual(str(cm.exception), 'Parameter "module_name" is missing')
         with self.assertRaises(MissingParameter) as cm:
-            self.i.uninstall_module(None, {'info': 'data'})
+            self.i.uninstall_module(None, {"info": "data"})
         self.assertEqual(str(cm.exception), 'Parameter "module_name" is missing')
 
         with self.assertRaises(MissingParameter) as cm:
-            self.i.uninstall_module('dummy', None)
+            self.i.uninstall_module("dummy", None)
         self.assertEqual(str(cm.exception), 'Parameter "module_infos" is missing')
         with self.assertRaises(InvalidParameter) as cm:
-            self.i.uninstall_module('dummy', 123)
+            self.i.uninstall_module("dummy", 123)
         self.assertEqual(str(cm.exception), 'Parameter "module_infos" is invalid')
 
-    @patch('backend.install.install.Install._Install__reset_status')
+    @patch("backend.install.install.Install._Install__reset_status")
     def test_update_module_no_blocking(self, mock_resetstatus):
         self.init_lib()
 
-        self.assertTrue(self.i.update_module('dummy', {'infos': 'data'}))
+        self.assertTrue(self.i.update_module("dummy", {"infos": "data"}))
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
         mock_updatemodule.assert_called_with(
-            'dummy',
-            {'infos': 'data'},
+            "dummy",
+            {"infos": "data"},
             force_uninstall=False,
             status_callback=ANY,
             cleep_filesystem=self.cleep_filesystem,
@@ -834,15 +863,15 @@ class InstallTests(unittest.TestCase):
     def test_update_module_blocking(self):
         self.init_lib(blocking=True)
         mock_updatemodule.return_value.is_updating.side_effect = [True, False]
-        mock_updatemodule.return_value.get_status.return_value = {'status': UPDATEMODULE_STATUS_UPDATED}
+        mock_updatemodule.return_value.get_status.return_value = {"status": UPDATEMODULE_STATUS_UPDATED}
         t = Timer(0.4, self.end_callback)
         t.start()
 
-        self.assertTrue(self.i.update_module('dummy', {'infos': 'data'}))
+        self.assertTrue(self.i.update_module("dummy", {"infos": "data"}))
 
         mock_updatemodule.assert_called_with(
-            'dummy',
-            {'infos': 'data'},
+            "dummy",
+            {"infos": "data"},
             force_uninstall=False,
             status_callback=ANY,
             cleep_filesystem=self.cleep_filesystem,
@@ -855,13 +884,11 @@ class InstallTests(unittest.TestCase):
     def test_update_module_blocking_failed(self):
         self.init_lib(blocking=True)
         mock_updatemodule.return_value.is_updating.side_effect = [True, False]
-        mock_updatemodule.return_value.get_status.return_value = {
-            'status': UPDATEMODULE_STATUS_ERROR
-        }
+        mock_updatemodule.return_value.get_status.return_value = {"status": UPDATEMODULE_STATUS_ERROR}
         t = Timer(0.4, self.end_callback, [Install.STATUS_ERROR])
         t.start()
 
-        self.assertFalse(self.i.update_module('dummy', {'infos': 'data'}))
+        self.assertFalse(self.i.update_module("dummy", {"infos": "data"}))
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
@@ -870,8 +897,8 @@ class InstallTests(unittest.TestCase):
         self.i.status = Install.STATUS_PROCESSING
 
         with self.assertRaises(Exception) as cm:
-            self.i.update_module('dummy', {'infos': 'data'})
-        self.assertEqual(str(cm.exception), 'Installer is already processing')
+            self.i.update_module("dummy", {"infos": "data"})
+        self.assertEqual(str(cm.exception), "Installer is already processing")
 
         self.assertFalse(self.cleep_filesystem.enable_write.called)
 
@@ -879,106 +906,115 @@ class InstallTests(unittest.TestCase):
         self.init_lib()
 
         with self.assertRaises(MissingParameter) as cm:
-            self.i.update_module('', {'info': 'data'})
+            self.i.update_module("", {"info": "data"})
         self.assertEqual(str(cm.exception), 'Parameter "module_name" is missing')
         with self.assertRaises(MissingParameter) as cm:
-            self.i.update_module(None, {'info': 'data'})
+            self.i.update_module(None, {"info": "data"})
         self.assertEqual(str(cm.exception), 'Parameter "module_name" is missing')
 
         with self.assertRaises(MissingParameter) as cm:
-            self.i.update_module('dummy', None)
+            self.i.update_module("dummy", None)
         self.assertEqual(str(cm.exception), 'Parameter "new_module_infos" is missing')
         with self.assertRaises(InvalidParameter) as cm:
-            self.i.update_module('dummy', 123)
+            self.i.update_module("dummy", 123)
         self.assertEqual(str(cm.exception), 'Parameter "new_module_infos" is invalid')
 
     def test_callback_update_module_done(self):
         self.init_lib()
 
-        process_uninst = ['uninst1', 'uninst2']
-        process_inst = ['inst1', 'inst2']
-        self.i._Install__callback_update_module({
-            'module': 'dummy',
-            'status': UPDATEMODULE_STATUS_UPDATED,
-            'uninstall': {
-                'process': process_uninst,
-                'stdout': ['u-out'],
-                'stderr': ['u-err'],
-            },
-            'install': {
-                'process': process_inst,
-                'stdout': ['i-out'],
-                'stderr': ['i-err'],
-            },
-        })
+        process_uninst = ["uninst1", "uninst2"]
+        process_inst = ["inst1", "inst2"]
+        self.i._Install__callback_update_module(
+            {
+                "module": "dummy",
+                "status": UPDATEMODULE_STATUS_UPDATED,
+                "uninstall": {
+                    "process": process_uninst,
+                    "stdout": ["u-out"],
+                    "stderr": ["u-err"],
+                },
+                "install": {
+                    "process": process_inst,
+                    "stdout": ["i-out"],
+                    "stderr": ["i-err"],
+                },
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_DONE)
-        self.assertListEqual(self.i.stdout, ['u-out', 'i-out'])
-        self.assertListEqual(self.i.stderr, ['u-err', 'i-err'])
-        self.status_callback.assert_called_with({
-            'module': 'dummy',
-            'status': Install.STATUS_DONE,
-            'stdout': ['u-out', 'i-out'],
-            'stderr': ['u-err', 'i-err'],
-            'process': ['Uninstall process:'] + process_uninst + ['', 'Install process:'] + process_inst,
-        })
+        self.assertListEqual(self.i.stdout, ["u-out", "i-out"])
+        self.assertListEqual(self.i.stderr, ["u-err", "i-err"])
+        self.status_callback.assert_called_with(
+            {
+                "module": "dummy",
+                "status": Install.STATUS_DONE,
+                "stdout": ["u-out", "i-out"],
+                "stderr": ["u-err", "i-err"],
+                "process": ["Uninstall process:"] + process_uninst + ["", "Install process:"] + process_inst,
+            }
+        )
 
     def test_callback_update_module_idle(self):
         self.init_lib()
 
-        process_uninst = ['uninst1', 'uninst2']
-        process_inst = ['inst1', 'inst2']
-        self.i._Install__callback_update_module({
-            'module': 'dummy',
-            'status': UPDATEMODULE_STATUS_IDLE,
-            'uninstall': {
-                'process': process_uninst,
-            },
-            'install': {
-                'process': process_inst,
-            },
-        })
+        process_uninst = ["uninst1", "uninst2"]
+        process_inst = ["inst1", "inst2"]
+        self.i._Install__callback_update_module(
+            {
+                "module": "dummy",
+                "status": UPDATEMODULE_STATUS_IDLE,
+                "uninstall": {
+                    "process": process_uninst,
+                },
+                "install": {
+                    "process": process_inst,
+                },
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_IDLE)
 
     def test_callback_update_module_updating(self):
         self.init_lib()
 
-        process_uninst = ['uninst1', 'uninst2']
-        process_inst = ['inst1', 'inst2']
-        self.i._Install__callback_update_module({
-            'module': 'dummy',
-            'status': UPDATEMODULE_STATUS_UPDATING,
-            'uninstall': {
-                'process': process_uninst,
-            },
-            'install': {
-                'process': process_inst,
-            },
-        })
+        process_uninst = ["uninst1", "uninst2"]
+        process_inst = ["inst1", "inst2"]
+        self.i._Install__callback_update_module(
+            {
+                "module": "dummy",
+                "status": UPDATEMODULE_STATUS_UPDATING,
+                "uninstall": {
+                    "process": process_uninst,
+                },
+                "install": {
+                    "process": process_inst,
+                },
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_PROCESSING)
 
     def test_callback_update_module_error(self):
         self.init_lib()
 
-        process_uninst = ['uninst1', 'uninst2']
-        process_inst = ['inst1', 'inst2']
-        self.i._Install__callback_update_module({
-            'module': 'dummy',
-            'status': UPDATEMODULE_STATUS_ERROR,
-            'uninstall': {
-                'process': process_uninst,
-            },
-            'install': {
-                'process': process_inst,
-            },
-        })
+        process_uninst = ["uninst1", "uninst2"]
+        process_inst = ["inst1", "inst2"]
+        self.i._Install__callback_update_module(
+            {
+                "module": "dummy",
+                "status": UPDATEMODULE_STATUS_ERROR,
+                "uninstall": {
+                    "process": process_uninst,
+                },
+                "install": {
+                    "process": process_inst,
+                },
+            }
+        )
 
         self.assertEqual(self.i.status, Install.STATUS_ERROR)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # coverage run --omit="*/lib/python*/*","*test_*.py" --concurrency=thread test_install.py; coverage report -m -i
     unittest.main()
-

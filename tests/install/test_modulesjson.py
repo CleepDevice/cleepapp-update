@@ -28,20 +28,27 @@ DEFAULT_SOURCE = {
     "remote_url_version": "https://www.cleep.com/cleep.%(version)s.json",
     "remote_url_latest": "https://www.cleep.com/cleep.latest.json",
 }
-SOURCES_PATH = '/tmp/sources'
+SOURCES_PATH = "/tmp/sources"
+
 
 class ModulesJsonTests(unittest.TestCase):
 
     def setUp(self):
         TestLib()
-        logging.basicConfig(level=LOG_LEVEL, format=u'%(asctime)s %(name)s %(levelname)s : %(message)s')
+        logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s %(name)s %(levelname)s : %(message)s")
 
     def tearDown(self):
         pass
 
-    def _init_context(self, download_mock=None, download_content_return_value=None, download_content_side_effect=None,
-        read_json_return_value=None, custom_source=DEFAULT_SOURCE):
-        default_json = json.dumps({'update': int(time.time()), 'list': {}})
+    def _init_context(
+        self,
+        download_mock=None,
+        download_content_return_value=None,
+        download_content_side_effect=None,
+        read_json_return_value=None,
+        custom_source=DEFAULT_SOURCE,
+    ):
+        default_json = json.dumps({"update": int(time.time()), "list": {}})
 
         if download_mock:
             if not download_content_return_value:
@@ -68,7 +75,7 @@ class ModulesJsonTests(unittest.TestCase):
         self._init_context()
 
         filepath = self.mj.get_source_filepath()
-        logging.debug('Filepath: %s', filepath)
+        logging.debug("Filepath: %s", filepath)
 
         self.assertEqual(filepath, os.path.join(SOURCES_PATH, DEFAULT_SOURCE["filename"]))
 
@@ -76,12 +83,12 @@ class ModulesJsonTests(unittest.TestCase):
         self._init_context()
 
         empty = self.mj.get_empty()
-        self.assertTrue('update' in empty)
-        self.assertTrue('list' in empty)
-        self.assertTrue(isinstance(empty['update'], int))
-        self.assertTrue(isinstance(empty['list'], dict))
+        self.assertTrue("update" in empty)
+        self.assertTrue("list" in empty)
+        self.assertTrue(isinstance(empty["update"], int))
+        self.assertTrue(isinstance(empty["list"], dict))
 
-    @patch('os.path.exists')
+    @patch("os.path.exists")
     def test_get_content_exception_no_file(self, os_path_exists_mock):
         os_path_exists_mock.return_value = False
         self._init_context()
@@ -90,31 +97,26 @@ class ModulesJsonTests(unittest.TestCase):
             self.mj.get_content()
         self.assertEqual(str(cm.exception), 'File "/tmp/sources/test.json" doesn\'t exist. Please update it first.')
 
-    @patch('os.path.exists')
+    @patch("os.path.exists")
     def test_get_content_exception_invalid_content(self, os_path_exists_mock):
         os_path_exists_mock.return_value = True
-        self._init_context(
-            read_json_return_value={'update': (int(time.time())-1000), 'dummy':{}}
-        )
+        self._init_context(read_json_return_value={"update": (int(time.time()) - 1000), "dummy": {}})
 
         with self.assertRaises(Exception) as cm:
             self.mj.get_content()
         self.assertEqual(str(cm.exception), 'Invalid "/tmp/sources/test.json" file content')
 
-    @patch('os.path.exists')
+    @patch("os.path.exists")
     def test_get_content_custom_source(self, os_path_exists_mock):
         os_path_exists_mock.return_value = True
-        self._init_context(
-            read_json_return_value={'update': (int(time.time())-1000), 'list':{}},
-            custom_source=CUSTOM_SOURCE
-        )
-        source_path = os.path.join(SOURCES_PATH, CUSTOM_SOURCE['filename'])
+        self._init_context(read_json_return_value={"update": (int(time.time()) - 1000), "list": {}}, custom_source=CUSTOM_SOURCE)
+        source_path = os.path.join(SOURCES_PATH, CUSTOM_SOURCE["filename"])
 
         self.mj.get_content()
 
-        self.cleep_filesystem.read_json.assert_called_with(source_path, 'utf8')
+        self.cleep_filesystem.read_json.assert_called_with(source_path, "utf8")
 
-    @patch('os.path.exists')
+    @patch("os.path.exists")
     def test_exists(self, os_path_exists_mock):
         self._init_context()
 
@@ -124,7 +126,7 @@ class ModulesJsonTests(unittest.TestCase):
         os_path_exists_mock.return_value = False
         self.assertFalse(self.mj.exists())
 
-    @patch('os.path.exists')
+    @patch("os.path.exists")
     def test_exists_custom_source(self, os_path_exists_mock):
         self._init_context(custom_source=CUSTOM_SOURCE)
 
@@ -134,86 +136,74 @@ class ModulesJsonTests(unittest.TestCase):
         os_path_exists_mock.return_value = False
         self.assertFalse(self.mj.exists())
 
-    @patch('backend.install.modulesjson.requests')
-    @patch('backend.install.modulesjson.CLEEP_VERSION', '0.0.666')
+    @patch("backend.install.modulesjson.requests")
+    @patch("backend.install.modulesjson.CLEEP_VERSION", "0.0.666")
     def test_get_remote_url_return_version_url(self, requests_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
         requests_mock.get.return_value = geturl_mock
-        self._init_context(
-            read_json_return_value={'update': (int(time.time())-1000), 'list':{}}
-        )
-    
-        url = self.mj._ModulesJson__get_remote_url()
-        self.assertEqual(url, DEFAULT_SOURCE["remote_url_version"] % {'version': '0.0.666'})
+        self._init_context(read_json_return_value={"update": (int(time.time()) - 1000), "list": {}})
 
-    @patch('backend.install.modulesjson.requests')
-    @patch('backend.install.modulesjson.CLEEP_VERSION', '0.0.666')
+        url = self.mj._ModulesJson__get_remote_url()
+        self.assertEqual(url, DEFAULT_SOURCE["remote_url_version"] % {"version": "0.0.666"})
+
+    @patch("backend.install.modulesjson.requests")
+    @patch("backend.install.modulesjson.CLEEP_VERSION", "0.0.666")
     def test_get_remote_url_return_latest_url(self, requests_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 404
         requests_mock.get.return_value = geturl_mock
-        self._init_context(
-            read_json_return_value={'update': (int(time.time())-1000), 'list':{}}
-        )
-    
+        self._init_context(read_json_return_value={"update": (int(time.time()) - 1000), "list": {}})
+
         url = self.mj._ModulesJson__get_remote_url()
         self.assertEqual(url, DEFAULT_SOURCE["remote_url_latest"])
 
-    @patch('backend.install.modulesjson.requests')
-    @patch('backend.install.modulesjson.CLEEP_VERSION', '0.0.666')
+    @patch("backend.install.modulesjson.requests")
+    @patch("backend.install.modulesjson.CLEEP_VERSION", "0.0.666")
     def test_get_remote_url_exception_should_return_latest_url(self, requests_mock):
-        requests_mock.urlopen.side_effect = Exception('Test exception')
-        self._init_context(
-            read_json_return_value={'update': (int(time.time())-1000), 'list':{}}
-        )
-    
+        requests_mock.urlopen.side_effect = Exception("Test exception")
+        self._init_context(read_json_return_value={"update": (int(time.time()) - 1000), "list": {}})
+
         url = self.mj._ModulesJson__get_remote_url()
         self.assertEqual(url, DEFAULT_SOURCE["remote_url_latest"])
 
-    @patch('backend.install.modulesjson.requests')
-    @patch('backend.install.modulesjson.CLEEP_VERSION', '0.0.666')
+    @patch("backend.install.modulesjson.requests")
+    @patch("backend.install.modulesjson.CLEEP_VERSION", "0.0.666")
     def test_get_remote_url_custom_source(self, requests_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
         requests_mock.get.return_value = geturl_mock
-        self._init_context(
-            read_json_return_value={'update': (int(time.time())-1000), 'list':{}},
-            custom_source=CUSTOM_SOURCE
-        )
-    
+        self._init_context(read_json_return_value={"update": (int(time.time()) - 1000), "list": {}}, custom_source=CUSTOM_SOURCE)
+
         url = self.mj._ModulesJson__get_remote_url()
 
-        requests_mock.get.assert_called_with(CUSTOM_SOURCE['remote_url_version'])
+        requests_mock.get.assert_called_with(CUSTOM_SOURCE["remote_url_version"])
 
-    @patch('backend.install.modulesjson.requests')
-    @patch('backend.install.modulesjson.CLEEP_VERSION', '0.0.666')
+    @patch("backend.install.modulesjson.requests")
+    @patch("backend.install.modulesjson.CLEEP_VERSION", "0.0.666")
     def test_get_remote_url_custom_source_should_return_latest_url(self, requests_mock):
-        requests_mock.urlopen.side_effect = Exception('Test exception')
-        self._init_context(
-            read_json_return_value={'update': (int(time.time())-1000), 'list':{}},
-            custom_source=CUSTOM_SOURCE
-        )
-    
+        requests_mock.urlopen.side_effect = Exception("Test exception")
+        self._init_context(read_json_return_value={"update": (int(time.time()) - 1000), "list": {}}, custom_source=CUSTOM_SOURCE)
+
         url = self.mj._ModulesJson__get_remote_url()
 
-        self.assertEqual(url, CUSTOM_SOURCE['remote_url_latest'])
+        self.assertEqual(url, CUSTOM_SOURCE["remote_url_latest"])
 
-    @patch('backend.install.modulesjson.Download')
-    @patch('os.path.exists')
+    @patch("backend.install.modulesjson.Download")
+    @patch("os.path.exists")
     def test_update_with_no_file(self, os_path_exists_mock, download_mock):
         os_path_exists_mock.return_value = False
         self._init_context(
             download_mock,
-            download_content_return_value=(0, json.dumps({'update': int(time.time()), 'list':{}})),
+            download_content_return_value=(0, json.dumps({"update": int(time.time()), "list": {}})),
         )
 
         # update
         self.assertTrue(self.mj.update())
 
-    @patch('backend.install.modulesjson.Download')
-    @patch('os.path.exists')
-    @patch('backend.install.modulesjson.requests')
+    @patch("backend.install.modulesjson.Download")
+    @patch("os.path.exists")
+    @patch("backend.install.modulesjson.requests")
     def test_update_without_changes(self, requests_mock, os_path_exists_mock, download_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
@@ -222,16 +212,16 @@ class ModulesJsonTests(unittest.TestCase):
         ts = int(time.time())
         self._init_context(
             download_mock,
-            download_content_return_value=(0, json.dumps({'update': ts, 'list':{}})),
-            read_json_return_value={'update': ts, 'list':{}}
+            download_content_return_value=(0, json.dumps({"update": ts, "list": {}})),
+            read_json_return_value={"update": ts, "list": {}},
         )
 
         # update
         self.assertFalse(self.mj.update())
 
-    @patch('backend.install.modulesjson.Download')
-    @patch('os.path.exists')
-    @patch('backend.install.modulesjson.requests')
+    @patch("backend.install.modulesjson.Download")
+    @patch("os.path.exists")
+    @patch("backend.install.modulesjson.requests")
     def test_update_with_different_timestamp(self, requests_mock, os_path_exists_mock, download_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
@@ -239,38 +229,35 @@ class ModulesJsonTests(unittest.TestCase):
         os_path_exists_mock.return_value = True
         self._init_context(
             download_mock,
-            download_content_return_value=(0, json.dumps({'update': (int(time.time())-500), 'list':{}})),
-            read_json_return_value={'update': (int(time.time())-1000), 'list':{}}
+            download_content_return_value=(0, json.dumps({"update": (int(time.time()) - 500), "list": {}})),
+            read_json_return_value={"update": (int(time.time()) - 1000), "list": {}},
         )
 
         # update
         self.assertTrue(self.mj.update())
 
-    @patch('backend.install.modulesjson.Download')
-    @patch('backend.install.modulesjson.requests')
+    @patch("backend.install.modulesjson.Download")
+    @patch("backend.install.modulesjson.requests")
     def test_update_with_invalid_remote_content(self, requests_mock, download_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
         requests_mock.get.return_value = geturl_mock
         self._init_context(
             download_mock,
-            download_content_return_value=(0, json.dumps({'update': (int(time.time())-500), 'dummy':{}})),
+            download_content_return_value=(0, json.dumps({"update": (int(time.time()) - 500), "dummy": {}})),
         )
 
         with self.assertRaises(Exception) as cm:
             self.mj.update()
         self.assertEqual(str(cm.exception), 'Remote "/tmp/sources/test.json" file has invalid format')
 
-    @patch('backend.install.modulesjson.Download')
-    @patch('backend.install.modulesjson.requests')
+    @patch("backend.install.modulesjson.Download")
+    @patch("backend.install.modulesjson.requests")
     def test_update_with_download_failure(self, requests_mock, download_mock):
         geturl_mock = MagicMock()
         geturl_mock.status_code = 200
         requests_mock.get.return_value = geturl_mock
-        self._init_context(
-            download_mock,
-            download_content_return_value=(3, None)
-        )
+        self._init_context(download_mock, download_content_return_value=(3, None))
 
         with self.assertRaises(Exception) as cm:
             self.mj.update()
@@ -282,7 +269,7 @@ class ModulesJsonTests(unittest.TestCase):
 
         with self.assertRaises(Exception) as cm:
             self.mj.update()
-        self.assertEqual(str(cm.exception), 'Source is invalid: %s' % custom_source)
+        self.assertEqual(str(cm.exception), "Source is invalid: %s" % custom_source)
 
     def test_update_invalid_source_missing_key(self):
         custom_source = {
@@ -293,7 +280,7 @@ class ModulesJsonTests(unittest.TestCase):
 
         with self.assertRaises(Exception) as cm:
             self.mj.update()
-        self.assertEqual(str(cm.exception), 'Source is invalid: %s' % custom_source)
+        self.assertEqual(str(cm.exception), "Source is invalid: %s" % custom_source)
 
     def test_update_invalid_source_no_version_pattern(self):
         custom_source = {
@@ -305,10 +292,9 @@ class ModulesJsonTests(unittest.TestCase):
 
         with self.assertRaises(Exception) as cm:
             self.mj.update()
-        self.assertEqual(str(cm.exception), 'Source is invalid: %s' % custom_source)
+        self.assertEqual(str(cm.exception), "Source is invalid: %s" % custom_source)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # coverage run --omit="*/lib/python*/*","*test_*.py" --concurrency=thread test_modulesjson.py; coverage report -m -i
     unittest.main()
-

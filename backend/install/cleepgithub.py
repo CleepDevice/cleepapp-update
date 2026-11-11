@@ -29,9 +29,7 @@ class CleepGithub:
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # members
-        self.http_headers = {
-            "user-agent": "Mozilla/5.0 (Windows NT 6.3; rv:36.0) Gecko/20100101 Firefox/36.0"
-        }
+        self.http_headers = {"user-agent": "Mozilla/5.0 (Windows NT 6.3; rv:36.0) Gecko/20100101 Firefox/36.0"}
         self.version_pattern = r"\d+\.\d+\.\d+"
         if auth_string:
             self.http_headers["Authorization"] = auth_string
@@ -211,10 +209,7 @@ class CleepGithub:
                 return data
 
             else:
-                raise Exception(
-                    "Invalid response (status=%d): %s"
-                    % (resp.status_code, resp.text.encode("utf8"))
-                )
+                raise Exception("Invalid response (status=%d): %s" % (resp.status_code, resp.text.encode("utf8")))
 
         except Exception as e:
             self.logger.exception("Unable to get releases:")
@@ -228,11 +223,7 @@ class CleepGithub:
             owner (string): name of owner
             repository (string): name of repository
         """
-        return [
-            release
-            for release in self.__get_all_releases(owner, repository)
-            if self.is_released(release)
-        ]
+        return [release for release in self.__get_all_releases(owner, repository) if self.is_released(release)]
 
     def get_releases(self, owner, repository, only_latest=False, only_released=True):
         """

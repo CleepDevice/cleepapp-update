@@ -30,9 +30,7 @@ class InstallManifestTests(unittest.TestCase):
         os.makedirs(self.storage_path)
         self.fs = Mock()
         self.fs.mkdirs = Mock(side_effect=lambda p: os.makedirs(p, exist_ok=True))
-        self.fs.rm = Mock(
-            side_effect=lambda p: os.remove(p) if os.path.exists(p) else None
-        )
+        self.fs.rm = Mock(side_effect=lambda p: os.remove(p) if os.path.exists(p) else None)
 
         def _open(path, mode, encoding=None):
             return open(path, mode)
@@ -68,11 +66,7 @@ class InstallManifestTests(unittest.TestCase):
     def test_phase_path_scripts_and_flat(self):
         extract = os.path.join(self.tmp, "pkg")
         os.makedirs(os.path.join(extract, "scripts"))
-        self.assertTrue(
-            InstallManifest.phase_path(extract, PHASE_POSTINST).endswith(
-                "scripts/postinst.json"
-            )
-        )
+        self.assertTrue(InstallManifest.phase_path(extract, PHASE_POSTINST).endswith("scripts/postinst.json"))
         backup = os.path.join(self.tmp, "install", "ngrok")
         os.makedirs(backup)
         self.assertEqual(

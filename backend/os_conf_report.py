@@ -234,24 +234,17 @@ def build_os_conf_report(
     lines.extend(["", "--- summary ---"])
     attention = False
     if current and to_version and current != to_version:
-        lines.append(
-            "ERROR: /etc/cleepos_version is '%s' (expected %s)" % (current, to_version)
-        )
+        lines.append("ERROR: /etc/cleepos_version is '%s' (expected %s)" % (current, to_version))
         attention = True
     else:
         lines.append("OK: /etc/cleepos_version=%s" % (current or "(missing)"))
     lines.append("INFO: apt → %s" % apt_summary)
     if new_configs:
-        lines.append(
-            "INFO: %s new config file(s) installed from packages" % len(new_configs)
-        )
+        lines.append("INFO: %s new config file(s) installed from packages" % len(new_configs))
     else:
         lines.append("INFO: no new config files installed from packages")
     if leftovers:
-        lines.append(
-            "WARN: %s leftover conf sibling(s) — review --- existing config files ---"
-            % len(leftovers)
-        )
+        lines.append("WARN: %s leftover conf sibling(s) — review --- existing config files ---" % len(leftovers))
         for path in leftovers:
             lines.append("  - %s" % path)
         attention = True
@@ -262,19 +255,14 @@ def build_os_conf_report(
             lines.append("WARN: important path missing: %s" % row["path"])
             attention = True
         elif not row["exists"] and row["path"] == "/etc/localtime":
-            lines.append(
-                "NOTE: missing /etc/localtime (often expected if tzdata symlink absent)"
-            )
+            lines.append("NOTE: missing /etc/localtime (often expected if tzdata symlink absent)")
         for leftover in row["leftovers"]:
             lines.append("WARN: important path has leftover: %s" % leftover)
             attention = True
     if attention:
         lines.append("RESULT: manual review recommended (see WARN/ERROR above)")
     else:
-        lines.append(
-            "RESULT: nothing critical for manual investigation "
-            "(beyond routine package conf installs)"
-        )
+        lines.append("RESULT: nothing critical for manual investigation " "(beyond routine package conf installs)")
     lines.append("")
     text = "\n".join(lines) + "\n"
 
@@ -310,8 +298,6 @@ def sentry_extra_from_report(report: dict[str, Any]) -> dict[str, Any]:
         "leftover_paths": list(report.get("leftover_paths") or []),
         "new_config_paths": list(report.get("new_config_paths") or [])[:50],
         "high_interest_with_leftovers": [
-            row["path"]
-            for row in (report.get("high_interest") or report.get("important") or [])
-            if row.get("leftovers")
+            row["path"] for row in (report.get("high_interest") or report.get("important") or []) if row.get("leftovers")
         ],
     }

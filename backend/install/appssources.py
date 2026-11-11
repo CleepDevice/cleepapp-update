@@ -76,9 +76,7 @@ class AppsSources:
                     raise Exception(f"Invalid app source content {source}")
 
         except Exception:
-            self.logger.warning(
-                'Invalid "apps.sources" content, generate default content'
-            )
+            self.logger.warning('Invalid "apps.sources" content, generate default content')
             self.__create_default_file()
 
     def __create_default_file(self):
@@ -115,9 +113,7 @@ class AppsSources:
             data = self.cleep_filesystem.read_json(self.APPS_SOURCES_PATH, "utf8")
             self.sources = data["sources"]
         except Exception:
-            self.logger.exception(
-                'Error reading "apps.sources" content. No apps sources loaded'
-            )
+            self.logger.exception('Error reading "apps.sources" content. No apps sources loaded')
 
     def get_sources(self):
         """
@@ -159,9 +155,7 @@ class AppsSources:
         if not all(keys):
             raise InvalidParameter('Parameter "source" is invalid')
         if source["remote_url_version"].find("%(version)s") == -1:
-            raise InvalidParameter(
-                'Parameter "source" field "remote_url_version" is invalid'
-            )
+            raise InvalidParameter('Parameter "source" field "remote_url_version" is invalid')
 
         self.logger.debug("Add source %s", source)
         data = self.cleep_filesystem.read_json(self.APPS_SOURCES_PATH, "utf8")
@@ -189,16 +183,10 @@ class AppsSources:
             AppsSources.CLEEP_APPS_FREE["filename"],
             AppsSources.CLEEP_APPS_NON_FREE["filename"],
         ]:
-            raise InvalidParameter(
-                'Parameter "source_filename" must not refer to a Cleep source'
-            )
+            raise InvalidParameter('Parameter "source_filename" must not refer to a Cleep source')
 
         data = self.cleep_filesystem.read_json(self.APPS_SOURCES_PATH, "utf8")
-        new_sources = [
-            source
-            for source in data["sources"]
-            if source["filename"] != source_filename
-        ]
+        new_sources = [source for source in data["sources"] if source["filename"] != source_filename]
         data["sources"] = new_sources
 
         if not self.cleep_filesystem.write_json(self.APPS_SOURCES_PATH, data, "utf8"):
@@ -245,15 +233,11 @@ class AppsSources:
         for source in self.sources:
             # update if not exists
             updated, source_apps = self.__get_modules_json_content(force_update, source)
-            self.logger.debug(
-                'Apps from source "%s": %s' % (source["filename"], source_apps)
-            )
+            self.logger.debug('Apps from source "%s": %s' % (source["filename"], source_apps))
 
             apps["list"].update(source_apps["list"])
             if updated:
-                self.logger.info(
-                    'Source "%s" was updated since last update', source["filename"]
-                )
+                self.logger.info('Source "%s" was updated since last update', source["filename"])
                 has_updates = True
                 if source_apps["update"] > apps["update"]:
                     apps["update"] = source_apps["update"]
@@ -270,9 +254,7 @@ class AppsSources:
         Returns:
             tuple: updated status and modules.json content
         """
-        modules_json = ModulesJson(
-            self.cleep_filesystem, self.task_factory, self.SOURCES_PATH, source
-        )
+        modules_json = ModulesJson(self.cleep_filesystem, self.task_factory, self.SOURCES_PATH, source)
 
         updated = False
         if force_update or not modules_json.exists():
@@ -280,9 +262,7 @@ class AppsSources:
                 self.logger.debug('Updating source "%s"', source)
                 updated = modules_json.update()
             except Exception:
-                self.logger.exception(
-                    'Error occured while updating source "%s"', source
-                )
+                self.logger.exception('Error occured while updating source "%s"', source)
                 return False, modules_json.get_empty()
 
         return updated, modules_json.get_content()

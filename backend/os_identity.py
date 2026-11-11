@@ -47,10 +47,7 @@ def parse_cleepos_version(version):
     """
     match = _CLEEPOS_VERSION_RE.match(version)
     if not match:
-        raise ValueError(
-            f'Invalid CleepOs version "{version}", expected <suite><YYYYMMDD> '
-            f'(e.g. bullseye20231205)'
-        )
+        raise ValueError(f'Invalid CleepOs version "{version}", expected <suite><YYYYMMDD> ' f"(e.g. bullseye20231205)")
     return {
         "version": version,
         "suite": match.group(1),

@@ -39,15 +39,7 @@ ROOT_STORAGE = "storage"
 ALLOWED_ROOTS = frozenset({ROOT_BIN, ROOT_ASSET, ROOT_STORAGE})
 
 # Allowlisted install modes only (no setuid/setgid/sticky, no free octal).
-_MODE_EXEC = (
-    stat.S_IRUSR
-    | stat.S_IWUSR
-    | stat.S_IXUSR
-    | stat.S_IRGRP
-    | stat.S_IXGRP
-    | stat.S_IROTH
-    | stat.S_IXOTH
-)  # 0755
+_MODE_EXEC = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH  # 0755
 _MODE_READ = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH  # 0644
 _MODE_PRIVATE = stat.S_IRUSR | stat.S_IWUSR  # 0600
 ALLOWED_CHMOD_MODES = {
@@ -142,10 +134,7 @@ class InstallManifest:
             raise InstallManifestError("manifest must be an object")
         version = data.get("version")
         if version != SUPPORTED_VERSION:
-            raise InstallManifestError(
-                "Unsupported manifest version %s (expected %s)"
-                % (version, SUPPORTED_VERSION)
-            )
+            raise InstallManifestError("Unsupported manifest version %s (expected %s)" % (version, SUPPORTED_VERSION))
         return data
 
     def run(self, data: dict[str, Any], mode: str = MODE_INSTALL) -> None:
@@ -160,21 +149,13 @@ class InstallManifest:
         if mode not in (MODE_INSTALL, MODE_UNINSTALL):
             raise InstallManifestError('Invalid manifest mode "%s"' % mode)
         if data.get("services") is not None:
-            raise InstallManifestError(
-                '"services" is not supported '
-                "(manage systemd units in the app module)"
-            )
+            raise InstallManifestError('"services" is not supported ' "(manage systemd units in the app module)")
         if data.get("pip_wheels") is not None:
-            raise InstallManifestError(
-                '"pip_wheels" is not supported; put package specs or wheel '
-                'URLs in ordered "pip" list'
-            )
+            raise InstallManifestError('"pip_wheels" is not supported; put package specs or wheel ' 'URLs in ordered "pip" list')
 
         if mode == MODE_UNINSTALL:
             if data.get("bin") is not None or data.get("chmod") is not None:
-                raise InstallManifestError(
-                    'uninstall manifests must not declare "bin" or "chmod"'
-                )
+                raise InstallManifestError('uninstall manifests must not declare "bin" or "chmod"')
             self._run_apt_purge(data.get("apt") or [])
             self._run_pip_uninstall(data.get("pip") or [])
             return
@@ -191,9 +172,7 @@ class InstallManifest:
         target = os.path.realpath(os.path.join(base, rel_path))
         prefix = base if base.endswith(os.sep) else base + os.sep
         if target != base and not target.startswith(prefix):
-            raise InstallManifestError(
-                'Path escapes allowed root: "%s" (root=%s)' % (rel_path, root)
-            )
+            raise InstallManifestError('Path escapes allowed root: "%s" (root=%s)' % (rel_path, root))
         return target
 
     @staticmethod
@@ -218,15 +197,10 @@ class InstallManifest:
         packages = self._validate_package_list(packages, "apt")
         console = Console()
         self.logger.info("manifest apt install: %s", packages)
-        update = console.command(
-            "DEBIAN_FRONTEND=noninteractive apt-get update", timeout=600
-        )
+        update = console.command("DEBIAN_FRONTEND=noninteractive apt-get update", timeout=600)
         if update["returncode"] != 0:
             self._fail_command("apt-get update", update)
-        cmd = (
-            "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends %s"
-            % (" ".join(packages))
-        )
+        cmd = "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends %s" % (" ".join(packages))
         resp = console.command(cmd, timeout=600)
         if resp["returncode"] != 0:
             self._fail_command("apt-get install", resp)
@@ -236,9 +210,7 @@ class InstallManifest:
             return
         packages = self._validate_package_list(packages, "apt")
         console = Console()
-        cmd = "DEBIAN_FRONTEND=noninteractive apt-get purge -y %s" % (
-            " ".join(packages)
-        )
+        cmd = "DEBIAN_FRONTEND=noninteractive apt-get purge -y %s" % (" ".join(packages))
         self.logger.info("manifest apt purge: %s", packages)
         resp = console.command(cmd, timeout=600)
         if resp["returncode"] != 0:
@@ -287,9 +259,7 @@ class InstallManifest:
             archive_path = self._resolve_under_root(ROOT_BIN, src)
             if entry.get("extract"):
                 if not os.path.isfile(archive_path):
-                    raise InstallManifestError(
-                        'bin archive not found: "%s"' % archive_path
-                    )
+                    raise InstallManifestError('bin archive not found: "%s"' % archive_path)
                 dest_dir = self._root_map[ROOT_BIN]
                 self.logger.info("Extract %s into %s", archive_path, dest_dir)
                 with zipfile.ZipFile(archive_path, "r") as zf:
@@ -309,33 +279,24 @@ class InstallManifest:
                 self.cleep_filesystem.rm(archive_path)
             if "chmod" in entry:
                 raise InstallManifestError(
-                    'bin entry must not contain "chmod"; use top-level '
-                    '"chmod": {"bin": {"path": "+x"}}'
+                    'bin entry must not contain "chmod"; use top-level ' '"chmod": {"bin": {"path": "+x"}}'
                 )
 
     def _run_chmod(self, by_root: dict) -> None:
         if not by_root:
             return
         if not isinstance(by_root, dict):
-            raise InstallManifestError(
-                '"chmod" must be an object keyed by root (bin/asset/storage)'
-            )
+            raise InstallManifestError('"chmod" must be an object keyed by root (bin/asset/storage)')
         for root, paths in by_root.items():
             if root not in ALLOWED_ROOTS:
                 raise InstallManifestError('Invalid chmod root "%s"' % root)
             if not isinstance(paths, dict):
-                raise InstallManifestError(
-                    '"chmod.%s" must be an object of path -> mode' % root
-                )
+                raise InstallManifestError('"chmod.%s" must be an object of path -> mode' % root)
             for rel_path, mode in paths.items():
                 if not isinstance(rel_path, str) or not rel_path.strip():
-                    raise InstallManifestError(
-                        "Invalid chmod path under %s: %s" % (root, rel_path)
-                    )
+                    raise InstallManifestError("Invalid chmod path under %s: %s" % (root, rel_path))
                 if not isinstance(mode, str):
-                    raise InstallManifestError(
-                        "Invalid chmod mode for %s/%s: %s" % (root, rel_path, mode)
-                    )
+                    raise InstallManifestError("Invalid chmod mode for %s/%s: %s" % (root, rel_path, mode))
                 self._chmod_path(root, rel_path.strip(), mode)
 
     def _chmod_path(self, root: str, rel_path: str, mode: str) -> None:
@@ -345,15 +306,12 @@ class InstallManifest:
         mode_key = str(mode)
         if mode_key not in ALLOWED_CHMOD_MODES:
             raise InstallManifestError(
-                'Unsupported chmod mode "%s" (allowed: %s)'
-                % (mode, ", ".join(sorted(ALLOWED_CHMOD_MODES)))
+                'Unsupported chmod mode "%s" (allowed: %s)' % (mode, ", ".join(sorted(ALLOWED_CHMOD_MODES)))
             )
         path = self._resolve_under_root(root, rel)
         if not os.path.exists(path):
             raise InstallManifestError('chmod target missing: "%s"' % path)
         if os.path.isdir(path):
-            raise InstallManifestError(
-                'chmod target must be a file, not a directory: "%s"' % path
-            )
+            raise InstallManifestError('chmod target must be a file, not a directory: "%s"' % path)
         os.chmod(path, ALLOWED_CHMOD_MODES[mode_key])
         self.logger.info("chmod %s %s", mode_key, path)

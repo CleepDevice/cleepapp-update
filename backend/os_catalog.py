@@ -64,15 +64,10 @@ logger = logging.getLogger("OsCatalog")
 CACHE_CATALOG_PATH = "/tmp/cleep/os-versions.json"
 
 # Remote catalog on CleepDevice/cleep-os (default branch is master)
-REMOTE_OS_VERSIONS_URL = (
-    "https://raw.githubusercontent.com/CleepDevice/cleep-os/master/os-versions.json"
-)
+REMOTE_OS_VERSIONS_URL = "https://raw.githubusercontent.com/CleepDevice/cleep-os/master/os-versions.json"
 
 # Default playbook when release.playbook_url is null
-PLAYBOOK_URL_TEMPLATE = (
-    "https://raw.githubusercontent.com/CleepDevice/cleep-os/master/"
-    "playbooks/%(suite)s-minor/run.sh"
-)
+PLAYBOOK_URL_TEMPLATE = "https://raw.githubusercontent.com/CleepDevice/cleep-os/master/" "playbooks/%(suite)s-minor/run.sh"
 PLAYBOOK_CACHE_DIR = "/tmp/cleep/os-playbooks"
 
 
@@ -149,9 +144,7 @@ def fetch_os_catalog(download_content=None, *, remote_url=None, cache_path=None)
         except Exception:
             logger.warning("Unable to read cached OS catalog", exc_info=True)
 
-    raise Exception(
-        "Unable to load OS catalog (remote os-versions.json unavailable and no local cache)"
-    )
+    raise Exception("Unable to load OS catalog (remote os-versions.json unavailable and no local cache)")
 
 
 def default_playbook_url(suite):
@@ -216,9 +209,7 @@ def ensure_os_playbook(
             if raw:
                 text = raw if isinstance(raw, str) else raw.decode("utf8")
                 if not text.lstrip().startswith("#!"):
-                    raise Exception(
-                        "Downloaded playbook does not look like a shell script"
-                    )
+                    raise Exception("Downloaded playbook does not look like a shell script")
                 os.makedirs(local_dir, exist_ok=True)
                 with open(local_path, "w", encoding="utf8") as handle:
                     handle.write(text)
@@ -227,10 +218,7 @@ def ensure_os_playbook(
                     digest = _sha256_file(local_path)
                     if digest.lower() != playbook_sha256.lower():
                         os.unlink(local_path)
-                        raise Exception(
-                            "Playbook sha256 mismatch (got %s, expected %s)"
-                            % (digest, playbook_sha256)
-                        )
+                        raise Exception("Playbook sha256 mismatch (got %s, expected %s)" % (digest, playbook_sha256))
                 logger.info("Cached OS playbook from %s -> %s", url, local_path)
                 return local_path
         except Exception:
@@ -249,10 +237,7 @@ def ensure_os_playbook(
             logger.info("Using cached OS playbook %s", local_path)
             return local_path
 
-    raise Exception(
-        "Unable to load OS playbook (remote unavailable and no local cache for %s)"
-        % url
-    )
+    raise Exception("Unable to load OS playbook (remote unavailable and no local cache for %s)" % url)
 
 
 def is_cleepos_newer(current_version, candidate_version):
@@ -360,9 +345,7 @@ def evaluate_os_update(identity, catalog, cleep_version):
         playbook_sha256 = release.get("playbook_sha256")
 
     # Major: suite behind catalog min_suite. Minor same-suite: optional release flag.
-    blocks = suite_too_old or (
-        bool(release.get("blocks_cleep_update")) if newer else False
-    )
+    blocks = suite_too_old or (bool(release.get("blocks_cleep_update")) if newer else False)
 
     return {
         "updatable": updatable,

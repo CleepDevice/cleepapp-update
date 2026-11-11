@@ -81,10 +81,7 @@ class OsUpgradeRunner(threading.Thread):
         try:
             with open(log_path, "w", encoding="utf8") as log_file:
                 mode = "dry-run" if self.dry_run else "apply"
-                log_file.write(
-                    f"CleepOs upgrade ({mode}) to {self.target_version}\n"
-                    f"playbook={self.playbook_path}\n"
-                )
+                log_file.write(f"CleepOs upgrade ({mode}) to {self.target_version}\n" f"playbook={self.playbook_path}\n")
         except OSError:
             self.logger.warning("Unable to truncate OS upgrade log", exc_info=True)
 

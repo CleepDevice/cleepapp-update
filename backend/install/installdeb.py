@@ -84,9 +84,7 @@ class InstallDeb:
         """
         End of process callback
         """
-        self.logger.debug(
-            "End of command with returncode=%s and killed=%s" % (return_code, killed)
-        )
+        self.logger.debug("End of command with returncode=%s and killed=%s" % (return_code, killed))
 
         # update return code
         self.return_code = return_code
@@ -154,9 +152,7 @@ class InstallDeb:
         # try install deb
         command = f'/usr/bin/yes | /usr/bin/apt-get install --dry-run --yes "./{deb}"'
         self.logger.debug("Command: %s" % command)
-        self._console = EndlessConsole(
-            command, self.__callback_deb, self.__callback_end
-        )
+        self._console = EndlessConsole(command, self.__callback_deb, self.__callback_end)
         self._console.start()
 
         # loop
@@ -165,10 +161,7 @@ class InstallDeb:
         while self.running:
             # watchdog
             if int(time.time()) > watchdog_end_time:
-                self.logger.error(
-                    "Timeout (%s seconds) during debian package dry-run"
-                    % self.WATCHDOG_TIMEOUT
-                )
+                self.logger.error("Timeout (%s seconds) during debian package dry-run" % self.WATCHDOG_TIMEOUT)
                 self.crash_report.manual_report(
                     'Debian "%s" dry-run install failed because of timeout (%s seconds)'
                     % (
@@ -205,9 +198,7 @@ class InstallDeb:
         if deb is None or len(deb) == 0:
             raise MissingParameter('Parameter "deb" is missing')
         if blocking is False and status_callback is None:
-            raise MissingParameter(
-                'Parameter "status_callback" is mandatary if blocking mode enabled'
-            )
+            raise MissingParameter('Parameter "status_callback" is mandatary if blocking mode enabled')
         if not os.path.exists(deb):
             raise InvalidParameter('Deb archive "%s" does not exist' % deb)
 
@@ -224,9 +215,7 @@ class InstallDeb:
         # install deb
         command = f'/usr/bin/yes | /usr/bin/apt-get install --yes --fix-broken "./{deb}"'
         self.logger.debug("Command: %s" % command)
-        self._console = EndlessConsole(
-            command, self.__callback_deb, self.__callback_end
-        )
+        self._console = EndlessConsole(command, self.__callback_deb, self.__callback_end)
         self._console.start()
 
         # blocking mode
@@ -239,10 +228,7 @@ class InstallDeb:
             while self.running:
                 # watchdog
                 if int(time.time()) > watchdog_end_time:
-                    self.logger.error(
-                        "Timeout (%s seconds) during debian package install"
-                        % self.WATCHDOG_TIMEOUT
-                    )
+                    self.logger.error("Timeout (%s seconds) during debian package install" % self.WATCHDOG_TIMEOUT)
                     self.crash_report.manual_report(
                         'Debian "%s" install failed because of watchdog timeout (%s seconds)'
                         % (deb, (timeout or self.WATCHDOG_TIMEOUT)),

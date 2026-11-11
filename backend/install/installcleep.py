@@ -14,7 +14,6 @@ from cleep.core import CleepModule
 from cleep.libs.internals.download import Download
 from .installdeb import InstallDeb
 
-
 PATH_FRONTEND = "/opt/cleep/html"
 PATH_INSTALL = "/etc/cleep/install/"
 FRONTEND_DIR = "frontend/"
@@ -116,13 +115,9 @@ class InstallCleep(threading.Thread):
         Download callback
         """
         # just log download status
-        if (
-            not percent % 10 and percent != self.__last_download_percent
-        ):  # pragma: no cover
+        if not percent % 10 and percent != self.__last_download_percent:  # pragma: no cover
             self.__last_download_percent = percent
-            self.logger.debug(
-                "Download callback: %s %s %s" % (status, filesize, percent)
-            )
+            self.logger.debug("Download callback: %s %s %s" % (status, filesize, percent))
 
     def __download_checksum(self, download, url_checksum):
         """
@@ -147,9 +142,7 @@ class InstallCleep(threading.Thread):
             self.logger.debug("Cleep package checksum: %s" % checksum)
 
         except:
-            self.logger.exception(
-                'Exception occured during checksum file download "%s":' % url_checksum
-            )
+            self.logger.exception('Exception occured during checksum file download "%s":' % url_checksum)
             self.crash_report.report_exception()
             checksum = None
 
@@ -171,40 +164,23 @@ class InstallCleep(threading.Thread):
 
         try:
             self.logger.debug('Download file "%s"' % self.url_package)
-            download_status, package_path = download.download_file(
-                url_package, check_sha256=checksum
-            )
+            download_status, package_path = download.download_file(url_package, check_sha256=checksum)
 
-            self.logger.debug(
-                'Download terminated with status "%s" and package path "%s"'
-                % (download_status, package_path)
-            )
+            self.logger.debug('Download terminated with status "%s" and package path "%s"' % (download_status, package_path))
             if package_path is None:
                 if download_status == Download.STATUS_ERROR:
-                    error = (
-                        'Error during "%s" download: internal error' % self.url_package
-                    )
+                    error = 'Error during "%s" download: internal error' % self.url_package
                 elif download_status == Download.STATUS_ERROR_INVALIDSIZE:
-                    error = (
-                        'Error during "%s" download: invalid filesize'
-                        % self.url_package
-                    )
+                    error = 'Error during "%s" download: invalid filesize' % self.url_package
                 elif download_status == Download.STATUS_ERROR_BADCHECKSUM:
-                    error = (
-                        'Error during "%s" download: invalid checksum'
-                        % self.url_package
-                    )
+                    error = 'Error during "%s" download: invalid checksum' % self.url_package
                 else:
-                    error = (
-                        'Error during "%s" download: unknown error' % self.url_package
-                    )
+                    error = 'Error during "%s" download: unknown error' % self.url_package
                 self.logger.error(error)
                 package_path = None
 
         except:
-            self.logger.exception(
-                'Exception occured during cleepos package "%s" download:' % url_package
-            )
+            self.logger.exception('Exception occured during cleepos package "%s" download:' % url_package)
             self.crash_report.report_exception()
             package_path = None
 
@@ -231,18 +207,13 @@ class InstallCleep(threading.Thread):
             if not installer.dry_run(package_path, timeout=0):
                 # dry run failed, report error and quit install
                 self.logger.error("Install dry-run failed: %s" % installer.get_status())
-                self.crash_report.manual_report(
-                    "Dry-run cleep install failed", installer.get_status()
-                )
+                self.crash_report.manual_report("Dry-run cleep install failed", installer.get_status())
                 raise ForcedException(0)
 
             # install deb
             self.logger.debug("Waiting for end of debian package install...")
             installer.install(package_path, blocking=True, timeout=0)
-            self.logger.debug(
-                "Deb package install terminated with status: %s"
-                % installer.get_status()
-            )
+            self.logger.debug("Deb package install terminated with status: %s" % installer.get_status())
 
             # check deb install result
             if installer.get_status()["status"] != installer.STATUS_DONE:
@@ -250,9 +221,7 @@ class InstallCleep(threading.Thread):
                     'Cleep updated failed (installer returns status "%s" while "%s" awaited)'
                     % (installer.get_status()["status"], installer.STATUS_DONE)
                 )
-                self.crash_report.manual_report(
-                    "Cleep update failed: deb install failed", installer.get_status()
-                )
+                self.crash_report.manual_report("Cleep update failed: deb install failed", installer.get_status())
                 error = True
 
         except ForcedException:

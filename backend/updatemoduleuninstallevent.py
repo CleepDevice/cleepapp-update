@@ -9,7 +9,7 @@ class UpdateModuleUninstallEvent(Event):
     Update.module.uninstall event
     """
 
-    EVENT_NAME = u"update.module.uninstall"
+    EVENT_NAME = "update.module.uninstall"
     EVENT_PROPAGATE = True
     EVENT_PARAMS = ["module", "status"]
 

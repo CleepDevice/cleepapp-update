@@ -138,9 +138,7 @@ class Install:
         # refresh packages
         command = "/usr/bin/apt-get update"
         self.logger.debug("Command: %s", command)
-        self.__console = EndlessConsole(
-            command, self.__callback_quiet, self.__callback_end
-        )
+        self.__console = EndlessConsole(command, self.__callback_quiet, self.__callback_end)
         self.__console.start()
 
         # blocking mode
@@ -194,9 +192,7 @@ class Install:
         command = '/usr/bin/apt-get install -y "%s"' % package_name
         self.logger.debug("Command: %s", command)
         self.__running = True
-        self.__console = EndlessConsole(
-            command, self.__callback_package, self.__callback_end
-        )
+        self.__console = EndlessConsole(command, self.__callback_package, self.__callback_end)
         self.__console.start()
 
         # blocking mode
@@ -233,9 +229,7 @@ class Install:
         command = '/usr/bin/apt-get %s -y "%s"' % (action, package_name)
         self.logger.debug("Command: %s", command)
         self.__running = True
-        self.__console = EndlessConsole(
-            command, self.__callback_package, self.__callback_end
-        )
+        self.__console = EndlessConsole(command, self.__callback_package, self.__callback_end)
         self.__console.start()
 
         # blocking mode
@@ -363,9 +357,7 @@ class Install:
         # execute command
         self.logger.debug("Command: %s", command)
         self.__running = True
-        self.__console = EndlessConsole(
-            command, self.__callback_archive, self.__callback_end
-        )
+        self.__console = EndlessConsole(command, self.__callback_archive, self.__callback_end)
         self.__console.start()
 
         # blocking mode
@@ -570,10 +562,7 @@ class Install:
                 sleep(0.25)
 
             # check uinstall status
-            return (
-                uninstall.get_status().get("status")
-                == UninstallModule.STATUS_UNINSTALLED
-            )
+            return uninstall.get_status().get("status") == UninstallModule.STATUS_UNINSTALLED
 
         return True
 
@@ -608,17 +597,10 @@ class Install:
             uninstall = status.get("uninstall") or {}
             install = status.get("install") or {}
             process = (
-                ["Uninstall process:"]
-                + uninstall.get("process", [])
-                + ["", "Install process:"]
-                + install.get("process", [])
+                ["Uninstall process:"] + uninstall.get("process", []) + ["", "Install process:"] + install.get("process", [])
             )
-            self.stdout = list(uninstall.get("stdout") or []) + list(
-                install.get("stdout") or []
-            )
-            self.stderr = list(uninstall.get("stderr") or []) + list(
-                install.get("stderr") or []
-            )
+            self.stdout = list(uninstall.get("stdout") or []) + list(install.get("stdout") or [])
+            self.stderr = list(uninstall.get("stderr") or []) + list(install.get("stderr") or [])
 
         # send status
         if self.status_callback:

@@ -194,9 +194,7 @@ class OsCatalogTests(unittest.TestCase):
                     "suite": "bullseye",
                     "min_suite": "bookworm",
                 }
-                self.logger = type(
-                    "L", (), {"warning": staticmethod(lambda *a, **k: None)}
-                )()
+                self.logger = type("L", (), {"warning": staticmethod(lambda *a, **k: None)})()
 
             def check_os_updates(self):
                 return self._os_updates
@@ -263,9 +261,7 @@ class OsCatalogTests(unittest.TestCase):
             os.unlink(cache_path)
 
     def test_fetch_os_catalog_raises_without_remote_or_cache(self):
-        missing_cache = os.path.join(
-            tempfile.gettempdir(), "no-os-cache-%s.json" % os.getpid()
-        )
+        missing_cache = os.path.join(tempfile.gettempdir(), "no-os-cache-%s.json" % os.getpid())
         if os.path.isfile(missing_cache):
             os.unlink(missing_cache)
         with self.assertRaises(Exception):
@@ -367,16 +363,10 @@ class OsConfReportTests(unittest.TestCase):
             boot = os.path.join(root, "boot")
             os.makedirs(etc)
             os.makedirs(boot)
-            open(os.path.join(etc, "cleepos_version"), "w", encoding="utf8").write(
-                "bullseye20250831\n"
-            )
+            open(os.path.join(etc, "cleepos_version"), "w", encoding="utf8").write("bullseye20250831\n")
             open(os.path.join(etc, "dhcpcd.conf"), "w", encoding="utf8").write("keep\n")
-            open(os.path.join(etc, "dhcpcd.conf.dpkg-dist"), "w", encoding="utf8").write(
-                "pkg\n"
-            )
-            open(os.path.join(etc, "secret.conf"), "w", encoding="utf8").write(
-                "password=supersecret\n"
-            )
+            open(os.path.join(etc, "dhcpcd.conf.dpkg-dist"), "w", encoding="utf8").write("pkg\n")
+            open(os.path.join(etc, "secret.conf"), "w", encoding="utf8").write("password=supersecret\n")
 
             leftovers = find_leftover_paths(roots=(etc, boot))
             self.assertEqual(
@@ -392,9 +382,7 @@ class OsConfReportTests(unittest.TestCase):
                 "to_version": "bullseye20250831",
                 "leftover_count": 1,
                 "leftover_paths": leftovers,
-                "apt_conf_actions": [
-                    "Installing new version of config file /etc/security/namespace.init ..."
-                ],
+                "apt_conf_actions": ["Installing new version of config file /etc/security/namespace.init ..."],
                 "high_interest": [
                     {
                         "path": "/etc/dhcpcd.conf",
@@ -422,9 +410,7 @@ class OsConfReportTests(unittest.TestCase):
             version_path = os.path.join(etc, "cleepos_version")
             with open(version_path, "w", encoding="utf8") as handle:
                 handle.write("bullseye20250831\n")
-            with open(
-                os.path.join(etc, "wpa_supplicant.conf.dpkg-dist"), "w", encoding="utf8"
-            ) as handle:
+            with open(os.path.join(etc, "wpa_supplicant.conf.dpkg-dist"), "w", encoding="utf8") as handle:
                 handle.write("psk=secretvalue\n")
             report_path = os.path.join(root, "os-upgrade-conf-report.txt")
             report = build_os_conf_report(
@@ -544,9 +530,7 @@ class OsUpgradeRunnerDryRunTests(unittest.TestCase):
             def start(self):
                 self.on_end(0, False)
 
-        playbook = tempfile.NamedTemporaryFile(
-            "w", encoding="utf8", suffix=".sh", delete=False
-        )
+        playbook = tempfile.NamedTemporaryFile("w", encoding="utf8", suffix=".sh", delete=False)
         playbook.write("#!/bin/bash\n")
         playbook.close()
 
