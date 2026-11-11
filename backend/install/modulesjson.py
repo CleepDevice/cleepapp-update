@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import json
 import logging
 import os
-import json
 import time
-from gevent import sleep
+
 import requests
 from cleep import __version__ as CLEEP_VERSION
 from cleep.libs.internals.download import Download
+from gevent import sleep
 
 
 class ModulesJson:

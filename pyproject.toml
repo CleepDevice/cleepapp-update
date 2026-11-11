@@ -8,5 +8,15 @@ extend-exclude = '''
 )/
 '''
 
+[tool.isort]
+profile = "black"
+line_length = 130
+known_first_party = ["backend"]
+known_third_party = ["cleep", "pytest"]
+skip_glob = [".venv/**", "docs/_build/**"]
+
+[tool.pylint.format]
+max-line-length = 130
+
 [tool.pydocstyle]
 convention = "google"

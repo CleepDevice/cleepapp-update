@@ -1,19 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-from backend.install.installdeb import InstallDeb
-from cleep.libs.tests.lib import TestLib
-from cleep.exception import MissingParameter, InvalidParameter
-import unittest
-import pytest
 import logging
-import time
-from unittest.mock import Mock, patch
+import os
 import subprocess
 import tempfile
+import time
+import unittest
 from threading import Timer
+from unittest.mock import Mock, patch
+
+import pytest
+from cleep.exception import InvalidParameter, MissingParameter
 from cleep.libs.tests.common import get_log_level
+from cleep.libs.tests.lib import TestLib
+
+from backend.install.installdeb import InstallDeb
 
 LOG_LEVEL = get_log_level()
 

@@ -1,19 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from cleep.libs.tests.lib import TestLib
-import os
-from backend.install.installcleep import InstallCleep, Download, InstallDeb, EndlessConsole
-from cleep.exception import MissingParameter, InvalidParameter
-import unittest
-import pytest
+import io
 import logging
+import os
 import time
-from unittest.mock import Mock, patch
+import unittest
 import zipfile
 from io import BytesIO
-import io
+from unittest.mock import Mock, patch
+
+import pytest
+from cleep.exception import InvalidParameter, MissingParameter
 from cleep.libs.tests.common import get_log_level
+from cleep.libs.tests.lib import TestLib
+
+from backend.install.installcleep import Download, EndlessConsole, InstallCleep, InstallDeb
 
 LOG_LEVEL = get_log_level()
 

@@ -5,9 +5,10 @@
 Run a CleepOs playbook on-device (minor suite upgrade).
 """
 
+import logging
 import os
 import threading
-import logging
+
 from cleep.libs.internals.console import EndlessConsole
 
 __all__ = ["OsUpgradeRunner"]

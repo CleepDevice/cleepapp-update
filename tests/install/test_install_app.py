@@ -1,24 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from cleep.libs.tests.lib import TestLib
-import os
-from backend.install.install_app import InstallModule, UninstallModule, UpdateModule, Download, ProcessContext, PATH_FRONTEND
-from backend.install.installdeb import InstallDeb
-from cleep.exception import MissingParameter, InvalidParameter
-import unittest
-import pytest
 import logging
-import time
-from unittest.mock import Mock, patch, MagicMock
+import os
+import shutil
 import subprocess
 import tempfile
-from threading import Timer, Event
-from cleep.libs.internals.cleepfilesystem import CleepFilesystem
-import shutil
+import time
+import unittest
+from threading import Event, Timer
+from unittest.mock import MagicMock, Mock, patch
+
 import cleep
-from cleep.libs.tests.common import get_log_level, AnyArg
+import pytest
+from cleep.exception import InvalidParameter, MissingParameter
+from cleep.libs.internals.cleepfilesystem import CleepFilesystem
 from cleep.libs.internals.taskfactory import TaskFactory
+from cleep.libs.tests.common import AnyArg, get_log_level
+from cleep.libs.tests.lib import TestLib
+
+from backend.install.install_app import PATH_FRONTEND, Download, InstallModule, ProcessContext, UninstallModule, UpdateModule
+from backend.install.installdeb import InstallDeb
 
 INSTALL_DIR = cleep.__file__.replace("__init__.py", "")
 

@@ -1,0 +1,17 @@
+---
+# https://docs.codacy.com/repositories-configure/codacy-configuration-file/
+
+exclude_paths:
+  - ".venv/**"
+  - "docs/_build/**"
+  - "docs/_static/**"
+  - "docs/source/**"
+  - "**/.pytest_cache/**"
+
+engines:
+  duplication:
+    exclude_paths:
+      - "tests/**"
+  metrics:
+    exclude_paths:
+      - "tests/**"

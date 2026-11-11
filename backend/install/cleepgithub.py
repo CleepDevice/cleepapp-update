@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-import logging
-import time
-import requests
 import json
-import re
+import logging
 import os
+import re
+import time
+
+import requests
 
 
 class CleepGithub:

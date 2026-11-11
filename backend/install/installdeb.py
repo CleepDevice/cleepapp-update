@@ -6,11 +6,12 @@
 # and to provide function to install deb package
 
 import logging
-import time
 import os
-from gevent import sleep
+import time
+
+from cleep.exception import InvalidParameter, MissingParameter
 from cleep.libs.internals.console import EndlessConsole
-from cleep.exception import MissingParameter, InvalidParameter
+from gevent import sleep
 
 
 class InstallDeb:

@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from cleep.libs.tests.lib import TestLib
-import os
-from backend.install.appssources import AppsSources
-from cleep.libs.internals.cleepfilesystem import CleepFilesystem
-from cleep.exception import MissingParameter, InvalidParameter, CommandError
-import unittest
 import logging
-from unittest.mock import Mock, patch, MagicMock
-from cleep.libs.tests.common import get_log_level
+import os
+import unittest
 from copy import deepcopy
+from unittest.mock import MagicMock, Mock, patch
+
+from cleep.exception import CommandError, InvalidParameter, MissingParameter
+from cleep.libs.internals.cleepfilesystem import CleepFilesystem
+from cleep.libs.tests.common import get_log_level
+from cleep.libs.tests.lib import TestLib
+
+from backend.install.appssources import AppsSources
 
 LOG_LEVEL = get_log_level()
 

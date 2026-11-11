@@ -5,28 +5,29 @@
 # that are used in install.py file to install and uninstall
 # Cleep modules
 
+import inspect
 import logging
 import os
-import inspect
 import stat
-from zipfile import ZipFile
-import threading
 import tempfile
-from gevent import sleep
+import threading
+from zipfile import ZipFile
+
+import cleep.libs.internals.tools as Tools
 from cleep.core import CleepModule
 from cleep.libs.internals.download import Download
-import cleep.libs.internals.tools as Tools
+from gevent import sleep
 
 from .install_app_manifest import (
-    InstallManifest,
-    InstallManifestError,
     MODE_INSTALL,
     MODE_UNINSTALL,
-    PHASE_PREINST,
     PHASE_POSTINST,
-    PHASE_PREUNINST,
     PHASE_POSTUNINST,
+    PHASE_PREINST,
+    PHASE_PREUNINST,
     UNINSTALL_PHASES,
+    InstallManifest,
+    InstallManifestError,
 )
 
 __all__ = ["UninstallModule", "InstallModule", "UpdateModule"]

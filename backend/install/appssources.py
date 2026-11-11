@@ -4,8 +4,10 @@
 import logging
 import os
 from copy import deepcopy
-from .modulesjson import ModulesJson
+
 from cleep.exception import InvalidParameter, MissingParameter
+
+from .modulesjson import ModulesJson
 
 
 class AppsSources:

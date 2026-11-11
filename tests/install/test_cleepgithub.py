@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from cleep.libs.tests.lib import TestLib
-import os
-from backend.install.cleepgithub import CleepGithub
-import unittest
-import logging
 import json
-from unittest.mock import Mock
+import logging
+import os
+import unittest
 from copy import deepcopy
+from unittest.mock import Mock
+
 import responses
 from cleep.libs.tests.common import get_log_level
+from cleep.libs.tests.lib import TestLib
+
+from backend.install.cleepgithub import CleepGithub
 
 LOG_LEVEL = get_log_level()
 

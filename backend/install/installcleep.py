@@ -1,17 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-import logging
-import time
-import os
 import inspect
-from zipfile import ZipFile
-import threading
-import tempfile
+import logging
+import os
 import stat
-from cleep.libs.internals.console import EndlessConsole
+import tempfile
+import threading
+import time
+from zipfile import ZipFile
+
 from cleep.core import CleepModule
+from cleep.libs.internals.console import EndlessConsole
 from cleep.libs.internals.download import Download
+
 from .installdeb import InstallDeb
 
 PATH_FRONTEND = "/opt/cleep/html"

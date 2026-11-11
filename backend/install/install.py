@@ -3,15 +3,17 @@
 
 import logging
 import os
-from gevent import sleep
+
+from cleep.exception import InvalidParameter, MissingParameter
 from cleep.libs.internals.console import EndlessConsole
+from gevent import sleep
+
 from .install_app import (
     InstallModule,
     UninstallModule,
     UpdateModule,
 )
 from .installdeb import InstallDeb
-from cleep.exception import MissingParameter, InvalidParameter
 
 __all__ = ["Install"]
 

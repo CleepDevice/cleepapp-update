@@ -1,42 +1,41 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import time
-import random
 import copy
+import fcntl
 import importlib
+import json
+import os
+import random
 import re
 import shutil
 import tempfile
-import json
-import fcntl
+import time
 from zipfile import ZipFile
+
 import cleep.libs.internals.tools as Tools
+from cleep import __version__ as CLEEP_VERSION
+from cleep.common import CORE_MODULES
+from cleep.core import CleepModule
 from cleep.exception import (
-    MissingParameter,
-    InvalidParameter,
     CommandError,
     CommandInfo,
+    InvalidParameter,
+    MissingParameter,
 )
-from cleep.core import CleepModule
 from cleep.libs.configs.cleepconf import CleepConf
 from cleep.libs.internals.download import Download
-from cleep.common import CORE_MODULES
-from cleep import __version__ as CLEEP_VERSION
 
-from .install.install_app import PATH_INSTALL
 from .install.appssources import AppsSources
 from .install.cleepgithub import CleepGithub
-from .install.installcleep import InstallCleep
 from .install.install import Install
-from .os_identity import get_os_identity
+from .install.install_app import PATH_INSTALL
+from .install.installcleep import InstallCleep
 from .os_catalog import (
-    evaluate_os_update,
     ensure_os_playbook,
+    evaluate_os_update,
     fetch_os_catalog,
 )
-from .os_upgrade_runner import OsUpgradeRunner
 from .os_conf_report import (
     DEFAULT_REPORT_PATH,
     build_os_conf_report,
@@ -48,6 +47,8 @@ from .os_dry_run_analysis import (
     format_analysis_section,
     sentry_extra_from_dry_run_analysis,
 )
+from .os_identity import get_os_identity
+from .os_upgrade_runner import OsUpgradeRunner
 
 
 class Update(CleepModule):

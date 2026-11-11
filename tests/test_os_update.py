@@ -8,25 +8,25 @@ import sys
 import tempfile
 import unittest
 
-from backend.os_identity import (
-    parse_cleepos_version,
-    read_cleepos_version,
-    get_os_identity,
-)
 from backend.os_catalog import (
-    load_os_catalog,
+    default_playbook_url,
+    ensure_os_playbook,
+    evaluate_os_update,
     fetch_os_catalog,
     is_cleepos_newer,
     is_suite_older_than,
-    evaluate_os_update,
+    load_os_catalog,
     resolve_playbook_url,
-    ensure_os_playbook,
-    default_playbook_url,
 )
 from backend.os_conf_report import (
     build_os_conf_report,
     find_leftover_paths,
     sentry_extra_from_report,
+)
+from backend.os_identity import (
+    get_os_identity,
+    parse_cleepos_version,
+    read_cleepos_version,
 )
 
 

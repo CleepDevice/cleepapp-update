@@ -1,22 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from cleep.libs.tests import session
-import unittest
-import logging
 import copy
+import logging
+import unittest
 from threading import Event
+from unittest.mock import MagicMock, Mock, PropertyMock, call, mock_open, patch
+
+from cleep.common import MessageResponse
+from cleep.exception import CommandError, CommandInfo, InvalidParameter, MissingParameter, Unauthorized
+from cleep.libs.tests import session
+from cleep.libs.tests.common import get_log_level
+
+from backend.install.install import Install
+from backend.install.installcleep import InstallCleep
 from backend.update import Update
 from backend.updatecleepupdateevent import UpdateCleepUpdateEvent
+from backend.updatemodulefirmwareevent import UpdateModuleFirmwareEvent
 from backend.updatemoduleinstallevent import UpdateModuleInstallEvent
 from backend.updatemoduleuninstallevent import UpdateModuleUninstallEvent
 from backend.updatemoduleupdateevent import UpdateModuleUpdateEvent
-from backend.updatemodulefirmwareevent import UpdateModuleFirmwareEvent
-from cleep.exception import InvalidParameter, MissingParameter, CommandError, Unauthorized, CommandInfo
-from cleep.common import MessageResponse
-from backend.install.installcleep import InstallCleep
-from backend.install.install import Install
-from unittest.mock import Mock, patch, MagicMock, call, PropertyMock, mock_open
-from cleep.libs.tests.common import get_log_level
 
 LOG_LEVEL = get_log_level()
 

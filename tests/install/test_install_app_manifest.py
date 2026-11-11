@@ -1,20 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import json
+import logging
+import os
 import tempfile
 import unittest
 import zipfile
-import logging
 from unittest.mock import Mock, patch
 
 from backend.install.install_app_manifest import (
-    InstallManifest,
-    InstallManifestError,
     MODE_INSTALL,
     MODE_UNINSTALL,
     PHASE_POSTINST,
+    InstallManifest,
+    InstallManifestError,
 )
 
 
