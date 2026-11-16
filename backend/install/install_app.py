@@ -359,6 +359,7 @@ class UninstallModule(CommonProcess):
             "process": self._process_status,
             "stdout": self._stdout,
             "stderr": self._stderr,
+            "local": bool(self.module_infos.get("local")),
         }
 
     def _remove_installed_files(self, context):
@@ -473,6 +474,18 @@ class UninstallModule(CommonProcess):
         try:
             # enable write mode
             self.cleep_filesystem.enable_write()
+
+            # Local / package-less apps have no install log (dev register). Treat
+            # missing log as local so uninstall does not require force.
+            if not bool(self.module_infos.get("local")):
+                module_log = os.path.join(PATH_INSTALL, self.module_name, "%s.log" % self.module_name)
+                if not os.path.exists(module_log):
+                    self.logger.info(
+                        'Module "%s" has no install log; treating uninstall as local',
+                        self.module_name,
+                    )
+                    self.module_infos = dict(self.module_infos or {})
+                    self.module_infos["local"] = True
 
             # uninstall local module
             if "local" in self.module_infos and self.module_infos["local"] is True:
@@ -671,6 +684,7 @@ class InstallModule(CommonProcess):
             "process": self._process_status,
             "stdout": self._stdout,
             "stderr": self._stderr,
+            "local": bool(self.module_infos.get("local")),
         }
 
     def _download_archive(self, context):

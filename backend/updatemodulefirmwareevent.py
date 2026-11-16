@@ -17,8 +17,8 @@ class UpdateModuleFirmwareEvent(Event):
 
             [
                 {
-                    id, hash, name, app, firmware_version, kind, date,
-                    targets, requires_bootsel, description,
+                    id, hash, name, app, version, kind, date,
+                    targets, description,
                     urls: {zip, manifest}  # paths under /firmware/<app>/
                 },
                 ...

@@ -5,6 +5,7 @@
 ### Changed
 
 - Mark install functional test classes with `@pytest.mark.functional` (opt-in via `modtests --functional` / `CLEEP_FUNCTIONAL_TESTS`)
+- `update.module.firmware` emits `version` (preferred) and keeps `firmware_version` / `requires_bootsel` as legacy aliases for older Desktop; `requires_bootsel` is inferred from `kind` when missing
 
 ### Added
 
@@ -18,6 +19,7 @@
 
 ### Fixed
 
+- Local apps: `local` comes from inventory (not in on-disk market); uninstall without install log succeeds as local
 - Applications updates list not refreshing after Check updates
 - App update/install/uninstall failure always clears `processing` state
 - Reject update/uninstall RPC while the same module is already processing
