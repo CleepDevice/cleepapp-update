@@ -63,6 +63,18 @@ class InstallCleep(threading.Thread):
         self.cleep_filesystem = cleep_filesystem
         self.crash_report = crash_report
         self.task_factory = task_factory
+        self.url_package = None
+        self.url_checksum = None
+        self.callback = None
+        self.running = True
+        self.__progress = 0
+        self.__script_running = True
+        self.__deb_status = {
+            "status": InstallDeb.STATUS_IDLE,
+            "stdout": [],
+            "returncode": None,
+        }
+        self.__last_download_percent = None
         self.__reset()
 
     def __reset(self):

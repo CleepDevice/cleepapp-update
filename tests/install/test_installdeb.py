@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# pylint: disable=attribute-defined-outside-init,protected-access
 import logging
 import os
 import subprocess
@@ -34,8 +35,9 @@ class InstallDebTests(unittest.TestCase):
         self.crash_report.manual_report = Mock()
         self.restore_watchdog_timeout = InstallDeb.WATCHDOG_TIMEOUT
 
-        self.stdout_mock = tempfile.NamedTemporaryFile(delete=False)
-        self.stderr_mock = tempfile.NamedTemporaryFile(delete=False)
+        # Kept open across the test lifecycle; closed in tearDown.
+        self.stdout_mock = tempfile.NamedTemporaryFile(delete=False)  # pylint: disable=consider-using-with
+        self.stderr_mock = tempfile.NamedTemporaryFile(delete=False)  # pylint: disable=consider-using-with
 
     def tearDown(self):
         if os.path.exists("/usr/bin/gpio"):

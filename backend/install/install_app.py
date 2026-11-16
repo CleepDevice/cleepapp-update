@@ -51,7 +51,14 @@ class ProcessContext:
     """
 
     def __init__(self):
-        pass
+        self.step = None
+        self.force_uninstall = False
+        self.module_log = None
+        self.install_dir = None
+        self.install_log = None
+        self.install_log_fd = None
+        self.extract_path = None
+        self.archive_path = None
 
     def __str__(self):
         return "%s" % self.to_dict()
@@ -977,7 +984,7 @@ class InstallModule(CommonProcess):
                     logging.WARNING,
                     f'File "{dst_path}" is a core lib and shouldn\'t be exists in module "{self.module_name}" package. File is dropped.',
                 )
-                return
+                return None
 
             # warning about file overwriting
             self._log_process_status(
@@ -1328,7 +1335,7 @@ class UpdateModule(threading.Thread):
                 sleep(0.25)
             if uninstall.get_status()["status"] != uninstall.STATUS_UNINSTALLED:
                 # uninstall failed
-                # TODO implement rollback reinstalling previous module version
+                # Future improvement: reinstall previous module version on rollback
                 self.logger.warning(
                     'Error uninstalling "%s" module during update. Try to install new version anyway' % self.module_name
                 )
@@ -1342,7 +1349,7 @@ class UpdateModule(threading.Thread):
                 sleep(0.25)
             if install.get_status()["status"] != install.STATUS_INSTALLED:
                 # install failed
-                # TODO implement rollback reinstalling previous module version
+                # Future improvement: reinstall previous module version on rollback
                 self.logger.error('Error installing new "%s" module version during update' % self.module_name)
                 raise ForcedException()
             self._step()

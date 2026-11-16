@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# pylint: disable=attribute-defined-outside-init,protected-access
 import io
 import logging
 import os
@@ -121,7 +122,7 @@ class InstallCleepTests(unittest.TestCase):
             imz.append("postinst.sh", postinst)
         imz.write_to_file(self.archive_name)
         if alter_archive:
-            with open(self.archive_name, "w") as fd:
+            with open(self.archive_name, "w", encoding="utf8") as fd:
                 fd.write("--")
 
     def _init_context(

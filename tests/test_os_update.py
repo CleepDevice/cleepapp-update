@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# pylint: disable=attribute-defined-outside-init,protected-access
 import json
 import os
 import shutil
@@ -68,10 +69,9 @@ class OsIdentityTests(unittest.TestCase):
 class OsCatalogTests(unittest.TestCase):
 
     def _write_catalog(self, payload):
-        handle = tempfile.NamedTemporaryFile("w", encoding="utf8", delete=False)
-        json.dump(payload, handle)
-        handle.close()
-        return handle.name
+        with tempfile.NamedTemporaryFile("w", encoding="utf8", delete=False) as handle:
+            json.dump(payload, handle)
+            return handle.name
 
     def test_load_default_catalog(self):
         path = self._write_catalog(
@@ -231,19 +231,19 @@ class OsCatalogTests(unittest.TestCase):
             "latest_by_suite": {"bullseye": "bullseye20990101"},
             "releases": {"bullseye20990101": {"suite": "bullseye"}},
         }
-        cache = tempfile.NamedTemporaryFile("w", encoding="utf8", delete=False)
-        cache.close()
-        os.unlink(cache.name)
+        with tempfile.NamedTemporaryFile("w", encoding="utf8", delete=False) as cache:
+            cache_path = cache.name
+        os.unlink(cache_path)
         try:
             catalog = fetch_os_catalog(
                 lambda _url: json.dumps(remote),
-                cache_path=cache.name,
+                cache_path=cache_path,
             )
             self.assertEqual(catalog["latest_by_suite"]["bullseye"], "bullseye20990101")
-            self.assertTrue(os.path.isfile(cache.name))
+            self.assertTrue(os.path.isfile(cache_path))
         finally:
-            if os.path.isfile(cache.name):
-                os.unlink(cache.name)
+            if os.path.isfile(cache_path):
+                os.unlink(cache_path)
 
     def test_fetch_os_catalog_falls_back_to_cache(self):
         cached = {
@@ -363,10 +363,14 @@ class OsConfReportTests(unittest.TestCase):
             boot = os.path.join(root, "boot")
             os.makedirs(etc)
             os.makedirs(boot)
-            open(os.path.join(etc, "cleepos_version"), "w", encoding="utf8").write("bullseye20250831\n")
-            open(os.path.join(etc, "dhcpcd.conf"), "w", encoding="utf8").write("keep\n")
-            open(os.path.join(etc, "dhcpcd.conf.dpkg-dist"), "w", encoding="utf8").write("pkg\n")
-            open(os.path.join(etc, "secret.conf"), "w", encoding="utf8").write("password=supersecret\n")
+            with open(os.path.join(etc, "cleepos_version"), "w", encoding="utf8") as handle:
+                handle.write("bullseye20250831\n")
+            with open(os.path.join(etc, "dhcpcd.conf"), "w", encoding="utf8") as handle:
+                handle.write("keep\n")
+            with open(os.path.join(etc, "dhcpcd.conf.dpkg-dist"), "w", encoding="utf8") as handle:
+                handle.write("pkg\n")
+            with open(os.path.join(etc, "secret.conf"), "w", encoding="utf8") as handle:
+                handle.write("password=supersecret\n")
 
             leftovers = find_leftover_paths(roots=(etc, boot))
             self.assertEqual(
@@ -530,9 +534,9 @@ class OsUpgradeRunnerDryRunTests(unittest.TestCase):
             def start(self):
                 self.on_end(0, False)
 
-        playbook = tempfile.NamedTemporaryFile("w", encoding="utf8", suffix=".sh", delete=False)
-        playbook.write("#!/bin/bash\n")
-        playbook.close()
+        with tempfile.NamedTemporaryFile("w", encoding="utf8", suffix=".sh", delete=False) as playbook:
+            playbook.write("#!/bin/bash\n")
+            playbook_path = playbook.name
 
         fake_console_mod.EndlessConsole = FakeConsole
         try:
@@ -553,12 +557,12 @@ class OsUpgradeRunnerDryRunTests(unittest.TestCase):
                 runner = OsUpgradeRunner(
                     target_version="bullseye20990101",
                     status_callback=statuses.append,
-                    playbook_path=playbook.name,
+                    playbook_path=playbook_path,
                     dry_run=True,
                 )
                 runner.run()
         finally:
-            os.unlink(playbook.name)
+            os.unlink(playbook_path)
 
         env = captured["opts"].get("env") or {}
         self.assertEqual(env.get("CLEEPOS_DRY_RUN"), "1")

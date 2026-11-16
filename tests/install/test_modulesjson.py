@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# pylint: disable=attribute-defined-outside-init,protected-access
 import io
 import json
 import logging

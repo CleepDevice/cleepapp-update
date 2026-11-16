@@ -164,6 +164,7 @@ class Update(CleepModule):
         }
         self._os_upgrade_dry_run = False
         self._os_dry_run_preview = None
+        self._os_upgrade_from_version = None
         self._check_update_time = {
             "hour": int(random.uniform(0, 24)),
             "minute": int(random.uniform(0, 60)),
@@ -325,7 +326,8 @@ class Update(CleepModule):
 
         lock_dir = os.path.dirname(self.UPDATE_LOCK_PATH)
         os.makedirs(lock_dir, exist_ok=True)
-        lock_fd = open(self.UPDATE_LOCK_PATH, "a+", encoding="utf8")
+        # Lock file must stay open for the flock lifetime (released in _release_update_lock).
+        lock_fd = open(self.UPDATE_LOCK_PATH, "a+", encoding="utf8")  # pylint: disable=consider-using-with
         try:
             fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
@@ -2844,17 +2846,23 @@ class Update(CleepModule):
         for pair in pairs:
             data = pair["data"]
             firmware_id = pair["id"]
+            version = data.get("version") or data.get("firmware_version")
+            kind = data.get("kind") or "uf2"
+            # BOOTSEL is implied by UF2 kinds; MicroPython apps use serial.
+            requires_bootsel = kind not in ("micropython", "micropython-app")
             firmwares.append(
                 {
                     "id": firmware_id,
                     "hash": data["hash"],
                     "name": data["name"],
                     "app": data["app"],
-                    "firmware_version": data["firmware_version"],
-                    "kind": data["kind"],
+                    "version": version,
+                    # Legacy alias for older CleepDesktop builds
+                    "firmware_version": version,
+                    "kind": kind,
                     "date": data["date"],
                     "targets": data.get("targets") or [],
-                    "requires_bootsel": data.get("requires_bootsel", True),
+                    "requires_bootsel": data.get("requires_bootsel", requires_bootsel),
                     "description": data.get("description"),
                     "urls": {
                         "zip": f"/firmware/{module_name}/{firmware_id}.zip",

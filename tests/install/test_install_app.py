@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# pylint: disable=attribute-defined-outside-init,protected-access
 import logging
 import os
 import shutil
@@ -373,6 +374,24 @@ class UninstallModuleTests(unittest.TestCase):
         self.assertTrue(self.cleep_filesystem.enable_write.called)
         self.assertTrue(self.cleep_filesystem.disable_write.called)
         self.assertFalse(self.crash_report.report_exception.called)
+
+    def test_run_missing_install_log_treated_as_local(self):
+        """Dev-registered apps have no package log; uninstall must succeed without force."""
+        module_infos = self._get_module_infos()
+        module_infos["local"] = False
+        self._init_context(module_infos=module_infos)
+        self.u._run_phase_manifest = Mock(side_effect=[True, True])
+        self.u._remove_installed_files = Mock(return_value=True)
+
+        with patch("backend.install.install_app.os.path.exists", return_value=False):
+            self.u.run()
+            while self.u.is_uninstalling():
+                time.sleep(0.25)
+        status = self.u.get_status()
+        logging.debug("Status: %s" % status)
+        self.assertEqual(status["status"], UninstallModule.STATUS_UNINSTALLED)
+        self.assertFalse(self.u._remove_installed_files.called)
+        self.assertTrue(self.callback.called)
 
     def test_run_preuninst_failed(self):
         self._init_context()
